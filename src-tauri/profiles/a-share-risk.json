@@ -1,0 +1,105 @@
+{
+  "key": "a-share-risk",
+  "name": "A股风险模板",
+  "market": "cn",
+  "benchmark": "CSI300",
+  "description": "A股指数、成长风格和宽基相对强弱模板；后续可接 AkShare/TuShare 扩展资金流和涨跌停宽度。",
+  "calibration": {
+    "leaderRoles": ["large_cap", "growth"],
+    "confirmationRoles": ["large_cap", "growth", "breadth", "offshore"],
+    "expansionStructureMin": 72,
+    "divergenceMinConfirmations": 4,
+    "divergenceWeakRatio": 0.4,
+    "divergenceMaxSystemic": 65,
+    "pullbackStructureMin": 58,
+    "pullbackMaxSystemic": 60,
+    "hotStateHeatMin": 62,
+    "hotTradingCap": 50,
+    "hotMediumCap": 65,
+    "hotLongCap": 70,
+    "tradingScoreCap": 68,
+    "mediumScoreCap": 75,
+    "longScoreCap": 70,
+    "divergenceTradingCap": 40,
+    "divergenceMediumCap": 60,
+    "divergenceLongCap": 70,
+    "pullbackTradingCap": 42,
+    "pullbackMediumCap": 62,
+    "severeTradingCap": 28,
+    "severeMediumCap": 42,
+    "severeLongCap": 55
+  },
+  "symbols": [
+    { "symbol": "CSI300", "yahooSymbol": "510300.SS", "label": "沪深300ETF", "role": "benchmark", "weight": 35, "sector": "宽基", "style": "核心", "exposure": "A股" },
+    { "symbol": "SSE50", "yahooSymbol": "510050.SS", "label": "上证50ETF", "role": "large_cap", "weight": 20, "sector": "大盘蓝筹", "style": "价值", "exposure": "A股" },
+    { "symbol": "CHINEXT", "yahooSymbol": "159915.SZ", "label": "创业板ETF", "role": "growth", "weight": 18, "sector": "成长", "style": "成长", "exposure": "A股" },
+    { "symbol": "STAR50", "yahooSymbol": "588000.SS", "label": "科创50ETF", "role": "growth", "weight": 12, "sector": "科技", "style": "成长", "exposure": "A股" },
+    { "symbol": "CSI1000", "yahooSymbol": "159845.SZ", "label": "中证1000ETF", "role": "breadth", "weight": 10, "sector": "小盘", "style": "风险偏好", "exposure": "A股" },
+    { "symbol": "ASHR", "yahooSymbol": "ASHR", "label": "海外A股ETF", "role": "offshore", "weight": 5, "sector": "离岸A股", "style": "外资", "exposure": "离岸" }
+  ],
+  "technicalColumns": [
+    { "key": "close", "label": "收盘", "metric": "close", "format": "number", "align": "right" },
+    { "key": "change1d", "label": "1D", "metric": "change_1d", "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "return5d", "label": "5D", "metric": "return", "period": 5, "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "return20d", "label": "20D", "metric": "return", "period": 20, "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "rsi14", "label": "RSI", "metric": "rsi", "period": 14, "format": "number1", "align": "right" },
+    { "key": "ma20_50", "label": "MA20/50", "metric": "ma_pair", "leftPeriod": 20, "rightPeriod": 50, "format": "pair0", "align": "right" },
+    { "key": "volumeRatio", "label": "量比", "metric": "volume_ratio", "format": "ratio", "align": "right" }
+  ],
+  "dimensions": [
+    {
+      "key": "index_trend",
+      "label": "指数趋势",
+      "factor": "trend",
+      "weight": 30,
+      "rules": [
+        { "type": "close_below_ma", "symbol": "CSI300", "period": 20, "points": 6, "reason": "沪深300 跌破 MA20，短线趋势转弱" },
+        { "type": "close_below_ma", "symbol": "CSI300", "period": 50, "points": 10, "reason": "沪深300 跌破 MA50，中期趋势承压" },
+        { "type": "close_below_ma", "symbol": "CSI300", "period": 200, "points": 14, "reason": "沪深300 跌破 MA200，长期风险升高" },
+        { "type": "macd_bearish", "symbol": "CSI300", "points": 6, "reason": "沪深300 MACD 空头，指数动量偏弱" }
+      ]
+    },
+    {
+      "key": "growth_heat",
+      "label": "成长拥挤",
+      "factor": "heat",
+      "weight": 25,
+      "rules": [
+        { "type": "rsi_above", "symbol": "CHINEXT", "period": 14, "threshold": 75, "points": 8, "reason": "创业板 RSI {rsi}，成长风格短线过热" },
+        { "type": "rsi_above", "symbol": "STAR50", "period": 14, "threshold": 75, "points": 8, "reason": "科创50 RSI {rsi}，科技成长拥挤" },
+        { "type": "return_above", "symbol": "CHINEXT", "days": 20, "threshold": 18, "points": 9, "reason": "创业板 20 日涨幅超过 18%，交易拥挤升高" }
+      ]
+    },
+    {
+      "key": "breadth",
+      "label": "市场宽度",
+      "factor": "structure",
+      "weight": 20,
+      "rules": [
+        { "type": "relative_strength_declined", "symbol": "CSI1000", "other": "CSI300", "days": 5, "points": 7, "reason": "中证1000 相对沪深300 连续走弱，市场宽度收缩" },
+        { "type": "below_ma_while_other_above_ma", "symbol": "CSI1000", "other": "CSI300", "period": 50, "points": 8, "reason": "中证1000 跌破 MA50 但沪深300 未破，风险偏好下降" },
+        { "type": "underperformed_for", "symbol": "CHINEXT", "other": "CSI300", "days": 5, "points": 5, "reason": "创业板连续跑输沪深300，成长风格走弱" }
+      ]
+    },
+    {
+      "key": "large_cap_defense",
+      "label": "权重防守",
+      "factor": "systemic",
+      "weight": 15,
+      "rules": [
+        { "type": "return_below_relative", "symbol": "CSI300", "other": "SSE50", "days": 20, "buffer": 3, "points": 6, "reason": "沪深300 明显弱于上证50，资金偏防守" },
+        { "type": "relative_strength_declined", "symbol": "CHINEXT", "other": "SSE50", "days": 5, "points": 6, "reason": "创业板相对上证50 连续走弱，风险偏好降低" }
+      ]
+    },
+    {
+      "key": "offshore_confirmation",
+      "label": "离岸确认",
+      "factor": "momentum",
+      "weight": 10,
+      "rules": [
+        { "type": "close_below_ma", "symbol": "ASHR", "period": 50, "points": 5, "reason": "海外A股ETF 跌破 MA50，外部资金确认不足" },
+        { "type": "return_below_relative", "symbol": "ASHR", "other": "CSI300", "days": 20, "buffer": 4, "points": 5, "reason": "海外A股ETF 明显弱于沪深300，离岸情绪偏弱" }
+      ]
+    }
+  ]
+}

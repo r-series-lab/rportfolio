@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rPortfolio Figma Style Concept</title>
+    <style>
+      :root {
+        --bg: #f6f9fc;
+        --paper: rgba(255, 255, 255, 0.84);
+        --paper-strong: rgba(255, 255, 255, 0.96);
+        --line: #dde7f1;
+        --line-strong: #cbd9e8;
+        --ink: #122039;
+        --muted: #6b7a91;
+        --soft: #8b99ad;
+        --green: #0f9b70;
+        --green-soft: #ddf4eb;
+        --blue: #4f7ee8;
+        --gold: #9b7211;
+        --red: #c94f4f;
+        --shadow: 0 18px 48px rgba(31, 53, 84, 0.08);
+        --small-shadow: 0 8px 24px rgba(31, 53, 84, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(210, 222, 235, 0.38) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(210, 222, 235, 0.28) 1px, transparent 1px),
+          radial-gradient(circle at 76% 8%, rgba(15, 155, 112, 0.1), transparent 28%),
+          radial-gradient(circle at 12% 12%, rgba(79, 126, 232, 0.08), transparent 30%),
+          var(--bg);
+        background-size: 28px 28px, 28px 28px, auto, auto, auto;
+        font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+        font-weight: 780;
+      }
+
+      .app {
+        width: 1728px;
+        height: 1080px;
+        display: grid;
+        grid-template-columns: 184px minmax(0, 1fr) 326px;
+        gap: 10px;
+        padding: 30px 16px 16px 14px;
+      }
+
+      .sidebar {
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 18px;
+        padding: 8px 8px 14px;
+        border-right: 1px solid rgba(42, 82, 132, 0.1);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(244, 249, 252, 0.64));
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 42px;
+        padding: 0 6px;
+      }
+
+      .logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        background:
+          radial-gradient(circle at 72% 28%, #8ef0c8 0 10%, transparent 11%),
+          linear-gradient(135deg, #11b77c, #0f9b70);
+        box-shadow: 0 10px 22px rgba(15, 155, 112, 0.18);
+      }
+
+      .brand strong {
+        font-size: 19px;
+        font-weight: 950;
+      }
+
+      .nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav button {
+        height: 44px;
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 10px;
+        color: #51627a;
+        background: transparent;
+        font: inherit;
+        font-size: 15px;
+        text-align: left;
+      }
+
+      .nav button.active {
+        color: var(--green);
+        background: linear-gradient(90deg, rgba(15, 155, 112, 0.13), rgba(255, 255, 255, 0.55));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      }
+
+      .nav i,
+      .meta i,
+      .section-title i {
+        width: 18px;
+        height: 18px;
+        display: inline-block;
+        border-radius: 6px;
+        background: currentColor;
+        opacity: 0.9;
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+      }
+
+      .nav .wallet {
+        mask-image: linear-gradient(#000 0 0);
+      }
+
+      .nav .analysis {
+        border-radius: 999px;
+        background: none;
+        border: 3px solid currentColor;
+        position: relative;
+      }
+
+      .nav .analysis::after {
+        content: "";
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 8px;
+        height: 3px;
+        border-radius: 999px;
+        background: currentColor;
+        transform: rotate(42deg);
+      }
+
+      .sidebar-note {
+        padding: 14px;
+        border: 1px solid rgba(15, 155, 112, 0.16);
+        border-radius: 14px;
+        color: #547069;
+        background: linear-gradient(180deg, rgba(222, 246, 236, 0.68), rgba(255, 255, 255, 0.68));
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .main {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        gap: 10px;
+      }
+
+      .toolbar,
+      .panel,
+      .rail {
+        border: 1px solid var(--line);
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .toolbar {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-radius: 16px;
+      }
+
+      .toolbar h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 950;
+        letter-spacing: 0;
+      }
+
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .chip,
+      .ghost-button {
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: #4e6078;
+        background: rgba(255, 255, 255, 0.72);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .chip.green {
+        color: var(--green);
+        border-color: rgba(15, 155, 112, 0.2);
+        background: var(--green-soft);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 104px;
+        display: grid;
+        align-content: center;
+        gap: 10px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--paper-strong);
+        box-shadow: var(--small-shadow);
+      }
+
+      .metric span,
+      .label {
+        color: #66778f;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .metric strong {
+        font-size: 34px;
+        line-height: 0.95;
+        font-weight: 950;
+        letter-spacing: 0;
+      }
+
+      .metric .green {
+        color: var(--green);
+      }
+
+      .metric .gold {
+        color: var(--gold);
+      }
+
+      .workspace {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: 316px minmax(0, 1fr);
+        gap: 10px;
+      }
+
+      .position-map {
+        display: grid;
+        grid-template-columns: 310px minmax(0, 1fr) 220px;
+        gap: 18px;
+        padding: 18px;
+        border-radius: 16px;
+      }
+
+      .panel h2,
+      .rail h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 950;
+      }
+
+      .donut-wrap {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 20px;
+      }
+
+      .donut {
+        position: relative;
+        width: 190px;
+        height: 190px;
+        align-self: center;
+        justify-self: center;
+        border-radius: 50%;
+        background: conic-gradient(var(--green) 0 313deg, #d3ae43 313deg 360deg);
+        box-shadow: inset 0 0 0 22px rgba(255, 255, 255, 0.92), 0 10px 24px rgba(31, 53, 84, 0.08);
+      }
+
+      .donut::after {
+        content: "86.9%";
+        position: absolute;
+        inset: 45px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: white;
+        font-size: 26px;
+        font-weight: 950;
+      }
+
+      .band-map {
+        display: grid;
+        align-content: center;
+        gap: 18px;
+        border-left: 1px solid var(--line);
+        padding-left: 24px;
+      }
+
+      .band-row {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr) 70px;
+        align-items: center;
+        gap: 14px;
+        color: #718096;
+        font-size: 13px;
+      }
+
+      .track {
+        position: relative;
+        height: 12px;
+        border-radius: 999px;
+        background: #e7eef5;
+      }
+
+      .range {
+        position: absolute;
+        left: var(--start);
+        width: var(--width);
+        height: 100%;
+        border-radius: inherit;
+        background: rgba(15, 155, 112, 0.25);
+      }
+
+      .mark {
+        position: absolute;
+        left: var(--mark);
+        top: -6px;
+        width: 4px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--green);
+      }
+
+      .watch-list {
+        display: grid;
+        align-content: center;
+        gap: 12px;
+        padding-left: 10px;
+      }
+
+      .watch-list article {
+        padding-left: 10px;
+        border-left: 3px solid var(--green);
+      }
+
+      .watch-list strong {
+        display: block;
+        font-size: 17px;
+      }
+
+      .watch-list span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .asset-panel {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: 62px minmax(0, 1fr);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+
+      .asset-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th {
+        height: 42px;
+        padding: 0 18px;
+        color: #718096;
+        background: rgba(247, 250, 253, 0.9);
+        font-size: 12px;
+        text-align: left;
+      }
+
+      td {
+        height: 72px;
+        padding: 0 18px;
+        border-top: 1px solid #e8eef5;
+        font-size: 15px;
+      }
+
+      tr.selected td {
+        background: linear-gradient(90deg, rgba(15, 155, 112, 0.1), rgba(255, 255, 255, 0.72));
+      }
+
+      tr.selected td:first-child {
+        box-shadow: inset 4px 0 0 var(--green);
+      }
+
+      td strong {
+        display: block;
+        font-size: 16px;
+        font-weight: 950;
+      }
+
+      td small {
+        display: block;
+        margin-top: 4px;
+        color: var(--soft);
+        font-size: 12px;
+      }
+
+      .rail {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto auto auto auto 1fr;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 18px;
+        overflow: hidden;
+      }
+
+      .asset-title {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+
+      .asset-title h2 {
+        font-size: 34px;
+        letter-spacing: 0;
+      }
+
+      .asset-title p {
+        grid-column: 1 / -1;
+        margin: 0;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 14px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .rail-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .rail-metrics article,
+      .callout,
+      .horizon article {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .rail-metrics article {
+        min-height: 76px;
+        display: grid;
+        align-content: center;
+        gap: 7px;
+        padding: 10px 12px;
+      }
+
+      .rail-metrics strong {
+        font-size: 18px;
+      }
+
+      .meter {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: white;
+      }
+
+      .meter .track {
+        height: 22px;
+      }
+
+      .callout {
+        padding: 14px;
+        border-color: rgba(79, 126, 232, 0.22);
+        background: linear-gradient(90deg, rgba(79, 126, 232, 0.09), rgba(255, 255, 255, 0.78));
+      }
+
+      .callout b {
+        color: var(--blue);
+        font-size: 13px;
+      }
+
+      .callout strong {
+        display: block;
+        margin-top: 12px;
+        font-size: 28px;
+      }
+
+      .horizon {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .horizon article {
+        min-height: 76px;
+        padding: 10px 12px;
+      }
+
+      .horizon article:last-child {
+        grid-column: 1 / -1;
+      }
+
+      .horizon strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <aside class="sidebar">
+        <div class="brand"><span class="logo"></span><strong>rPortfolio</strong></div>
+        <nav class="nav">
+          <button class="active"><i class="wallet"></i><span>持仓管理</span></button>
+          <button><i class="analysis"></i><span>组合分析</span></button>
+        </nav>
+        <div></div>
+        <div class="sidebar-note">侧栏收窄、保留清晰图标与当前状态，主区和右栏间距统一到工作台节奏。</div>
+      </aside>
+
+      <section class="main">
+        <header class="toolbar">
+          <h1>持仓管理</h1>
+          <div class="toolbar-actions">
+            <span class="chip green">4 持仓</span>
+            <span class="chip">4 资产</span>
+            <span class="ghost-button">规则</span>
+            <span class="ghost-button">交易</span>
+            <span class="ghost-button">添加</span>
+          </div>
+        </header>
+
+        <section class="summary">
+          <article class="metric"><span>真实市值</span><strong>¥201,265.30</strong></article>
+          <article class="metric"><span>现金缓冲</span><strong class="green">86.9%</strong><span>¥175,000.00</span></article>
+          <article class="metric"><span>可加预算</span><strong class="gold">¥144,810</strong><span>现金下限 15%</span></article>
+          <article class="metric"><span>仓位状态</span><strong class="gold">Profile 观察</strong></article>
+        </section>
+
+        <section class="workspace">
+          <section class="panel position-map">
+            <div class="donut-wrap">
+              <h2>仓位地图</h2>
+              <div class="donut"></div>
+            </div>
+            <div class="band-map">
+              <div class="label">目标带与偏离</div>
+              <div class="band-row"><span>017437</span><div class="track"><i class="range" style="--start: 34%; --width: 28%"></i><i class="mark" style="--mark: 40%"></i></div><strong>区间内</strong></div>
+              <div class="band-row"><span>018147</span><div class="track"><i class="range" style="--start: 30%; --width: 24%"></i><i class="mark" style="--mark: 36%"></i></div><strong>区间内</strong></div>
+              <div class="band-row"><span>016702</span><div class="track"><i class="range" style="--start: 30%; --width: 28%"></i><i class="mark" style="--mark: 52%"></i></div><strong>继续持有</strong></div>
+            </div>
+            <div class="watch-list">
+              <article><strong>017437</strong><span>4.43% / 3%-9%</span></article>
+              <article><strong>018147</strong><span>3.47% / 2%-7%</span></article>
+              <article><strong>016702</strong><span>5.15% / 3%-8%</span></article>
+            </div>
+          </section>
+
+          <section class="panel asset-panel">
+            <div class="asset-head">
+              <h2>资产列表</h2>
+              <div class="toolbar-actions"><span class="ghost-button">筛选</span><span class="ghost-button">导出</span></div>
+            </div>
+            <table>
+              <thead><tr><th>资产</th><th>市值</th><th>仓位</th><th>建议</th></tr></thead>
+              <tbody>
+                <tr class="selected"><td><strong>016702</strong><small>银华海外数字经济量化选股混合发起式</small></td><td><strong>¥10,367.50</strong><small>CN · 东方财富</small></td><td><strong>5.2%</strong><small>3%-8%</small></td><td><strong style="color: var(--green)">继续持有</strong><small>-</small></td></tr>
+                <tr><td><strong>CASH-CNY</strong><small>现金缓冲</small></td><td><strong>¥175,000.00</strong><small>CN · 手动</small></td><td><strong>86.9%</strong><small>15%-25%</small></td><td><strong style="color: var(--green)">保留缓冲</strong><small>-</small></td></tr>
+                <tr><td><strong>018147</strong><small>建信新兴市场优选混合</small></td><td><strong>¥6,986.00</strong><small>CN · 天天基金</small></td><td><strong>3.5%</strong><small>2%-7%</small></td><td><strong style="color: var(--green)">可小加</strong><small>¥1,539</small></td></tr>
+                <tr><td><strong>017437</strong><small>华宝纳斯达克精选股票发起式</small></td><td><strong>¥8,911.80</strong><small>CN · 天天基金</small></td><td><strong>4.4%</strong><small>3%-9%</small></td><td><strong style="color: var(--green)">可小加</strong><small>¥1,582</small></td></tr>
+              </tbody>
+            </table>
+          </section>
+        </section>
+      </section>
+
+      <aside class="rail">
+        <div class="asset-title">
+          <span class="chip green">真实持仓</span>
+          <span class="ghost-button">编辑</span>
+          <h2>016702</h2>
+          <p>银华海外数字经济量化选股混合发起式</p>
+        </div>
+        <div class="rail-metrics">
+          <article><span class="label">市值</span><strong>¥10,367.50</strong></article>
+          <article><span class="label">仓位</span><strong>5.2%</strong></article>
+          <article><span class="label">目标带</span><strong>3%-8%</strong></article>
+          <article><span class="label">盈亏</span><strong>+0.33%</strong></article>
+        </div>
+        <div class="meter">
+          <div class="label">目标带 <strong style="float: right; color: var(--ink)">3%-8%</strong></div>
+          <div class="track"><i class="range" style="--start: 30%; --width: 50%"></i><i class="mark" style="--mark: 52%"></i></div>
+        </div>
+        <div class="callout">
+          <b>继续持有</b>
+          <strong>当前位于 3%-8% 区间内</strong>
+        </div>
+        <div class="horizon">
+          <article><span class="label">短期</span><strong>继续持有</strong><span class="label">0-2 周</span></article>
+          <article><span class="label">中期</span><strong>维持区间</strong><span class="label">2-12 周</span></article>
+          <article><span class="label">长期</span><strong>守住目标带</strong><span class="label">3-12 个月</span></article>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>

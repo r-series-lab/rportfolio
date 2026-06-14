@@ -1,0 +1,103 @@
+{
+  "key": "global-risk",
+  "name": "全球风险",
+  "market": "global",
+  "benchmark": "SPY",
+  "description": "股票、波动率、美元、利率、信用和避险资产的全球风险视角。",
+  "calibration": {
+    "leaderRoles": [],
+    "confirmationRoles": ["global", "growth", "credit"],
+    "expansionStructureMin": 65,
+    "divergenceMinConfirmations": 3,
+    "divergenceWeakRatio": 0.5,
+    "divergenceMaxSystemic": 70,
+    "pullbackStructureMin": 55,
+    "pullbackMaxSystemic": 60,
+    "divergenceTradingCap": 42,
+    "divergenceMediumCap": 60,
+    "divergenceLongCap": 70,
+    "pullbackTradingCap": 42,
+    "pullbackMediumCap": 62,
+    "severeTradingCap": 25,
+    "severeMediumCap": 40,
+    "severeLongCap": 55
+  },
+  "symbols": [
+    { "symbol": "SPY", "yahooSymbol": "SPY", "label": "美股", "role": "benchmark", "weight": 30, "sector": "美股", "style": "核心", "exposure": "风险资产" },
+    { "symbol": "ACWI", "yahooSymbol": "ACWI", "label": "全球股市", "role": "global", "weight": 20, "sector": "全球股市", "style": "核心", "exposure": "风险资产" },
+    { "symbol": "QQQ", "yahooSymbol": "QQQ", "label": "科技", "role": "growth", "weight": 12, "sector": "科技", "style": "成长", "exposure": "风险资产" },
+    { "symbol": "VIX", "yahooSymbol": "^VIX", "fredSymbol": "VIXCLS", "label": "恐慌", "role": "volatility", "weight": 0, "sector": "波动率", "style": "对冲", "exposure": "观察" },
+    { "symbol": "DXY", "yahooSymbol": "DX-Y.NYB", "label": "美元", "role": "macro", "weight": 5, "sector": "美元", "style": "宏观", "exposure": "外汇" },
+    { "symbol": "US10Y", "yahooSymbol": "^TNX", "fredSymbol": "DGS10", "label": "10Y", "role": "rates", "weight": 5, "sector": "利率", "style": "宏观", "exposure": "利率" },
+    { "symbol": "HYG", "yahooSymbol": "HYG", "label": "高收益债", "role": "credit", "weight": 10, "sector": "信用", "style": "收益", "exposure": "信用" },
+    { "symbol": "TLT", "yahooSymbol": "TLT", "label": "长债", "role": "safe_haven", "weight": 8, "sector": "长债", "style": "防守", "exposure": "避险资产" },
+    { "symbol": "GLD", "yahooSymbol": "GLD", "label": "黄金", "role": "safe_haven", "weight": 10, "sector": "黄金", "style": "防守", "exposure": "避险资产" }
+  ],
+  "technicalColumns": [
+    { "key": "close", "label": "收盘", "metric": "close", "format": "number", "align": "right" },
+    { "key": "change1d", "label": "1D", "metric": "change_1d", "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "return10d", "label": "10D", "metric": "return", "period": 10, "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "return20d", "label": "20D", "metric": "return", "period": 20, "format": "percent", "tone": "signed", "align": "right" },
+    { "key": "rsi14", "label": "RSI", "metric": "rsi", "period": 14, "format": "number1", "align": "right" },
+    { "key": "ma50", "label": "MA50", "metric": "ma", "period": 50, "format": "number0", "align": "right" },
+    { "key": "macd", "label": "MACD", "metric": "macd", "format": "number1", "align": "right" }
+  ],
+  "dimensions": [
+    {
+      "key": "equity_trend",
+      "label": "股票趋势",
+      "factor": "trend",
+      "weight": 30,
+      "rules": [
+        { "type": "close_below_ma", "symbol": "SPY", "period": 50, "points": 10, "reason": "SPY 跌破 MA50，美股中期趋势承压" },
+        { "type": "close_below_ma", "symbol": "ACWI", "period": 50, "points": 8, "reason": "ACWI 跌破 MA50，全球股市转弱" },
+        { "type": "macd_bearish", "symbol": "SPY", "points": 6, "reason": "SPY MACD 空头，风险资产动量降温" },
+        { "type": "underperformed_for", "symbol": "QQQ", "other": "SPY", "days": 5, "points": 6, "reason": "QQQ 连续跑输 SPY，成长股相对强度走弱" }
+      ]
+    },
+    {
+      "key": "volatility",
+      "label": "波动率",
+      "factor": "systemic",
+      "weight": 20,
+      "rules": [
+        { "type": "close_lt", "symbol": "VIX", "threshold": 15, "points": 4, "reason": "VIX {close}，市场可能过度平静" },
+        { "type": "close_gte", "symbol": "VIX", "threshold": 20, "maxThreshold": 25, "points": 8, "reason": "VIX {close}，风险升温" },
+        { "type": "close_gte", "symbol": "VIX", "threshold": 25, "maxThreshold": 30, "points": 15, "reason": "VIX {close}，明显恐慌" },
+        { "type": "close_gte", "symbol": "VIX", "threshold": 30, "points": 20, "reason": "VIX {close}，危机环境" }
+      ]
+    },
+    {
+      "key": "dollar_rates",
+      "label": "美元利率",
+      "factor": "systemic",
+      "weight": 20,
+      "rules": [
+        { "type": "return_above", "symbol": "DXY", "days": 20, "threshold": 3, "points": 8, "reason": "DXY 20 日走强超过 3%，美元压力上升" },
+        { "type": "return_above", "symbol": "US10Y", "days": 20, "threshold": 8, "points": 8, "reason": "10Y 收益率 20 日快速上行，估值压力上升" },
+        { "type": "macd_bearish", "symbol": "TLT", "points": 4, "reason": "TLT MACD 偏弱，利率压力未缓解" }
+      ]
+    },
+    {
+      "key": "credit",
+      "label": "信用风险",
+      "factor": "systemic",
+      "weight": 15,
+      "rules": [
+        { "type": "close_below_ma", "symbol": "HYG", "period": 50, "points": 8, "reason": "HYG 跌破 MA50，信用风险偏好走弱" },
+        { "type": "return_below_relative", "symbol": "HYG", "other": "SPY", "days": 20, "buffer": 4, "points": 7, "reason": "HYG 明显跑输 SPY，信用端压力上升" }
+      ]
+    },
+    {
+      "key": "safe_haven",
+      "label": "避险切换",
+      "factor": "systemic",
+      "weight": 15,
+      "rules": [
+        { "type": "return_above", "symbol": "GLD", "days": 10, "threshold": 4, "points": 6, "reason": "黄金 10 日快速走强，避险需求上升" },
+        { "type": "return_above", "symbol": "TLT", "days": 10, "threshold": 4, "points": 5, "reason": "长债 10 日快速走强，资金偏防守" },
+        { "type": "relative_strength_declined", "symbol": "ACWI", "other": "GLD", "days": 5, "points": 4, "reason": "全球股市相对黄金连续走弱，风险偏好下降" }
+      ]
+    }
+  ]
+}

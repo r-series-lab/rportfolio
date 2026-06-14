@@ -1,0 +1,44 @@
+{
+  "name": "rportfolio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run tauri dev",
+    "dev:sh": "sh ./scripts/dev.sh",
+    "prebuild": "npm run clean:build-cache",
+    "build": "npm run tauri build",
+    "build:sh": "sh ./scripts/build.sh",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "web:dev": "vite",
+    "web:build": "tsc && vite build",
+    "cli:build": "cargo build --manifest-path ./src-tauri/Cargo.toml --release --no-default-features",
+    "cli:build:linux": "sh ./scripts/build-linux-cli.sh",
+    "rust-check": "cargo check --manifest-path ./src-tauri/Cargo.toml",
+    "rust-test": "cargo test --manifest-path ./src-tauri/Cargo.toml",
+    "size": "du -sh ./target ./dist 2>/dev/null || true",
+    "clean:build-cache": "cargo clean --manifest-path ./src-tauri/Cargo.toml -p rportfolio && rm -rf ./dist ./target/release/bundle",
+    "clean": "cargo clean --manifest-path ./src-tauri/Cargo.toml && rm -rf ./dist",
+    "clean:all": "cargo clean --manifest-path ./src-tauri/Cargo.toml && rm -rf ./dist ./node_modules"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/material": "^9.0.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "echarts": "^6.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
