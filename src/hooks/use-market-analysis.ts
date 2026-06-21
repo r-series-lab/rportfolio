@@ -44,13 +44,14 @@ export function useMarketAnalysis(defaults: MarketAnalysisDefaults = {}) {
     requestSeq.current = seq;
     setLoading(true);
     setError("");
+    const request = {
+      source,
+      asOf: asOf || undefined,
+      profile,
+    };
 
     try {
-      const nextReport = await fetchMarketAnalysisReport({
-        source,
-        asOf: asOf || undefined,
-        profile,
-      });
+      const nextReport = await fetchMarketAnalysisReport(request);
       if (seq !== requestSeq.current) {
         return;
       }
@@ -62,7 +63,29 @@ export function useMarketAnalysis(defaults: MarketAnalysisDefaults = {}) {
       if (seq !== requestSeq.current) {
         return;
       }
-      setError(nextError instanceof Error ? nextError.message : "风险数据刷新失败");
+      const primaryError = formatMarketAnalysisError(nextError, request);
+      if (shouldFallbackToAuto(source)) {
+        try {
+          const fallbackRequest = { ...request, source: "auto" as DataSource };
+          const fallbackReport = await fetchMarketAnalysisReport(fallbackRequest);
+          if (seq !== requestSeq.current) {
+            return;
+          }
+          setReport(fallbackReport);
+          if (!asOf) {
+            setAsOf(fallbackReport.asOf);
+          }
+          setError(`${primaryError}。已使用自动兜底数据：${fallbackReport.sourceLabel}`);
+          return;
+        } catch (fallbackError) {
+          if (seq !== requestSeq.current) {
+            return;
+          }
+          setError(`${primaryError}；自动兜底也失败：${errorDetail(fallbackError) || "未知错误"}`);
+          return;
+        }
+      }
+      setError(primaryError);
     } finally {
       if (seq === requestSeq.current) {
         setLoading(false);
@@ -103,4 +126,25 @@ export function useMarketAnalysis(defaults: MarketAnalysisDefaults = {}) {
     setSource,
     source,
   };
+}
+
+function shouldFallbackToAuto(source: DataSource) {
+  return source === "stooq" || source === "hybrid" || source === "yahoo";
+}
+
+function formatMarketAnalysisError(
+  error: unknown,
+  request: { source: DataSource; asOf?: string; profile: string },
+) {
+  const detail = errorDetail(error);
+  const context = `Profile ${request.profile} · 数据源 ${request.source} · 日期 ${request.asOf || "最新"}`;
+  return detail ? `风险数据刷新失败：${detail}（${context}）` : `风险数据刷新失败（${context}）`;
+}
+
+function errorDetail(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : typeof error === "string"
+      ? error
+      : "";
 }

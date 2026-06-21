@@ -129,43 +129,47 @@ export function AppTitlebarActions({
   rightRailLabel,
 }: AppTitlebarActionsProps) {
   return (
-    <div className="window-titlebar-actions" aria-label="窗口工具">
-      <Tooltip title={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}>
-        <span>
-          <IconButton
-            className={`titlebar-icon-button rail-collapse-titlebar-button left-rail-toggle-button ${sidebarCollapsed ? "is-collapsed" : ""}`}
-            aria-label={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}
-            aria-pressed={sidebarCollapsed}
-            onClick={onToggleSidebar}
-          >
-            <RailCollapseIcon direction="left" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}>
-        <span>
-          <IconButton
-            className={`titlebar-icon-button rail-collapse-titlebar-button right-rail-toggle-button ${rightRailCollapsed ? "is-collapsed" : ""}`}
-            aria-label={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}
-            aria-pressed={rightRailCollapsed}
-            onClick={onToggleRightRail}
-          >
-            <RailCollapseIcon direction="right" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title="Profile 配置">
-        <span>
-          <IconButton
-            className="titlebar-icon-button"
-            aria-label="打开 Profile 配置"
-            onClick={onOpenProfileConfig}
-          >
-            <SettingsRoundedIcon />
-          </IconButton>
-        </span>
-      </Tooltip>
-    </div>
+    <>
+      <div className="window-leading-actions" aria-label="左侧窗口工具">
+        <Tooltip title={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}>
+          <span>
+            <IconButton
+              className={`titlebar-icon-button rail-collapse-titlebar-button left-rail-toggle-button ${sidebarCollapsed ? "is-collapsed" : ""}`}
+              aria-label={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}
+              aria-pressed={sidebarCollapsed}
+              onClick={onToggleSidebar}
+            >
+              <RailCollapseIcon direction="left" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </div>
+      <div className="window-titlebar-actions" aria-label="窗口工具">
+        <Tooltip title={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}>
+          <span>
+            <IconButton
+              className={`titlebar-icon-button rail-collapse-titlebar-button right-rail-toggle-button ${rightRailCollapsed ? "is-collapsed" : ""}`}
+              aria-label={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}
+              aria-pressed={rightRailCollapsed}
+              onClick={onToggleRightRail}
+            >
+              <RailCollapseIcon direction="right" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Profile 配置">
+          <span>
+            <IconButton
+              className="titlebar-icon-button"
+              aria-label="打开 Profile 配置"
+              onClick={onOpenProfileConfig}
+            >
+              <SettingsRoundedIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </div>
+    </>
   );
 }
 

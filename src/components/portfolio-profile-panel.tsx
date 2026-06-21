@@ -26,10 +26,10 @@ export function PortfolioProfilePanel({ portfolio }: PortfolioProfilePanelProps)
       <div className="panel-head portfolio-head">
         <h2>
           <TrackChangesRoundedIcon fontSize="inherit" />
-          Profile 资产池 / 结构健康
+          资产池体检
         </h2>
         <div className="portfolio-head-meta">
-          <span>Profile 配置权重</span>
+          <span>配置权重</span>
           <strong>{portfolio.holdings.length} 项</strong>
         </div>
       </div>
@@ -107,8 +107,8 @@ export function PortfolioProfilePanel({ portfolio }: PortfolioProfilePanelProps)
 
         <div className="portfolio-exposure-board">
           <div className="portfolio-board-head">
-            <strong>暴露结构</strong>
-            <span>Profile weights</span>
+            <strong>权重结构</strong>
+            <span>按 Profile 配置</span>
           </div>
           <div className="portfolio-exposure-block">
             {exposureGroups.map((group) => (
@@ -119,8 +119,8 @@ export function PortfolioProfilePanel({ portfolio }: PortfolioProfilePanelProps)
 
         <div className="portfolio-holdings-board">
           <div className="portfolio-board-head">
-            <strong>资产池健康</strong>
-            <span>{portfolio.holdings.length} symbols</span>
+            <strong>标的健康</strong>
+            <span>{portfolio.holdings.length} 个标的</span>
           </div>
           <div className="portfolio-holding-list">
             {portfolio.holdings.slice(0, 6).map((holding) => (

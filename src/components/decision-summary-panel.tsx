@@ -1,5 +1,4 @@
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import { Chip } from "@mui/material";
 import type {
   DecisionAxis,
   DecisionMetricContext,
@@ -16,13 +15,13 @@ type DecisionSummaryPanelProps = {
 };
 
 const DECISION_PROTOCOL_STEPS = [
-  { key: "allow", label: "允许分批", tone: "positive" },
-  { key: "probe", label: "小仓试探", tone: "positive" },
-  { key: "hold", label: "持有观察", tone: "neutral" },
-  { key: "wait", label: "等待确认", tone: "caution" },
-  { key: "noChase", label: "禁止追高", tone: "caution" },
-  { key: "reduce", label: "停止加仓", tone: "negative" },
-  { key: "defend", label: "主动降风险", tone: "negative" },
+  { key: "allow", label: "允许分批", shortLabel: "分批", tone: "positive" },
+  { key: "probe", label: "小仓试探", shortLabel: "试探", tone: "positive" },
+  { key: "hold", label: "持有观察", shortLabel: "持有", tone: "neutral" },
+  { key: "wait", label: "等待确认", shortLabel: "等待", tone: "caution" },
+  { key: "noChase", label: "禁止追高", shortLabel: "禁追", tone: "caution" },
+  { key: "reduce", label: "停止加仓", shortLabel: "停加", tone: "negative" },
+  { key: "defend", label: "主动降风险", shortLabel: "降险", tone: "negative" },
 ] as const;
 
 export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPanelProps) {
@@ -66,11 +65,9 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
           <div>
             <h1>{report.decisionFrame.permission}</h1>
           </div>
-          <Chip
-            size="small"
-            label={report.decisionFrame.badgeLabel ?? decisionBadge(report)}
-            className={`level-chip state-chip is-${report.decisionFrame.permissionTone}`}
-          />
+          <span className={`decision-status-badge is-${report.decisionFrame.permissionTone}`}>
+            {report.decisionFrame.badgeLabel ?? decisionBadge(report)}
+          </span>
         </div>
         <div className="decision-context-grid" aria-label="状态与确认条件">
           <article className="decision-context-card">
@@ -129,7 +126,7 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
                 aria-current={active ? "step" : undefined}
                 className={`decision-protocol-step is-${step.tone} ${active ? "is-active" : ""}`}
               >
-                <span>{step.label}</span>
+                <span title={step.label}>{step.shortLabel}</span>
               </li>
             );
           })}

@@ -56,7 +56,7 @@ export function DecisionRail({ report }: DecisionRailProps) {
       ];
 
   return (
-    <aside className={`decision-rail is-protocol-${protocolState}`}>
+    <aside className={`decision-rail workspace-inspector-rail is-protocol-${protocolState}`}>
       <section className="rail-card rail-risk-card">
         <div className="rail-section-head">
           <ReportProblemRoundedIcon fontSize="inherit" />

@@ -25,6 +25,126 @@ type PositionPlanOptions = {
   riskGate?: PositionRiskGate | null;
 };
 
+export type RecommendationIntent =
+  | "HOLD"
+  | "DEPLOY_EXCESS_CASH"
+  | "ADD_TO_TARGET"
+  | "REBALANCE_TO_BAND"
+  | "TRIM_OVERWEIGHT"
+  | "REDUCE_RISK"
+  | "WAIT_FOR_TRIGGER"
+  | "CONFIG_REQUIRED";
+
+export type ExecutionState =
+  | "EXECUTABLE"
+  | "BLOCKED_BY_PROFILE"
+  | "BLOCKED_BY_RISK"
+  | "BLOCKED_BY_SCHEDULE"
+  | "BLOCKED_BY_DATA"
+  | "NO_BUDGET"
+  | "NO_HEADROOM"
+  | "PAUSED";
+
+export type ReasonCode =
+  | "TARGET_MIN_SUM_GT_100"
+  | "TARGET_MAX_SUM_LT_100"
+  | "CASH_OVER_TARGET"
+  | "CASH_BELOW_TARGET"
+  | "CASH_WITHIN_TARGET"
+  | "ASSET_WITHIN_BAND"
+  | "ASSET_BELOW_MID"
+  | "ASSET_BELOW_MIN"
+  | "ASSET_OVER_MAX"
+  | "RISK_GATE_CLOSED"
+  | "MARKET_RISK_HIGH"
+  | "NO_CASH_INSTRUMENT"
+  | "NO_BUDGET"
+  | "NO_HEADROOM"
+  | "NO_ASSET_CAPACITY"
+  | "CONFIG_REQUIRED";
+
+export const POSITION_REASON_TEXT: Record<ReasonCode, string> = {
+  TARGET_MIN_SUM_GT_100: "目标下限合计超过 100%，配置不可执行",
+  TARGET_MAX_SUM_LT_100: "目标上限合计低于 100%，现有资产池无法覆盖全部资金",
+  CASH_OVER_TARGET: "现金超过目标上限",
+  CASH_BELOW_TARGET: "现金低于目标下限",
+  CASH_WITHIN_TARGET: "现金位于目标区间",
+  ASSET_WITHIN_BAND: "资产仍在目标区间内",
+  ASSET_BELOW_MID: "资产低于目标中位数",
+  ASSET_BELOW_MIN: "资产低于目标下限",
+  ASSET_OVER_MAX: "资产超过目标上限",
+  RISK_GATE_CLOSED: "风险门未打开",
+  MARKET_RISK_HIGH: "组合风险评分偏高",
+  NO_CASH_INSTRUMENT: "未记录现金或货基",
+  NO_BUDGET: "今日没有可用预算",
+  NO_HEADROOM: "资产已接近目标上限",
+  NO_ASSET_CAPACITY: "现有资产目标上限不足，无法吸收超额现金",
+  CONFIG_REQUIRED: "需要先完善目标带配置",
+};
+
+export type ProfileHealth = {
+  valid: boolean;
+  level: "ok" | "warning" | "error";
+  minSum: number;
+  midSum: number;
+  maxSum: number;
+  message: string;
+  reasonCodes: ReasonCode[];
+};
+
+export type CashDecision = {
+  status: "MISSING" | "LOW_CASH" | "NORMAL" | "EXCESS_CASH" | "SEVERE_EXCESS_CASH";
+  label: string;
+  tone: PositionPlanTone;
+  cashMinValue: number;
+  cashMaxValue: number;
+  excessCashToUpper: number;
+  maxSpendUntilCashMin: number;
+  targetMinWeight: number;
+  targetMaxWeight: number;
+  reasonCodes: ReasonCode[];
+};
+
+export type AssetDecision = {
+  holdingId: string;
+  symbol: string;
+  name: string;
+  value: number;
+  weight: number;
+  targetMin: number;
+  targetMid: number;
+  targetMax: number;
+  headroomToMid: number;
+  headroomToMax: number;
+  intent: RecommendationIntent;
+  executionState: ExecutionState;
+  todayAmount: number;
+  triggerAmount: number;
+  pendingAmount: number;
+  priority: number;
+  reasonCodes: ReasonCode[];
+};
+
+export type PortfolioDecision = {
+  totalValue: number;
+  currency: string;
+  cashValue: number;
+  cashWeight: number;
+  profileHealth: ProfileHealth;
+  cashDecision: CashDecision;
+  executableBudget: number;
+  triggerBudget: number;
+  pendingDeployBudget: number;
+  singleTradeBudget: number;
+  assetCapacityToMid: number;
+  assetCapacityToMax: number;
+  unallocatableExcessCash: number;
+  portfolioIntent: RecommendationIntent;
+  executionState: ExecutionState;
+  reasonCodes: ReasonCode[];
+  assetDecisions: AssetDecision[];
+};
+
 export type PositionPlanAction = {
   key: string;
   holdingId: string | null;
@@ -71,6 +191,7 @@ export type PositionPlan = {
   hasCashInstrument: boolean;
   actionCount: number;
   actions: PositionPlanAction[];
+  decision: PortfolioDecision;
   horizons: PositionPlanHorizon[];
   policy: {
     minCashWeight: number;
@@ -103,8 +224,10 @@ export function profileRiskGateFromReport(report: MarketAnalysisReport | null | 
   const protocolState = String(report.decisionFrame.protocolState || "").toLowerCase();
   const permissionTone = String(report.decisionFrame.permissionTone || "").toLowerCase();
   const defensiveTone = ["reduce", "defensive"].includes(String(shortAdvice?.tone ?? ""));
-  const blocked = Boolean(firstBlock) || ["broken", "panic"].includes(protocolState) || permissionTone === "negative" || defensiveTone;
-  const watch = !blocked && (Boolean(firstWatch) || permissionTone === "caution" || report.score >= 66);
+  const hardBlocked = protocolState === "panic";
+  const researchBlockedSignal =
+    Boolean(firstBlock) || protocolState === "broken" || permissionTone === "negative" || defensiveTone;
+  const watch = !hardBlocked && (researchBlockedSignal || Boolean(firstWatch) || permissionTone === "caution" || report.score >= 66);
   const reason =
     firstBlock?.detail ||
     (defensiveTone ? shortAdvice?.rationale : "") ||
@@ -112,30 +235,31 @@ export function profileRiskGateFromReport(report: MarketAnalysisReport | null | 
     report.decisionFrame.condition ||
     report.summary;
 
-  if (blocked) {
+  if (hardBlocked) {
     return {
-      label: "Profile 阻断",
+      label: "风险硬保护",
       tone: "negative",
       blocked: true,
       watch: false,
       addMultiplier: 0,
-      reason: compactText(reason, "风险门未通过，暂停新增风险仓位。"),
+      reason: compactText(reason, "极端风险触发，暂停新增风险仓位。"),
       source: shortAdvice?.horizonLabel ?? "Profile",
     };
   }
   if (watch) {
+    const addMultiplier = researchBlockedSignal ? 0.25 : 0.5;
     return {
-      label: "Profile 观察",
+      label: researchBlockedSignal ? "研究观察" : "风险观察",
       tone: "caution",
       blocked: false,
       watch: true,
-      addMultiplier: 0.5,
-      reason: compactText(reason, "风险门处于观察状态，只允许小额动作。"),
+      addMultiplier,
+      reason: compactText(reason, "风险信号偏弱，研究模式只给小额模拟动作。"),
       source: shortAdvice?.horizonLabel ?? "Profile",
     };
   }
   return {
-    label: "Profile 通过",
+    label: "风险门通过",
     tone: "positive",
     blocked: false,
     watch: false,
@@ -160,12 +284,29 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
   const hasCashInstrument = cashRows.length > 0;
   const cashWeight = totalValue > 0 && hasCashInstrument ? (cashValue / totalValue) * 100 : 0;
   const riskExposure = totalValue > 0 ? (riskRows.reduce((sum, holding) => sum + marketValueOf(holding), 0) / totalValue) * 100 : 0;
-  const addableBudget =
-    totalValue > 0 && hasCashInstrument ? Math.max(0, cashValue - (totalValue * policy.minCashWeight) / 100) : 0;
-  const addLimit = addLimitFor({ cashWeight, marketRiskScore, policy, riskGate });
-  const executableAddableBudget = addLimit.blocked ? 0 : addableBudget;
-  const status = planStatus({ cashWeight, hasCashInstrument, marketRiskScore, policy, realCount: realRows.length, riskGate });
-  let remainingAddableBudget = executableAddableBudget;
+  const decision = createPortfolioDecision({
+    cashValue,
+    cashWeight,
+    currency,
+    hasCashInstrument,
+    marketRiskScore,
+    policy,
+    riskGate,
+    riskRows,
+    totalValue,
+  });
+  const profileBlockReason = decision.profileHealth.valid ? "" : decision.profileHealth.message;
+  const status = planStatus({
+    cashDecision: decision.cashDecision,
+    cashWeight,
+    decision,
+    hasCashInstrument,
+    marketRiskScore,
+    profileHealth: decision.profileHealth,
+    realCount: realRows.length,
+    riskGate,
+  });
+  let remainingAddableBudget = decision.executableBudget;
   const riskActions = [...riskRows]
     .sort((left, right) => compareHoldingPlanPriority(left, right, totalValue, policy))
     .map((holding) => {
@@ -176,6 +317,7 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
         hasCashInstrument,
         marketRiskScore,
         policy,
+        profileBlockReason,
         riskGate,
         totalValue,
       });
@@ -220,13 +362,14 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
     cashValue,
     cashWeight: round1(cashWeight),
     riskExposure: round1(riskExposure),
-    addableBudget: executableAddableBudget,
-    addableBudgetLabel: addLimit.blocked ? "暂停" : formatAmount(executableAddableBudget, currency),
+    addableBudget: decision.executableBudget,
+    addableBudgetLabel: decision.executableBudget > 0 ? formatAmount(decision.executableBudget, currency) : formatAmount(0, currency),
     trimNeeded,
     trimNeededLabel: trimNeeded > 0 ? formatAmount(trimNeeded, currency) : "—",
     hasCashInstrument,
     actionCount: actions.filter((action) => action.holdingId).length,
     actions,
+    decision,
     horizons,
     policy,
     riskGate,
@@ -260,6 +403,428 @@ export function isCashHolding(holding: HoldingRecord) {
   return holding.assetType === "cash" || /(^CASH$|现金|货币|货基|MONEY|MMF)/u.test(text);
 }
 
+function createPortfolioDecision({
+  cashValue,
+  cashWeight,
+  currency,
+  hasCashInstrument,
+  marketRiskScore,
+  policy,
+  riskGate,
+  riskRows,
+  totalValue,
+}: {
+  cashValue: number;
+  cashWeight: number;
+  currency: string;
+  hasCashInstrument: boolean;
+  marketRiskScore: number;
+  policy: PositionPolicy;
+  riskGate: PositionRiskGate | null;
+  riskRows: HoldingRecord[];
+  totalValue: number;
+}): PortfolioDecision {
+  const profileHealth = profileHealthFor({ policy, riskRows });
+  const cashDecision = cashDecisionFor({ cashValue, cashWeight, hasCashInstrument, policy, totalValue });
+  const baseAssetDecisions = riskRows.map((holding) =>
+    assetDecisionFor({
+      cashDecision,
+      hasCashInstrument,
+      holding,
+      marketRiskScore,
+      policy,
+      profileHealth,
+      riskGate,
+      totalValue,
+    }),
+  );
+  const assetCapacityToMid = baseAssetDecisions.reduce((sum, item) => sum + item.headroomToMid, 0);
+  const assetCapacityToMax = baseAssetDecisions.reduce((sum, item) => sum + item.headroomToMax, 0);
+  const pendingDeployBudget = cashDecision.excessCashToUpper;
+  const unallocatableExcessCash = Math.max(0, pendingDeployBudget - assetCapacityToMax);
+  const hasAddIntent = baseAssetDecisions.some(
+    (item) => item.intent === "ADD_TO_TARGET" || item.intent === "DEPLOY_EXCESS_CASH" || item.intent === "REBALANCE_TO_BAND",
+  );
+  const portfolioIntent: RecommendationIntent = !profileHealth.valid && pendingDeployBudget > 0
+    ? "DEPLOY_EXCESS_CASH"
+    : !profileHealth.valid
+      ? "CONFIG_REQUIRED"
+      : pendingDeployBudget > 0
+        ? "DEPLOY_EXCESS_CASH"
+        : hasAddIntent
+          ? "ADD_TO_TARGET"
+          : "HOLD";
+  const reasonCodes = uniqueReasonCodes([
+    ...profileHealth.reasonCodes,
+    ...cashDecision.reasonCodes,
+    ...(riskGate?.blocked ? (["RISK_GATE_CLOSED"] as ReasonCode[]) : []),
+    ...(marketRiskScore >= 78 ? (["MARKET_RISK_HIGH"] as ReasonCode[]) : []),
+    ...(unallocatableExcessCash > 0 ? (["NO_ASSET_CAPACITY"] as ReasonCode[]) : []),
+  ]);
+  const executionState = portfolioExecutionStateFor({
+    assetCapacityToMax,
+    cashDecision,
+    hasCashInstrument,
+    marketRiskScore,
+    portfolioIntent,
+    profileHealth,
+    riskGate,
+  });
+  const deployPool = pendingDeployBudget > 0 ? Math.min(pendingDeployBudget, assetCapacityToMax) : assetCapacityToMid || assetCapacityToMax;
+  const singleTradeBudget = totalValue > 0 ? (totalValue * policy.maxSingleAddWeight) / 100 : 0;
+  const gateBudgetMultiplier = riskGate?.watch ? Math.max(0, Math.min(1, riskGate.addMultiplier)) : 1;
+  const scoreBudgetMultiplier = marketRiskScore >= 78 ? 0.25 : marketRiskScore >= 66 ? 0.5 : 1;
+  const effectiveSingleTradeBudget = singleTradeBudget * Math.min(gateBudgetMultiplier, scoreBudgetMultiplier);
+  const canPlanTrigger =
+    profileHealth.valid &&
+    !riskGate?.blocked &&
+    hasCashInstrument &&
+    cashDecision.status !== "LOW_CASH" &&
+    cashDecision.maxSpendUntilCashMin > 0 &&
+    assetCapacityToMax > 0 &&
+    portfolioIntent !== "HOLD";
+  const triggerBudget = canPlanTrigger
+    ? Math.max(0, Math.min(effectiveSingleTradeBudget, cashDecision.maxSpendUntilCashMin, deployPool))
+    : 0;
+  const executableBudget =
+    executionState === "EXECUTABLE"
+      ? triggerBudget
+      : 0;
+  const assetDecisions = allocateDecisionAmounts(baseAssetDecisions, executableBudget, triggerBudget);
+
+  return {
+    totalValue,
+    currency,
+    cashValue,
+    cashWeight: round1(cashWeight),
+    profileHealth,
+    cashDecision,
+    executableBudget,
+    triggerBudget,
+    pendingDeployBudget,
+    singleTradeBudget,
+    assetCapacityToMid,
+    assetCapacityToMax,
+    unallocatableExcessCash,
+    portfolioIntent,
+    executionState,
+    reasonCodes,
+    assetDecisions,
+  };
+}
+
+function profileHealthFor({ policy, riskRows }: { policy: PositionPolicy; riskRows: HoldingRecord[] }): ProfileHealth {
+  const cashMin = policy.minCashWeight;
+  const cashMax = cashTargetMaxWeight(policy);
+  const entries = [
+    {
+      min: cashMin,
+      mid: (cashMin + cashMax) / 2,
+      max: cashMax,
+    },
+    ...riskRows.map((holding) => {
+      const band = targetBandForHolding(holding, policy);
+      return {
+        min: band.min,
+        mid: (band.min + band.max) / 2,
+        max: band.max,
+      };
+    }),
+  ];
+  const minSum = round1(entries.reduce((sum, entry) => sum + entry.min, 0));
+  const midSum = round1(entries.reduce((sum, entry) => sum + entry.mid, 0));
+  const maxSum = round1(entries.reduce((sum, entry) => sum + entry.max, 0));
+  const reasonCodes: ReasonCode[] = [];
+  if (minSum > 100) reasonCodes.push("TARGET_MIN_SUM_GT_100");
+  if (maxSum < 100) reasonCodes.push("TARGET_MAX_SUM_LT_100");
+  const hasHardError = reasonCodes.includes("TARGET_MIN_SUM_GT_100");
+  const hasCapacityGap = reasonCodes.includes("TARGET_MAX_SUM_LT_100");
+  const valid = !hasHardError;
+  const level: ProfileHealth["level"] = hasHardError ? "error" : hasCapacityGap ? "warning" : "ok";
+  const message = hasHardError
+    ? `目标下限合计 ${formatWeight(minSum)}，高于 100%。`
+    : hasCapacityGap
+      ? `目标上限合计 ${formatWeight(maxSum)}，低于 100%，现有资产池容量不足。`
+      : `目标带覆盖 ${formatWeight(minSum)}-${formatWeight(maxSum)}。`;
+  return {
+    valid,
+    level,
+    minSum,
+    midSum,
+    maxSum,
+    message,
+    reasonCodes,
+  };
+}
+
+function cashDecisionFor({
+  cashValue,
+  cashWeight,
+  hasCashInstrument,
+  policy,
+  totalValue,
+}: {
+  cashValue: number;
+  cashWeight: number;
+  hasCashInstrument: boolean;
+  policy: PositionPolicy;
+  totalValue: number;
+}): CashDecision {
+  const targetMinWeight = policy.minCashWeight;
+  const targetMaxWeight = cashTargetMaxWeight(policy);
+  const cashMinValue = totalValue > 0 ? (totalValue * targetMinWeight) / 100 : 0;
+  const cashMaxValue = totalValue > 0 ? (totalValue * targetMaxWeight) / 100 : 0;
+  const excessCashToUpper = hasCashInstrument ? Math.max(0, cashValue - cashMaxValue) : 0;
+  const maxSpendUntilCashMin = hasCashInstrument ? Math.max(0, cashValue - cashMinValue) : 0;
+
+  if (!hasCashInstrument) {
+    return {
+      status: "MISSING",
+      label: "缺现金数据",
+      tone: "caution",
+      cashMinValue,
+      cashMaxValue,
+      excessCashToUpper,
+      maxSpendUntilCashMin,
+      targetMinWeight,
+      targetMaxWeight,
+      reasonCodes: ["NO_CASH_INSTRUMENT"],
+    };
+  }
+  if (cashWeight < targetMinWeight) {
+    return {
+      status: "LOW_CASH",
+      label: "现金不足",
+      tone: "negative",
+      cashMinValue,
+      cashMaxValue,
+      excessCashToUpper,
+      maxSpendUntilCashMin,
+      targetMinWeight,
+      targetMaxWeight,
+      reasonCodes: ["CASH_BELOW_TARGET"],
+    };
+  }
+  if (cashWeight > targetMaxWeight) {
+    const severe = cashWeight - targetMaxWeight >= 20 || excessCashToUpper >= totalValue * 0.2;
+    return {
+      status: severe ? "SEVERE_EXCESS_CASH" : "EXCESS_CASH",
+      label: severe ? "现金严重超配" : "现金超配",
+      tone: "caution",
+      cashMinValue,
+      cashMaxValue,
+      excessCashToUpper,
+      maxSpendUntilCashMin,
+      targetMinWeight,
+      targetMaxWeight,
+      reasonCodes: ["CASH_OVER_TARGET"],
+    };
+  }
+  return {
+    status: "NORMAL",
+    label: "现金正常",
+    tone: "positive",
+    cashMinValue,
+    cashMaxValue,
+    excessCashToUpper,
+    maxSpendUntilCashMin,
+    targetMinWeight,
+    targetMaxWeight,
+    reasonCodes: ["CASH_WITHIN_TARGET"],
+  };
+}
+
+function assetDecisionFor({
+  cashDecision,
+  hasCashInstrument,
+  holding,
+  marketRiskScore,
+  policy,
+  profileHealth,
+  riskGate,
+  totalValue,
+}: {
+  cashDecision: CashDecision;
+  hasCashInstrument: boolean;
+  holding: HoldingRecord;
+  marketRiskScore: number;
+  policy: PositionPolicy;
+  profileHealth: ProfileHealth;
+  riskGate: PositionRiskGate | null;
+  totalValue: number;
+}): AssetDecision {
+  const value = marketValueOf(holding);
+  const weight = totalValue > 0 ? (value / totalValue) * 100 : 0;
+  const band = targetBandForHolding(holding, policy);
+  const targetMid = round1((band.min + band.max) / 2);
+  const headroomToMid = totalValue > 0 ? Math.max(0, (totalValue * targetMid) / 100 - value) : 0;
+  const headroomToMax = totalValue > 0 ? Math.max(0, (totalValue * band.max) / 100 - value) : 0;
+  const overMaxAmount = totalValue > 0 ? Math.max(0, value - (totalValue * band.max) / 100) : 0;
+  const reasonCodes: ReasonCode[] = [];
+  let intent: RecommendationIntent = "HOLD";
+
+  if (band.target <= 0 || band.max <= 0) {
+    intent = "CONFIG_REQUIRED";
+    reasonCodes.push("CONFIG_REQUIRED");
+  } else if (weight > band.max) {
+    intent = "TRIM_OVERWEIGHT";
+    reasonCodes.push("ASSET_OVER_MAX");
+  } else if (weight < band.min) {
+    intent = "ADD_TO_TARGET";
+    reasonCodes.push("ASSET_BELOW_MIN");
+  } else if (weight < targetMid - 0.05) {
+    intent = "ADD_TO_TARGET";
+    reasonCodes.push("ASSET_BELOW_MID");
+  } else if (cashDecision.excessCashToUpper > 0 && headroomToMax > 0) {
+    intent = "WAIT_FOR_TRIGGER";
+    reasonCodes.push("ASSET_WITHIN_BAND");
+  } else {
+    reasonCodes.push("ASSET_WITHIN_BAND");
+  }
+
+  const executionState = assetExecutionStateFor({
+    cashDecision,
+    hasCashInstrument,
+    headroomToMax,
+    intent,
+    marketRiskScore,
+    profileHealth,
+    riskGate,
+  });
+  const priority = assetPriorityFor({ headroomToMid, headroomToMax, intent, weight, bandMin: band.min, targetMid });
+  const profileWarningCodes = profileHealth.reasonCodes.filter((code) => code === "TARGET_MAX_SUM_LT_100");
+
+  return {
+    holdingId: holding.id,
+    symbol: holding.symbol,
+    name: holding.name,
+    value,
+    weight: round1(weight),
+    targetMin: band.min,
+    targetMid,
+    targetMax: band.max,
+    headroomToMid,
+    headroomToMax,
+    intent,
+    executionState,
+    todayAmount: intent === "TRIM_OVERWEIGHT" ? overMaxAmount : 0,
+    triggerAmount: intent === "TRIM_OVERWEIGHT" ? overMaxAmount : 0,
+    pendingAmount: intent === "TRIM_OVERWEIGHT" ? overMaxAmount : headroomToMid || headroomToMax,
+    priority,
+    reasonCodes: uniqueReasonCodes([
+      ...reasonCodes,
+      ...(executionState === "BLOCKED_BY_PROFILE" ? profileHealth.reasonCodes : profileWarningCodes),
+      ...(executionState === "BLOCKED_BY_RISK" ? ([riskGate?.blocked ? "RISK_GATE_CLOSED" : "MARKET_RISK_HIGH"] as ReasonCode[]) : []),
+      ...(executionState === "NO_BUDGET" ? ([hasCashInstrument ? "NO_BUDGET" : "NO_CASH_INSTRUMENT"] as ReasonCode[]) : []),
+      ...(executionState === "NO_HEADROOM" ? (["NO_HEADROOM"] as ReasonCode[]) : []),
+    ]),
+  };
+}
+
+function portfolioExecutionStateFor({
+  assetCapacityToMax,
+  cashDecision,
+  hasCashInstrument,
+  marketRiskScore,
+  portfolioIntent,
+  profileHealth,
+  riskGate,
+}: {
+  assetCapacityToMax: number;
+  cashDecision: CashDecision;
+  hasCashInstrument: boolean;
+  marketRiskScore: number;
+  portfolioIntent: RecommendationIntent;
+  profileHealth: ProfileHealth;
+  riskGate: PositionRiskGate | null;
+}): ExecutionState {
+  if (!profileHealth.valid) return "BLOCKED_BY_PROFILE";
+  if (riskGate?.blocked) return "BLOCKED_BY_RISK";
+  if (!riskGate && marketRiskScore >= 90) return "BLOCKED_BY_RISK";
+  if (!hasCashInstrument || cashDecision.status === "LOW_CASH") return "NO_BUDGET";
+  if (portfolioIntent === "HOLD") return "EXECUTABLE";
+  if (assetCapacityToMax <= 0) return "NO_HEADROOM";
+  if (cashDecision.maxSpendUntilCashMin <= 0) return "NO_BUDGET";
+  return "EXECUTABLE";
+}
+
+function assetExecutionStateFor({
+  cashDecision,
+  hasCashInstrument,
+  headroomToMax,
+  intent,
+  marketRiskScore,
+  profileHealth,
+  riskGate,
+}: {
+  cashDecision: CashDecision;
+  hasCashInstrument: boolean;
+  headroomToMax: number;
+  intent: RecommendationIntent;
+  marketRiskScore: number;
+  profileHealth: ProfileHealth;
+  riskGate: PositionRiskGate | null;
+}): ExecutionState {
+  if (intent === "TRIM_OVERWEIGHT") return "EXECUTABLE";
+  if (intent === "CONFIG_REQUIRED") return "BLOCKED_BY_PROFILE";
+  if (!profileHealth.valid) return "BLOCKED_BY_PROFILE";
+  if (riskGate?.blocked) return "BLOCKED_BY_RISK";
+  if (!riskGate && marketRiskScore >= 90) return "BLOCKED_BY_RISK";
+  if (!hasCashInstrument || cashDecision.status === "LOW_CASH" || cashDecision.maxSpendUntilCashMin <= 0) return "NO_BUDGET";
+  if (headroomToMax <= 0) return "NO_HEADROOM";
+  return "EXECUTABLE";
+}
+
+function allocateDecisionAmounts(decisions: AssetDecision[], executableBudget: number, triggerBudget: number) {
+  let remainingExecutable = executableBudget;
+  let remainingTrigger = triggerBudget;
+  return [...decisions]
+    .sort((left, right) => right.priority - left.priority || right.pendingAmount - left.pendingAmount || left.symbol.localeCompare(right.symbol))
+    .map((decision) => {
+      if (decision.intent === "TRIM_OVERWEIGHT") {
+        return decision;
+      }
+      const targetAmount = decision.headroomToMid || decision.headroomToMax;
+      const canPlanTrigger = decision.executionState !== "BLOCKED_BY_PROFILE" && decision.executionState !== "NO_BUDGET" && decision.executionState !== "NO_HEADROOM";
+      const triggerAmount = canPlanTrigger && remainingTrigger > 0 ? Math.min(remainingTrigger, targetAmount) : 0;
+      remainingTrigger = Math.max(0, remainingTrigger - triggerAmount);
+      const todayAmount = decision.executionState === "EXECUTABLE" && remainingExecutable > 0 ? Math.min(remainingExecutable, targetAmount) : 0;
+      remainingExecutable = Math.max(0, remainingExecutable - todayAmount);
+      return { ...decision, todayAmount, triggerAmount };
+    });
+}
+
+function assetPriorityFor({
+  bandMin,
+  headroomToMax,
+  headroomToMid,
+  intent,
+  targetMid,
+  weight,
+}: {
+  bandMin: number;
+  headroomToMax: number;
+  headroomToMid: number;
+  intent: RecommendationIntent;
+  targetMid: number;
+  weight: number;
+}) {
+  if (intent === "TRIM_OVERWEIGHT") return 120 + Math.max(0, weight - targetMid);
+  if (intent === "CONFIG_REQUIRED") return 0;
+  if (weight < bandMin) return 100 + Math.max(0, bandMin - weight);
+  if (headroomToMid > 0) return 70 + Math.max(0, targetMid - weight);
+  if (headroomToMax > 0) return 35 + headroomToMax / 10000;
+  return 10;
+}
+
+function cashTargetMaxWeight(policy: PositionPolicy) {
+  return Math.max(policy.minCashWeight, policy.singleAssetCap);
+}
+
+function uniqueReasonCodes(codes: ReasonCode[]) {
+  return Array.from(new Set(codes));
+}
+
 function actionForHolding({
   addableBudget,
   cashWeight,
@@ -267,6 +832,7 @@ function actionForHolding({
   hasCashInstrument,
   marketRiskScore,
   policy,
+  profileBlockReason,
   riskGate,
   totalValue,
 }: {
@@ -276,6 +842,7 @@ function actionForHolding({
   hasCashInstrument: boolean;
   marketRiskScore: number;
   policy: PositionPolicy;
+  profileBlockReason: string;
   riskGate: PositionRiskGate | null;
   totalValue: number;
 }): PositionPlanAction {
@@ -328,21 +895,21 @@ function actionForHolding({
     return {
       ...base,
       key: `cash-wait-${holding.id}`,
-      action: currentWeight < band.min ? "等待" : "继续持有",
+      action: currentWeight < band.min ? "补现金后加" : "继续持有",
       tone: currentWeight < band.min ? "caution" : "neutral",
       amount: 0,
-      amountLabel: "—",
+      amountLabel: currentWeight < band.min ? formatAmount(0, holding.currency) : "—",
       weightDelta: 0,
-      weightLabel: `${formatWeight(currentWeight)} / ${targetBandLabel}`,
+      weightLabel: currentWeight < band.min ? "0%" : `${formatWeight(currentWeight)} / ${targetBandLabel}`,
       reason: currentWeight < band.min ? "低于区间，但未记录现金" : "现金数据缺失",
       detail: "添加现金/货基后，系统才能把建议换算成可执行金额。",
     };
   }
 
   if (currentWeight < band.min) {
-    const addLimit = addLimitFor({ cashWeight, marketRiskScore, policy, riskGate });
+    const addLimit = addLimitFor({ cashWeight, marketRiskScore, policy, profileBlockReason, riskGate });
     return addActionFor({
-      action: addLimit.blocked ? "等待" : addLimit.watch ? "可小加" : "可加仓",
+      action: addLimit.blocked ? "暂停定投" : addLimit.watch ? "可小加" : "可加仓",
       currentWeight,
       holding,
       limitReason: addLimit.reason,
@@ -355,10 +922,10 @@ function actionForHolding({
     });
   }
 
-  if (currentWeight < band.target - 1) {
-    const addLimit = addLimitFor({ cashWeight, marketRiskScore, policy, riskGate });
+  if (currentWeight < band.target - 0.25) {
+    const addLimit = addLimitFor({ cashWeight, marketRiskScore, policy, profileBlockReason, riskGate });
     return addActionFor({
-      action: addLimit.blocked ? "等待" : "可小加",
+      action: addLimit.blocked ? "暂停定投" : "可小加",
       currentWeight,
       holding,
       limitReason: addLimit.reason,
@@ -382,7 +949,7 @@ function actionForHolding({
     weightDelta: 0,
     weightLabel: `${formatWeight(currentWeight)} / ${targetBandLabel}`,
     reason: `当前位于 ${targetBandLabel} 区间内`,
-    detail: holding.profileKey ? `已关联 ${holding.profileKey}，按 Profile 风险门观察。` : "仓位未偏离，等待新触发条件。",
+    detail: holding.profileKey ? `已关联 ${holding.profileKey}，按 Profile 风险门观察。` : "仓位未偏离，继续观察触发条件。",
   };
 }
 
@@ -399,7 +966,7 @@ function addActionFor({
   targetWeight,
   totalValue,
 }: {
-  action: "可加仓" | "可小加" | "等待";
+  action: "可加仓" | "可小加" | "暂停定投";
   base: Pick<PositionPlanAction, "holdingId" | "name" | "profileKey" | "symbol" | "targetBandLabel">;
   currentWeight: number;
   halfStep?: boolean;
@@ -414,29 +981,34 @@ function addActionFor({
   const rawDeltaWeight = Math.max(0, targetWeight - currentWeight) * (halfStep ? 0.5 : 1);
   const chunkWeight = Math.min(rawDeltaWeight, policy.maxSingleAddWeight * riskMultiplier);
   const requestedAmount = (totalValue * chunkWeight) / 100;
-  const amount = action === "等待" ? 0 : Math.min(requestedAmount, maxBudget);
+  const amount = action === "暂停定投" ? 0 : Math.min(requestedAmount, maxBudget);
   const actualDeltaWeight = totalValue > 0 ? (amount / totalValue) * 100 : 0;
-  const blockedByBudget = action !== "等待" && requestedAmount > 0 && amount <= 0;
+  const blockedByBudget = action !== "暂停定投" && requestedAmount > 0 && amount <= 0;
   const budgetLimited = amount > 0 && amount < requestedAmount;
-  const resolvedAction = blockedByBudget ? "等待" : action;
+  const resolvedAction = blockedByBudget ? "预算不足" : action;
   const nextWeight = currentWeight + actualDeltaWeight;
+  const paused = resolvedAction === "暂停定投" || resolvedAction === "预算不足";
 
   return {
     ...base,
-    key: `${resolvedAction === "可小加" ? "small-add" : resolvedAction === "等待" ? "wait" : "add"}-${holding.id}`,
+    key: `${resolvedAction === "可小加" ? "small-add" : paused ? "pause-add" : "add"}-${holding.id}`,
     action: resolvedAction,
-    tone: resolvedAction === "等待" ? "caution" : "positive",
+    tone: paused ? "caution" : "positive",
     amount,
-    amountLabel: amount > 0 ? formatAmount(amount, holding.currency) : "—",
+    amountLabel: amount > 0 ? formatAmount(amount, holding.currency) : paused ? formatAmount(0, holding.currency) : "—",
     weightDelta: round1(actualDeltaWeight),
-    weightLabel: amount > 0 ? `+${formatWeight(actualDeltaWeight)}` : "—",
+    weightLabel: amount > 0 ? `+${formatWeight(actualDeltaWeight)}` : paused ? "0%" : "—",
     reason: blockedByBudget ? "可加预算已分配给更高优先级资产" : limitReason || `当前 ${formatWeight(currentWeight)}，低于目标 ${formatWeight(targetWeight)}`,
     detail:
       amount > 0
         ? `${buyVerbFor(holding)} ${formatAmount(amount, holding.currency)}，仓位约 ${formatWeight(currentWeight)} → ${formatWeight(nextWeight)}。${
             budgetLimited ? "受剩余预算限制。" : `单次上限 ${formatWeight(policy.maxSingleAddWeight)}。`
           }`
-        : limitReason || "先执行优先级更高动作，或补充现金后再加仓。",
+        : resolvedAction === "暂停定投"
+          ? `今日不${buyVerbFor(holding)}，${limitReason || "风险门未打开"}。`
+          : resolvedAction === "预算不足"
+            ? "今日不加，现金预算已分配给优先级更高的资产。"
+            : limitReason || "先执行优先级更高动作，或补充现金后再加仓。",
   };
 }
 
@@ -517,17 +1089,21 @@ function guardrailActionFor({
 }
 
 function planStatus({
+  cashDecision,
   cashWeight,
+  decision,
   hasCashInstrument,
   marketRiskScore,
-  policy,
+  profileHealth,
   realCount,
   riskGate,
 }: {
+  cashDecision: CashDecision;
   cashWeight: number;
+  decision: PortfolioDecision;
   hasCashInstrument: boolean;
   marketRiskScore: number;
-  policy: PositionPolicy;
+  profileHealth: ProfileHealth;
   realCount: number;
   riskGate: PositionRiskGate | null;
 }) {
@@ -537,17 +1113,23 @@ function planStatus({
   if (!hasCashInstrument) {
     return { label: "缺现金数据", tone: "caution" as const, summary: "补现金后可计算加仓预算。" };
   }
+  if (!profileHealth.valid) {
+    return { label: "配置阻断", tone: "negative" as const, summary: profileHealth.message };
+  }
   if (riskGate?.blocked) {
     return { label: riskGate.label, tone: riskGate.tone, summary: riskGate.reason };
   }
   if (marketRiskScore >= 78) {
-    return { label: "防守", tone: "negative" as const, summary: "风险评分偏高，暂停扩仓。" };
+    return { label: "研究降额", tone: "caution" as const, summary: "风险评分偏高，仅保留小额模拟动作。" };
   }
   if (cashWeight < 8) {
     return { label: "现金偏低", tone: "negative" as const, summary: "优先恢复现金缓冲。" };
   }
-  if (cashWeight < policy.minCashWeight) {
+  if (cashDecision.status === "LOW_CASH") {
     return { label: "谨慎", tone: "caution" as const, summary: "只处理减仓和计划内小动作。" };
+  }
+  if (cashDecision.status === "SEVERE_EXCESS_CASH" || cashDecision.status === "EXCESS_CASH") {
+    return { label: cashDecision.label, tone: cashDecision.tone, summary: `待部署 ${formatAmount(decision.pendingDeployBudget, decision.currency)}。` };
   }
   if (riskGate?.watch) {
     return { label: riskGate.label, tone: riskGate.tone, summary: riskGate.reason };
@@ -559,18 +1141,26 @@ function addLimitFor({
   cashWeight,
   marketRiskScore,
   policy,
+  profileBlockReason = "",
   riskGate,
 }: {
   cashWeight: number;
   marketRiskScore: number;
   policy: PositionPolicy;
+  profileBlockReason?: string;
   riskGate: PositionRiskGate | null;
 }) {
+  if (profileBlockReason) {
+    return { blocked: true, watch: false, multiplier: 0, reason: profileBlockReason };
+  }
   if (riskGate?.blocked) {
     return { blocked: true, watch: false, multiplier: 0, reason: riskGate.reason };
   }
   if (marketRiskScore >= 78) {
-    return { blocked: true, watch: false, multiplier: 0, reason: "风险评分偏高，先等待 Profile 风险门修复" };
+    return { blocked: false, watch: true, multiplier: 0.25, reason: "风险评分偏高，仅保留小额模拟动作" };
+  }
+  if (marketRiskScore >= 66) {
+    return { blocked: false, watch: true, multiplier: 0.5, reason: "风险评分进入观察区，只做半额模拟动作" };
   }
   if (cashWeight < policy.minCashWeight) {
     return { blocked: true, watch: false, multiplier: 0, reason: `现金低于 ${policy.minCashWeight}% 下限` };
@@ -586,7 +1176,7 @@ function compareActions(left: PositionPlanAction, right: PositionPlanAction) {
     if (action.action === "应减仓" || action.action === "暂停加仓") return 0;
     if (action.action === "可加仓") return 1;
     if (action.action === "可小加") return 2;
-    if (action.action === "等待" || action.action === "补现金") return 3;
+    if (action.action === "暂停定投" || action.action === "预算不足" || action.action === "补现金后加" || action.action === "补现金") return 3;
     if (action.action === "设置计划") return 4;
     return 5;
   };
@@ -621,11 +1211,14 @@ function horizonAdviceFor({
   const assetActions = actions.filter((action) => action.holdingId);
   const reductions = assetActions.filter((action) => action.weightDelta < 0);
   const adds = assetActions.filter((action) => action.weightDelta > 0 && action.amount > 0);
-  const waits = assetActions.filter((action) => action.action === "等待");
+  const pausedAdds = assetActions.filter(
+    (action) => action.action === "暂停定投" || action.action === "预算不足" || action.action === "补现金后加",
+  );
   const setupCount = assetActions.filter((action) => action.action === "设置计划").length;
   const addTotal = sumActionAmounts(adds);
   const firstAdd = adds[0];
   const firstReduce = reductions[0];
+  const firstPaused = pausedAdds[0];
   const largestRisk = largestRiskHolding(realRows, totalValue);
 
   const short: PositionPlanHorizon = riskGate?.blocked
@@ -665,17 +1258,21 @@ function horizonAdviceFor({
             target: `${firstAdd.symbol} ${firstAdd.weightLabel}`,
             trigger: riskGate?.watch ? "观察态只做半仓节奏" : "按今日行动清单执行",
             detail: `${firstAdd.symbol} ${firstAdd.amountLabel}；多标的时先做前 1-2 个优先级。`,
-          }
+        }
         : {
             key: "short",
             label: "短期",
             range: "0-2 周",
-            action: setupCount ? "先补计划" : "持有观察",
-            tone: setupCount || waits.length ? "caution" : "neutral",
-            amountLabel: "—",
-            target: setupCount ? `${setupCount} 个资产缺目标` : "不新增",
-            trigger: hasCashInstrument ? "等 Profile / 价格触发" : "先补现金记录",
-            detail: setupCount ? "补齐最小/目标/最大仓位后，才能输出金额建议。" : "仓位未明显偏离，等待新触发。",
+            action: setupCount ? "先补计划" : firstPaused ? firstPaused.action : "今日不动",
+            tone: setupCount || firstPaused ? "caution" : "neutral",
+            amountLabel: firstPaused ? formatAmount(0, currency) : "—",
+            target: setupCount ? `${setupCount} 个资产缺目标` : firstPaused ? firstPaused.symbol : "不新增",
+            trigger: hasCashInstrument ? (firstPaused ? firstPaused.reason : "目标带内") : "先补现金记录",
+            detail: setupCount
+              ? "补齐最小/目标/最大仓位后，才能输出金额建议。"
+              : firstPaused
+                ? `${firstPaused.symbol} ${formatAmount(0, currency)}，${firstPaused.reason}。`
+                : "仓位未明显偏离，今天不做新增或减仓。",
           };
 
   const medium: PositionPlanHorizon = !hasCashInstrument
@@ -714,6 +1311,18 @@ function horizonAdviceFor({
             trigger: "每周复核一次偏离",
             detail: `按目标区间分批处理，不让单只超过 ${formatWeight(policy.singleAssetCap)}。`,
           }
+        : firstPaused
+          ? {
+              key: "medium",
+              label: "中期",
+              range: "2-12 周",
+              action: firstPaused.action === "补现金后加" ? "补现金后加" : firstPaused.action === "预算不足" ? "等预算释放" : "等风险门",
+              tone: "caution",
+              amountLabel: "新增 0",
+              target: firstPaused.targetBandLabel,
+              trigger: firstPaused.reason,
+              detail: `${firstPaused.symbol} 暂不扩仓；现金、风险门或预算释放后再恢复定投/加仓。`,
+            }
         : {
             key: "medium",
             label: "中期",
@@ -780,7 +1389,7 @@ function holdingPlanRank(holding: HoldingRecord, totalValue: number, policy: Pos
   if (band.target <= 0) return { bucket: 4, gap: 0 };
   if (currentWeight > band.max) return { bucket: 0, gap: currentWeight - band.max };
   if (currentWeight < band.min) return { bucket: 1, gap: band.min - currentWeight };
-  if (currentWeight < band.target - 1) return { bucket: 2, gap: band.target - currentWeight };
+  if (currentWeight < band.target - 0.25) return { bucket: 2, gap: band.target - currentWeight };
   return { bucket: 3, gap: Math.abs(currentWeight - band.target) };
 }
 

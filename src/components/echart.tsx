@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { BarChart, PieChart, ScatterChart } from "echarts/charts";
+import { BarChart, CandlestickChart, LineChart, PieChart, ScatterChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
@@ -9,14 +9,14 @@ import {
   type TooltipComponentOption,
 } from "echarts/components";
 import * as echarts from "echarts/core";
-import type { BarSeriesOption, PieSeriesOption, ScatterSeriesOption } from "echarts/charts";
+import type { BarSeriesOption, CandlestickSeriesOption, LineSeriesOption, PieSeriesOption, ScatterSeriesOption } from "echarts/charts";
 import type { ComposeOption, ECharts, EChartsCoreOption } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-echarts.use([BarChart, PieChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+echarts.use([BarChart, CandlestickChart, LineChart, PieChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 export type RPortfolioChartOption = ComposeOption<
-  BarSeriesOption | PieSeriesOption | ScatterSeriesOption | GridComponentOption | LegendComponentOption | TooltipComponentOption
+  BarSeriesOption | CandlestickSeriesOption | LineSeriesOption | PieSeriesOption | ScatterSeriesOption | GridComponentOption | LegendComponentOption | TooltipComponentOption
 >;
 
 type EChartProps = {

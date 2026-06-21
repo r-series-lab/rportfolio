@@ -4,7 +4,6 @@ import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import FileUploadRoundedIcon from "@mui/icons-material/FileUploadRounded";
-import FolderSpecialRoundedIcon from "@mui/icons-material/FolderSpecialRounded";
 import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
 import ManageSearchRoundedIcon from "@mui/icons-material/ManageSearchRounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
@@ -527,15 +526,35 @@ export function ProfileConfigPanel({
   }
 
   const showSubmitBar = true;
+  const contextTitle = activeSection === "generate" ? "草稿生成链路" : "当前编辑草稿";
+  const contextSummary = activeSection === "generate"
+    ? "公开资料 / 持仓导入 / Recipe 都先落到草稿，校验通过后再保存为 Profile。"
+    : `${draftName} · ${draftSavedInList ? "已保存到 Profile 库" : "仍是未保存草稿"}`;
+  const contextTags = activeSection === "generate"
+    ? [
+        draft.fundCode.trim() || fundSeed?.code || "等待输入基金代码",
+        validationReport ? (validationReport.valid ? "校验已通过" : "需处理校验项") : "尚未校验",
+        draftSavedInList ? "可复用 Profile" : "保存后入库",
+      ]
+    : [
+        `分析中：${activeAnalysis?.name ?? activeAnalysisProfile}`,
+        draftSourceLabel,
+        `${portfolioDraftStats.count} 个符号 / ${ruleDraftStats.rules} 条规则`,
+      ];
 
   return (
     <section className={`panel profile-config-panel is-${activeSection}`} hidden={hidden}>
-      <div className="panel-head">
-        <div className="panel-title">
-          <FolderSpecialRoundedIcon fontSize="inherit" />
-          <h2>Profile 配置</h2>
+      <div className={`profile-config-context is-${activeSection}`}>
+        <div className="profile-config-context-copy">
+          <span>{activeSection === "generate" ? "Builder Context" : "Editing Context"}</span>
+          <strong>{contextTitle}</strong>
+          <p>{contextSummary}</p>
         </div>
-        <span className="panel-kicker">导入 / 导出 / 文案协议</span>
+        <div className="profile-config-context-tags" aria-label="当前工作上下文">
+          {contextTags.map((tag) => (
+            <em key={tag}>{tag}</em>
+          ))}
+        </div>
       </div>
 
       <div className={`profile-config-board is-${activeSection}`}>
@@ -705,238 +724,287 @@ export function ProfileConfigPanel({
                   <em>{current?.builtin ? "另存为自定义" : "更新自定义"}</em>
                 </div>
                 <div ref={builderFormRef} className="profile-builder-form">
-            <label>
-              <span>Key</span>
-              <input
-                name="key"
-                value={draft.key}
-                spellCheck={false}
-                onChange={(event) => updateDraft("key", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>名称</span>
-              <input name="name" value={draft.name} autoComplete="off" onChange={(event) => updateDraft("name", event.target.value)} />
-            </label>
-            <label>
-              <span>市场</span>
-              <input name="market" value={draft.market} onChange={(event) => updateDraft("market", event.target.value)} />
-            </label>
-            <label>
-              <span>基准代码</span>
-              <input
-                name="benchmarkSymbol"
-                value={draft.benchmarkSymbol}
-                spellCheck={false}
-                onChange={(event) => updateDraft("benchmarkSymbol", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>基准名称</span>
-              <input
-                name="benchmarkName"
-                value={draft.benchmarkName}
-                onChange={(event) => updateDraft("benchmarkName", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>基金代码</span>
-              <input
-                name="fundCode"
-                value={draft.fundCode}
-                spellCheck={false}
-                onChange={(event) => updateDraft("fundCode", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>基金名称</span>
-              <input name="fundName" value={draft.fundName} onChange={(event) => updateDraft("fundName", event.target.value)} />
-            </label>
-            <label>
-              <span>基金类型</span>
-              <input
-                name="fundType"
-                value={draft.fundType}
-                placeholder="active_equity / etf / qdii"
-                onChange={(event) => updateDraft("fundType", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>净值代码</span>
-              <input
-                name="fundNavSymbol"
-                value={draft.fundNavSymbol}
-                spellCheck={false}
-                onChange={(event) => updateDraft("fundNavSymbol", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>基金经理</span>
-              <input name="fundManager" value={draft.fundManager} onChange={(event) => updateDraft("fundManager", event.target.value)} />
-            </label>
-            <label>
-              <span>管理人</span>
-              <input name="fundIssuer" value={draft.fundIssuer} onChange={(event) => updateDraft("fundIssuer", event.target.value)} />
-            </label>
-            <label>
-              <span>持仓披露日</span>
-              <input
-                name="fundHoldingsAsOf"
-                value={draft.fundHoldingsAsOf}
-                placeholder="YYYY-MM-DD"
-                onChange={(event) => updateDraft("fundHoldingsAsOf", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>持仓来源</span>
-              <input
-                name="fundHoldingsSource"
-                value={draft.fundHoldingsSource}
-                placeholder="季报 / 手工导入 / 官方披露"
-                onChange={(event) => updateDraft("fundHoldingsSource", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>风险上限</span>
-              <input
-                name="riskScoreLimit"
-                inputMode="numeric"
-                value={draft.riskScoreLimit}
-                onChange={(event) => updateDraft("riskScoreLimit", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>目标敞口</span>
-              <input
-                name="targetGrossExposure"
-                value={draft.targetGrossExposure}
-                onChange={(event) => updateDraft("targetGrossExposure", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>周期</span>
-              <input
-                name="timeHorizon"
-                value={draft.timeHorizon}
-                onChange={(event) => updateDraft("timeHorizon", event.target.value)}
-              />
-            </label>
-            <label>
-              <span>回撤预算</span>
-              <input
-                name="maxDrawdown"
-                value={draft.maxDrawdown}
-                onChange={(event) => updateDraft("maxDrawdown", event.target.value)}
-              />
-            </label>
-            <label className="is-wide">
-              <span>描述</span>
-              <textarea
-                name="description"
-                rows={2}
-                value={draft.description}
-                onChange={(event) => updateDraft("description", event.target.value)}
-              />
-            </label>
-            <label className="is-wide">
-              <span>投资目标</span>
-              <textarea
-                name="objective"
-                rows={3}
-                value={draft.objective}
-                onChange={(event) => updateDraft("objective", event.target.value)}
-              />
-            </label>
-            <label className="is-wide">
-              <span>风险预算</span>
-              <textarea
-                name="riskBudget"
-                rows={2}
-                value={draft.riskBudget}
-                onChange={(event) => updateDraft("riskBudget", event.target.value)}
-              />
-            </label>
-            <label className="is-wide">
-              <span>基金备注</span>
-              <textarea
-                name="fundNotesText"
-                rows={2}
-                value={draft.fundNotesText}
-                onChange={(event) => updateDraft("fundNotesText", event.target.value)}
-              />
-            </label>
-            <label className="is-wide">
-              <span>导入字段映射</span>
-              <textarea
-                name="importAliasesText"
-                rows={4}
-                value={draft.importAliasesText}
-                spellCheck={false}
-                onChange={(event) => updateDraft("importAliasesText", event.target.value)}
-              />
-              <em>格式：目标字段 | 别名1, 别名2。例：symbol | ISIN, Wind代码</em>
-            </label>
-            <label className="is-wide">
-              <span>导入质检阈值</span>
-              <textarea
-                name="importQualityText"
-                rows={4}
-                value={draft.importQualityText}
-                spellCheck={false}
-                onChange={(event) => updateDraft("importQualityText", event.target.value)}
-              />
-              <div className="import-quality-presets" aria-label="导入质检阈值预设">
-                {IMPORT_QUALITY_PRESETS.map((preset) => (
-                  <button key={preset.key} type="button" onClick={() => applyImportQualityPreset(preset)}>
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-              <em>格式：阈值项 | 数字。例：top3Danger | 70</em>
-            </label>
-            <label className="is-wide is-template">
-              <span>导入分析模板</span>
-              <textarea
-                name="importAnalysisText"
-                rows={5}
-                value={draft.importAnalysisText}
-                spellCheck={false}
-                onChange={(event) => updateDraft("importAnalysisText", event.target.value)}
-              />
-              <em>格式：模板项 | 文案。可用占位符：{"{state}"} {"{action}"} {"{condition}"} {"{fund}"} {"{topSymbol}"}</em>
-            </label>
-            <label className="is-wide">
-              <span>约束条件</span>
-              <textarea
-                name="constraintsText"
-                rows={3}
-                value={draft.constraintsText}
-                onChange={(event) => updateDraft("constraintsText", event.target.value)}
-              />
-              <em>格式：标签 | 条件 | tone</em>
-            </label>
-            <label className="is-portfolio">
-              <span>持仓 / 观察符号</span>
-              <textarea
-                name="holdingsText"
-                rows={7}
-                value={draft.holdingsText}
-                spellCheck={false}
-                onChange={(event) => updateDraft("holdingsText", event.target.value)}
-              />
-              <em>格式：symbol | label | role | weight | sector | style | exposure | yahooSymbol</em>
-            </label>
-            <label className="is-rules">
-              <span>规则 Builder</span>
-              <textarea
-                name="rulesText"
-                rows={9}
-                value={draft.rulesText}
-                spellCheck={false}
-                onChange={(event) => updateDraft("rulesText", event.target.value)}
-              />
-              <em>格式：dimension | label | factor | weight | type | symbol | points | reason | key=value;...</em>
-            </label>
+                  <section className="profile-builder-section">
+                    <div className="profile-builder-section-head">
+                      <span>基础身份</span>
+                      <strong>模板标识与基准</strong>
+                      <p>决定这个 Profile 在列表里的名字、市场归属和外部展示方式。</p>
+                    </div>
+                    <div className="profile-builder-section-grid">
+                      <label>
+                        <span>Key</span>
+                        <input
+                          name="key"
+                          value={draft.key}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("key", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>名称</span>
+                        <input name="name" value={draft.name} autoComplete="off" onChange={(event) => updateDraft("name", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>市场</span>
+                        <input name="market" value={draft.market} onChange={(event) => updateDraft("market", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>基准代码</span>
+                        <input
+                          name="benchmarkSymbol"
+                          value={draft.benchmarkSymbol}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("benchmarkSymbol", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>基准名称</span>
+                        <input
+                          name="benchmarkName"
+                          value={draft.benchmarkName}
+                          onChange={(event) => updateDraft("benchmarkName", event.target.value)}
+                        />
+                      </label>
+                      <label className="is-wide">
+                        <span>描述</span>
+                        <textarea
+                          name="description"
+                          rows={2}
+                          value={draft.description}
+                          onChange={(event) => updateDraft("description", event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="profile-builder-section">
+                    <div className="profile-builder-section-head">
+                      <span>基金资料</span>
+                      <strong>基金画像与来源</strong>
+                      <p>只有基金型 Profile 需要完整填写；通用市场模板可以先留空。</p>
+                    </div>
+                    <div className="profile-builder-section-grid">
+                      <label>
+                        <span>基金代码</span>
+                        <input
+                          name="fundCode"
+                          value={draft.fundCode}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("fundCode", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>基金名称</span>
+                        <input name="fundName" value={draft.fundName} onChange={(event) => updateDraft("fundName", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>基金类型</span>
+                        <input
+                          name="fundType"
+                          value={draft.fundType}
+                          placeholder="active_equity / etf / qdii"
+                          onChange={(event) => updateDraft("fundType", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>净值代码</span>
+                        <input
+                          name="fundNavSymbol"
+                          value={draft.fundNavSymbol}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("fundNavSymbol", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>基金经理</span>
+                        <input name="fundManager" value={draft.fundManager} onChange={(event) => updateDraft("fundManager", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>管理人</span>
+                        <input name="fundIssuer" value={draft.fundIssuer} onChange={(event) => updateDraft("fundIssuer", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>持仓披露日</span>
+                        <input
+                          name="fundHoldingsAsOf"
+                          value={draft.fundHoldingsAsOf}
+                          placeholder="YYYY-MM-DD"
+                          onChange={(event) => updateDraft("fundHoldingsAsOf", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>持仓来源</span>
+                        <input
+                          name="fundHoldingsSource"
+                          value={draft.fundHoldingsSource}
+                          placeholder="季报 / 手工导入 / 官方披露"
+                          onChange={(event) => updateDraft("fundHoldingsSource", event.target.value)}
+                        />
+                      </label>
+                      <label className="is-wide">
+                        <span>基金备注</span>
+                        <textarea
+                          name="fundNotesText"
+                          rows={2}
+                          value={draft.fundNotesText}
+                          onChange={(event) => updateDraft("fundNotesText", event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="profile-builder-section">
+                    <div className="profile-builder-section-head">
+                      <span>委托与预算</span>
+                      <strong>风险边界与投资目标</strong>
+                      <p>这里决定仓位上限、时间周期和状态文案背后的风险预算口径。</p>
+                    </div>
+                    <div className="profile-builder-section-grid">
+                      <label>
+                        <span>风险上限</span>
+                        <input
+                          name="riskScoreLimit"
+                          inputMode="numeric"
+                          value={draft.riskScoreLimit}
+                          onChange={(event) => updateDraft("riskScoreLimit", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>目标敞口</span>
+                        <input
+                          name="targetGrossExposure"
+                          value={draft.targetGrossExposure}
+                          onChange={(event) => updateDraft("targetGrossExposure", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>周期</span>
+                        <input
+                          name="timeHorizon"
+                          value={draft.timeHorizon}
+                          onChange={(event) => updateDraft("timeHorizon", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>回撤预算</span>
+                        <input
+                          name="maxDrawdown"
+                          value={draft.maxDrawdown}
+                          onChange={(event) => updateDraft("maxDrawdown", event.target.value)}
+                        />
+                      </label>
+                      <label className="is-wide">
+                        <span>投资目标</span>
+                        <textarea
+                          name="objective"
+                          rows={3}
+                          value={draft.objective}
+                          onChange={(event) => updateDraft("objective", event.target.value)}
+                        />
+                      </label>
+                      <label className="is-wide">
+                        <span>风险预算</span>
+                        <textarea
+                          name="riskBudget"
+                          rows={2}
+                          value={draft.riskBudget}
+                          onChange={(event) => updateDraft("riskBudget", event.target.value)}
+                        />
+                      </label>
+                      <label className="is-wide">
+                        <span>约束条件</span>
+                        <textarea
+                          name="constraintsText"
+                          rows={3}
+                          value={draft.constraintsText}
+                          onChange={(event) => updateDraft("constraintsText", event.target.value)}
+                        />
+                        <em>格式：标签 | 条件 | tone</em>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="profile-builder-section">
+                    <div className="profile-builder-section-head">
+                      <span>导入映射</span>
+                      <strong>字段识别与分析模板</strong>
+                      <p>给公开资料、CSV 或 AI Recipe 一个统一翻译层，导入时会更稳。</p>
+                    </div>
+                    <div className="profile-builder-section-grid">
+                      <label className="is-wide">
+                        <span>导入字段映射</span>
+                        <textarea
+                          name="importAliasesText"
+                          rows={4}
+                          value={draft.importAliasesText}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("importAliasesText", event.target.value)}
+                        />
+                        <em>格式：目标字段 | 别名1, 别名2。例：symbol | ISIN, Wind代码</em>
+                      </label>
+                      <label className="is-wide">
+                        <span>导入质检阈值</span>
+                        <textarea
+                          name="importQualityText"
+                          rows={4}
+                          value={draft.importQualityText}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("importQualityText", event.target.value)}
+                        />
+                        <div className="import-quality-presets" aria-label="导入质检阈值预设">
+                          {IMPORT_QUALITY_PRESETS.map((preset) => (
+                            <button key={preset.key} type="button" onClick={() => applyImportQualityPreset(preset)}>
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                        <em>格式：阈值项 | 数字。例：top3Danger | 70</em>
+                      </label>
+                      <label className="is-wide is-template">
+                        <span>导入分析模板</span>
+                        <textarea
+                          name="importAnalysisText"
+                          rows={5}
+                          value={draft.importAnalysisText}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("importAnalysisText", event.target.value)}
+                        />
+                        <em>格式：模板项 | 文案。可用占位符：{"{state}"} {"{action}"} {"{condition}"} {"{fund}"} {"{topSymbol}"}</em>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="profile-builder-section is-advanced">
+                    <div className="profile-builder-section-head">
+                      <span>资产池与规则</span>
+                      <strong>观察标的与评分引擎</strong>
+                      <p>这是最核心的建模区：符号池定义“看什么”，规则定义“怎么判断”。</p>
+                    </div>
+                    <div className="profile-builder-section-grid">
+                      <label className="is-portfolio">
+                        <span>持仓 / 观察符号</span>
+                        <textarea
+                          name="holdingsText"
+                          rows={7}
+                          value={draft.holdingsText}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("holdingsText", event.target.value)}
+                        />
+                        <em>格式：symbol | label | role | weight | sector | style | exposure | yahooSymbol</em>
+                      </label>
+                      <label className="is-rules">
+                        <span>规则 Builder</span>
+                        <textarea
+                          name="rulesText"
+                          rows={9}
+                          value={draft.rulesText}
+                          spellCheck={false}
+                          onChange={(event) => updateDraft("rulesText", event.target.value)}
+                        />
+                        <em>格式：dimension | label | factor | weight | type | symbol | points | reason | key=value;...</em>
+                      </label>
+                    </div>
+                  </section>
                 </div>
                 <div className="profile-builder-stats">
                   <span>{portfolioDraftStats.count} 个符号</span>

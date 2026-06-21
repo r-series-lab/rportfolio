@@ -1,9 +1,7 @@
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
-import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
 import { Card, CardContent, CircularProgress, CssBaseline, ThemeProvider } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
@@ -15,10 +13,13 @@ import { DecisionRail } from "./components/decision-rail";
 import { DecisionSummaryPanel } from "./components/decision-summary-panel";
 import { HoldingsWorkspace } from "./components/holdings-workspace";
 import { PortfolioProfilePanel } from "./components/portfolio-profile-panel";
-import { ProfileConfigPanel, type ProfileConfigSection } from "./components/profile-config-panel";
+import { QuantLabWorkspace } from "./components/quant-lab-workspace";
 import { RulesPanel } from "./components/rules-panel";
+import { SettingsPanel, type ConfigPanelSection } from "./components/settings-panel";
+import { Toaster } from "./components/ui/sonner";
 import { StructurePanel } from "./components/structure-panel";
 import { TechnicalPanel } from "./components/technical-panel";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useLocalStorageState } from "./hooks/use-local-storage-state";
 import { useMarketAnalysis } from "./hooks/use-market-analysis";
 import {
@@ -36,6 +37,7 @@ import {
 } from "./lib/position-plan";
 import {
   REQUESTED_FUND_SEED_STORAGE_KEY,
+  applyResearchTargetBands,
   importRequestedFundProfiles,
   mergeRequestedFundHoldings,
 } from "./lib/requested-fund-seeds";
@@ -44,13 +46,13 @@ import { isTradeRecord, type TradeRecord } from "./lib/trades";
 import type { DataSource, ProfileSummary } from "./lib/types";
 import { createRPortfolioTheme, type RPortfolioStyleMode } from "./theme/r-theme";
 
-type AppWorkspace = "holdings" | "analysis";
+type AppWorkspace = "holdings" | "analysis" | "quant";
 type WorkspaceTab = "overview" | "structure" | "backtest" | "rules" | "indicators";
-type ConfigPanelSection = "global" | ProfileConfigSection;
 
 const APP_WORKSPACES: Array<{ key: AppWorkspace; label: string; detail: string; icon: typeof AccountBalanceWalletRoundedIcon }> = [
   { key: "holdings", label: "持仓管理", detail: "真实仓位、代理与观察", icon: AccountBalanceWalletRoundedIcon },
   { key: "analysis", label: "组合分析", detail: "Profile、规则、回测", icon: QueryStatsRoundedIcon },
+  { key: "quant", label: "量化交易", detail: "监测、下单、执行", icon: ScienceRoundedIcon },
 ];
 
 const WORKSPACE_TABS: Array<{ key: WorkspaceTab; label: string }> = [
@@ -59,12 +61,6 @@ const WORKSPACE_TABS: Array<{ key: WorkspaceTab; label: string }> = [
   { key: "backtest", label: "回测" },
   { key: "rules", label: "规则" },
   { key: "indicators", label: "指标" },
-];
-
-const CONFIG_PANEL_SECTIONS: Array<{ key: ConfigPanelSection; label: string; detail: string }> = [
-  { key: "global", label: "全局", detail: "默认配置与界面" },
-  { key: "profile", label: "Profile", detail: "管理、编辑、校验" },
-  { key: "generate", label: "生成", detail: "基金代码与导入" },
 ];
 
 function App() {
@@ -119,7 +115,6 @@ function App() {
   } = useMarketAnalysis({ defaultProfile, defaultSource });
   const reportIsCurrent = Boolean(report && report.profileKey === profile);
   const showLoadingState = loading || (report && !reportIsCurrent);
-  const activeProfileConfigSection: ProfileConfigSection = activeConfigSection === "global" ? "profile" : activeConfigSection;
   const localHoldingRows = useMemo(() => holdings.filter(isHoldingRecord), [holdings]);
   const localTradeRows = useMemo(() => trades.filter(isTradeRecord), [trades]);
   const normalizedPositionPolicy = useMemo(() => normalizePositionPolicy(positionPolicy), [positionPolicy]);
@@ -135,6 +130,7 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.rportfolioStyle = styleMode;
     document.documentElement.style.colorScheme = styleMode;
+    document.documentElement.classList.toggle("dark", styleMode === "dark");
   }, [styleMode]);
 
   useEffect(() => {
@@ -157,10 +153,6 @@ function App() {
     if (!reportIsCurrent) return;
     decisionMainScrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [report?.profileKey, reportIsCurrent]);
-
-  const toggleStyleMode = () => {
-    setStyleMode((current) => (current === "dark" ? "light" : "dark"));
-  };
 
   const openProfileConfig = () => {
     setConfigProfile(profile);
@@ -195,13 +187,15 @@ function App() {
         let nextHoldings = persisted;
         let addedSymbols: string[] = [];
         let importedProfiles: string[] = [];
+        let shouldPersistHoldings = false;
+        let researchBandsApplied = false;
         const seedMarker = window.localStorage.getItem(REQUESTED_FUND_SEED_STORAGE_KEY);
         if (!seedMarker) {
           const merged = mergeRequestedFundHoldings(persisted);
           nextHoldings = merged.holdings;
           addedSymbols = merged.addedSymbols;
           if (addedSymbols.length) {
-            await savePersistedHoldings(nextHoldings);
+            shouldPersistHoldings = true;
           }
           importedProfiles = await importRequestedFundProfiles();
           if (importedProfiles.length) {
@@ -212,11 +206,22 @@ function App() {
             JSON.stringify({ seededAt: new Date().toISOString(), holdings: addedSymbols, profiles: importedProfiles }),
           );
         }
+        const researchHoldings = applyResearchTargetBands(nextHoldings);
+        if (JSON.stringify(researchHoldings) !== JSON.stringify(nextHoldings)) {
+          nextHoldings = researchHoldings;
+          shouldPersistHoldings = true;
+          researchBandsApplied = true;
+        }
+        if (shouldPersistHoldings) {
+          await savePersistedHoldings(nextHoldings);
+        }
         skipNextHoldingsPersistRef.current = true;
         setHoldings(nextHoldings);
         setHoldingsPersistenceMessage(
           addedSymbols.length || importedProfiles.length
             ? `已补充 ${[...addedSymbols, ...importedProfiles].join("、")}。`
+            : researchBandsApplied
+              ? "已应用研究版目标带。"
             : isTauriRuntime()
               ? "已持久化到本机文件。"
               : "Web 预览保存在浏览器。",
@@ -337,18 +342,45 @@ function App() {
     };
   }, [localTradeRows]);
 
+  const analysisRightRailVisible = activeWorkspace === "analysis" && Boolean(report && reportIsCurrent && !rightRailCollapsed);
+
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <div className="window-drag-region" data-tauri-drag-region />
-      <AppTitlebarActions
+      <TooltipProvider>
+        <CssBaseline />
+        <div className="window-drag-region" data-tauri-drag-region />
+        <AppTitlebarActions
         onOpenProfileConfig={openProfileConfig}
         onToggleSidebar={() => setSidebarCollapsed((current) => !current)}
         onToggleRightRail={() => setRightRailCollapsed((current) => !current)}
         sidebarCollapsed={sidebarCollapsed}
         rightRailCollapsed={rightRailCollapsed}
-        rightRailLabel={activeWorkspace === "holdings" ? "资产详情栏" : "组合分析右侧区域"}
-      />
+        rightRailLabel={
+          activeWorkspace === "holdings"
+            ? "资产详情栏"
+            : activeWorkspace === "quant"
+              ? "交易执行栏"
+              : "组合分析右侧区域"
+        }
+        />
+        {activeWorkspace === "analysis" ? (
+        <div
+          className={`window-center-toolbar ${analysisRightRailVisible ? "has-right-rail" : ""} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
+        >
+          <AppTopbar
+            asOf={asOf}
+            loading={loading}
+            profile={profile}
+            profiles={profiles}
+            dataSources={dataSources}
+            source={source}
+            onAsOfChange={setAsOf}
+            onProfileChange={setProfile}
+            onSourceChange={setSource}
+            onRefresh={() => void refresh()}
+          />
+        </div>
+      ) : null}
       <main className="app-shell">
         <div className={`workspace-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
           <nav className="app-menu" aria-label="工作区" data-tauri-drag-region>
@@ -399,23 +431,6 @@ function App() {
             {activeWorkspace === "analysis" ? (
               <div className={`analysis-page-stack ${!rightRailCollapsed && report && reportIsCurrent ? "has-decision-rail" : ""}`}>
                 <div className="analysis-main-column">
-                  <Card className="topbar-card">
-                    <CardContent className="topbar-content">
-                      <AppTopbar
-                        asOf={asOf}
-                        loading={loading}
-                        profile={profile}
-                        profiles={profiles}
-                        dataSources={dataSources}
-                        source={source}
-                        onAsOfChange={setAsOf}
-                        onProfileChange={setProfile}
-                        onSourceChange={setSource}
-                        onRefresh={() => void refresh()}
-                      />
-                    </CardContent>
-                  </Card>
-
                   {error ? (
                     <Card className="error-card">
                       <CardContent>
@@ -509,148 +524,53 @@ function App() {
                 {!rightRailCollapsed && report && reportIsCurrent ? <DecisionRail report={report} /> : null}
               </div>
             ) : null}
+
+            {activeWorkspace === "quant" ? (
+              <QuantLabWorkspace
+                holdings={localHoldingRows}
+                loading={loading}
+                onOpenAnalysis={() => setActiveWorkspace("analysis")}
+                onRefresh={() => void refresh()}
+                positionPlan={activePositionPlan}
+                report={report}
+                reportIsCurrent={reportIsCurrent}
+                rightRailCollapsed={rightRailCollapsed}
+                trades={localTradeRows}
+              />
+            ) : null}
           </div>
         </div>
 
         {report && reportIsCurrent ? (
-          <div
-            className={`config-drawer-layer ${profileDrawerOpen ? "is-open" : ""}`}
-            aria-hidden={!profileDrawerOpen}
-          >
-            <button
-              type="button"
-              className="config-drawer-backdrop"
-              aria-label="关闭配置面板"
-              onClick={() => setProfileDrawerOpen(false)}
-            />
-            <aside
-              className="config-drawer"
-              role="dialog"
-              aria-modal={profileDrawerOpen}
-              aria-labelledby="profile-config-dialog-title"
-            >
-              <div className="config-drawer-head">
-                <div>
-                  <span>Global Config</span>
-                  <strong id="profile-config-dialog-title">Profile 配置工作台</strong>
-                </div>
-                <button type="button" aria-label="关闭配置面板" onClick={() => setProfileDrawerOpen(false)}>
-                  <CloseRoundedIcon fontSize="inherit" />
-                </button>
-              </div>
-              <div className="config-workbench">
-                <nav className="config-section-nav" role="tablist" aria-label="设置分类">
-                  {CONFIG_PANEL_SECTIONS.map((section) => (
-                    <button
-                      key={section.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={activeConfigSection === section.key}
-                      className={activeConfigSection === section.key ? "is-active" : undefined}
-                      onClick={() => setActiveConfigSection(section.key)}
-                    >
-                      <strong>{section.label}</strong>
-                      <span>{section.detail}</span>
-                    </button>
-                  ))}
-                </nav>
-
-                <div className="config-section-body">
-                  <section className="config-section-pane" hidden={activeConfigSection !== "global"} aria-label="全局设置">
-                    <div className="config-app-settings" aria-label="应用设置">
-                      <div>
-                        <span>界面模式</span>
-                        <strong>界面模式</strong>
-                        <p>{styleMode === "light" ? "冷白蓝灰面板，保留市场红绿标识。" : "石墨暗面板，适合长时间盯盘。"}</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="appearance-mode-switch"
-                        role="switch"
-                        aria-checked={styleMode === "light"}
-                        aria-label={styleMode === "light" ? "切换暗模式" : "切换亮模式"}
-                        onClick={toggleStyleMode}
-                      >
-                        <span className="is-dark">
-                          <DarkModeRoundedIcon fontSize="inherit" />
-                          暗
-                        </span>
-                        <span className="is-light">
-                          <LightModeRoundedIcon fontSize="inherit" />
-                          亮
-                        </span>
-                        <i aria-hidden="true" />
-                      </button>
-                    </div>
-
-                    <div className="config-global-grid">
-                      <article>
-                        <span>默认 Profile</span>
-                        <strong>{profiles.find((item) => item.key === defaultProfile)?.name ?? defaultProfile}</strong>
-                        <select
-                          value={defaultProfile}
-                          name="defaultProfile"
-                          aria-label="默认 Profile"
-                          onChange={(event) => setDefaultProfile(event.target.value)}
-                        >
-                          {(profiles.length ? profiles : [{ key: profile, name: report.profileName, market: report.profileMarket, description: "", builtin: false }]).map((item) => (
-                            <option key={item.key} value={item.key}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p>启动时优先使用的 Profile；不会立即切换当前分析。</p>
-                        <button type="button" onClick={() => setProfile(defaultProfile)} disabled={profile === defaultProfile}>
-                          应用到当前
-                        </button>
-                      </article>
-                      <article>
-                        <span>默认数据源</span>
-                        <strong>{dataSources.find((item) => item.key === defaultSource)?.name ?? defaultSource}</strong>
-                        <select
-                          value={defaultSource}
-                          name="defaultSource"
-                          aria-label="默认数据源"
-                          onChange={(event) => setDefaultSource(event.target.value as DataSource)}
-                        >
-                          {(dataSources.length ? dataSources : [{ key: source, name: source, description: "", requiresConfig: false }]).map((item) => (
-                            <option key={item.key} value={item.key}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p>启动时优先使用的数据源；当前分析仍可在顶部临时切换。</p>
-                        <button type="button" onClick={() => setSource(defaultSource)} disabled={source === defaultSource}>
-                          应用到当前
-                        </button>
-                      </article>
-                      <article>
-                        <span>当前会话</span>
-                        <strong>{report.profileName}</strong>
-                        <p>{report.profileMarket.toUpperCase()} · {report.sourceLabel} · {source}</p>
-                      </article>
-                    </div>
-                  </section>
-
-                  <ProfileConfigPanel
-                    profile={configProfile}
-                    activeAnalysisProfile={profile}
-                    profiles={profiles}
-                    report={report}
-                    activeSection={activeProfileConfigSection}
-                    hidden={activeConfigSection === "global"}
-                    onProfileChange={setConfigProfile}
-                    onApplyProfile={setProfile}
-                    onProfilesChanged={reloadProfiles}
-                    onRefresh={() => void refresh()}
-                    onSectionChange={(section) => setActiveConfigSection(section)}
-                  />
-                </div>
-              </div>
-            </aside>
-          </div>
+          <SettingsPanel
+            open={profileDrawerOpen}
+            onOpenChange={setProfileDrawerOpen}
+            activeSection={activeConfigSection}
+            onActiveSectionChange={setActiveConfigSection}
+            configProfile={configProfile}
+            profile={profile}
+            activeAnalysisProfile={profile}
+            profiles={profiles}
+            report={report}
+            dataSources={dataSources}
+            defaultProfile={defaultProfile}
+            defaultSource={defaultSource}
+            source={source}
+            styleMode={styleMode}
+            onSetStyleMode={setStyleMode}
+            onSetDefaultProfile={setDefaultProfile}
+            onSetDefaultSource={setDefaultSource}
+            onApplyDefaultProfile={() => setProfile(defaultProfile)}
+            onApplyDefaultSource={() => setSource(defaultSource)}
+            onProfileChange={setConfigProfile}
+            onUseProfile={setProfile}
+            onProfilesChanged={reloadProfiles}
+            onRefresh={() => void refresh()}
+          />
         ) : null}
       </main>
+      <Toaster theme={styleMode} position="bottom-right" />
+      </TooltipProvider>
     </ThemeProvider>
   );
 }

@@ -5,12 +5,18 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::time::Duration as StdDuration;
 
 const HISTORY_RANGE: &str = "2y";
 const MIN_DAILY_BARS: usize = 220;
 const DEFAULT_PROFILE_KEY: &str = "us-core";
+const DEFAULT_QBOT_PATH: &str = "/Users/ikiru/Documents/Qbot";
+const DEFAULT_VNPY_PATH: &str = "/Users/ikiru/Documents/vnpy";
+const QBOT_ADAPTER_SCRIPT: &str = include_str!("../adapters/qbot_adapter.py");
+const VNPY_ADAPTER_SCRIPT: &str = include_str!("../adapters/vnpy_adapter.py");
 const YAHOO_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
 const YAHOO_CHART_HOSTS: [&str; 2] = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 const FRED_GRAPH_CSV_URL: &str = "https://fred.stlouisfed.org/graph/fredgraph.csv";
@@ -233,6 +239,259 @@ pub struct TradeRecord {
     pub fee: f64,
     pub currency: String,
     pub notes: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerBridgeProbeRequest {
+    pub bridge: Option<String>,
+    pub qbot_path: Option<String>,
+    pub vnpy_path: Option<String>,
+    pub python: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerBridgeStatus {
+    pub bridge: String,
+    pub label: String,
+    pub path: String,
+    pub path_exists: bool,
+    pub adapter_exists: bool,
+    pub python_ok: bool,
+    pub command_available: bool,
+    pub route_label: String,
+    pub summary: String,
+    pub warnings: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub command_preview: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuantOrderRouteRequest {
+    pub bridge: String,
+    pub broker_mode: String,
+    pub symbol: String,
+    pub name: String,
+    pub side: String,
+    pub quantity: String,
+    pub limit: String,
+    pub amount: String,
+    pub weight: String,
+    pub strategy: String,
+    pub platform: String,
+    pub trade_type: String,
+    pub risk_override: bool,
+    pub allow_live: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuantOrderRouteResult {
+    pub accepted: bool,
+    pub submitted: bool,
+    pub bridge: String,
+    pub route: String,
+    pub status: String,
+    pub order_ref: String,
+    pub message: String,
+    pub warnings: Vec<String>,
+    pub command_preview: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderCommandRequest {
+    pub bridge: String,
+    pub broker_mode: String,
+    pub order_id: Option<String>,
+    pub order_ref: Option<String>,
+    pub current_status: Option<String>,
+    pub symbol: String,
+    pub name: String,
+    pub side: String,
+    pub quantity: String,
+    pub limit: String,
+    pub amount: String,
+    pub weight: String,
+    pub strategy: String,
+    pub platform: String,
+    pub trade_type: String,
+    pub risk_override: bool,
+    pub allow_live: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderCommandResult {
+    pub accepted: bool,
+    pub submitted: bool,
+    pub bridge: String,
+    pub route: String,
+    pub status: String,
+    pub order_ref: String,
+    pub message: String,
+    pub warnings: Vec<String>,
+    pub command_preview: Vec<String>,
+    pub action: String,
+    pub order_id: String,
+    pub event_label: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerAccountSyncRequest {
+    pub bridge: String,
+    pub broker_mode: String,
+    pub platform: String,
+    pub trade_type: String,
+    pub strategy: String,
+    pub risk_override: bool,
+    pub allow_live: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerAccountSnapshot {
+    #[serde(default)]
+    pub accepted: bool,
+    #[serde(default)]
+    pub bridge: String,
+    #[serde(default)]
+    pub route: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub account_id: String,
+    #[serde(default)]
+    pub account_name: String,
+    #[serde(default)]
+    pub currency: String,
+    #[serde(default)]
+    pub cash: f64,
+    #[serde(default)]
+    pub market_value: f64,
+    #[serde(default)]
+    pub equity: f64,
+    #[serde(default)]
+    pub positions: Vec<Value>,
+    #[serde(default)]
+    pub orders: Vec<Value>,
+    #[serde(default)]
+    pub trades: Vec<Value>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    #[serde(default)]
+    pub command_preview: Vec<String>,
+    #[serde(default)]
+    pub synced_at: String,
+    #[serde(default)]
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketQuoteRequest {
+    pub bridge: String,
+    pub broker_mode: String,
+    pub symbol: String,
+    pub name: String,
+    pub market: String,
+    pub asset_type: Option<String>,
+    pub reference_price: Option<f64>,
+    pub platform: String,
+    pub trade_type: String,
+    pub strategy: String,
+    pub risk_override: bool,
+    pub allow_live: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketQuoteSnapshot {
+    #[serde(default)]
+    pub accepted: bool,
+    #[serde(default)]
+    pub bridge: String,
+    #[serde(default)]
+    pub route: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub symbol: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub market: String,
+    #[serde(default)]
+    pub asset_type: String,
+    #[serde(default)]
+    pub bid: Option<f64>,
+    #[serde(default)]
+    pub ask: Option<f64>,
+    #[serde(default)]
+    pub last: Option<f64>,
+    #[serde(default)]
+    pub nav: Option<f64>,
+    #[serde(default)]
+    pub indicative_nav: Option<f64>,
+    #[serde(default)]
+    pub premium_discount_pct: Option<f64>,
+    #[serde(default)]
+    pub session: String,
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub tradable_volume: Option<f64>,
+    #[serde(default)]
+    pub currency: String,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    #[serde(default)]
+    pub command_preview: Vec<String>,
+    #[serde(default)]
+    pub synced_at: String,
+    #[serde(default)]
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderAuditExportRequest {
+    pub format: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderAuditExportResult {
+    pub path: String,
+    pub format: String,
+    pub orders: usize,
+    pub events: usize,
+    pub exported_at: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BrokerAdapterResponse {
+    #[serde(default)]
+    accepted: bool,
+    #[serde(default)]
+    submitted: bool,
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    order_ref: String,
+    #[serde(default)]
+    message: String,
+    #[serde(default)]
+    event_label: String,
+    #[serde(default)]
+    warnings: Vec<String>,
+    #[serde(default)]
+    command_preview: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1647,6 +1906,1704 @@ pub fn save_trades_to_path(
     fs::rename(&temp_path, path)
         .map_err(|error| AppError::internal(format!("trades file replace failed: {error}")))?;
     Ok(trades)
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OrderStoreSnapshot {
+    version: u16,
+    updated_at: String,
+    orders: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MonitorStoreSnapshot {
+    version: u16,
+    updated_at: String,
+    snapshot: Option<Value>,
+    records: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RiskPolicyStoreSnapshot {
+    version: u16,
+    updated_at: String,
+    policy: Value,
+}
+
+pub fn load_orders_from_path(path: &Path) -> Result<Vec<Value>, AppError> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("orders file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("orders json parse failed: {error}")))?;
+    order_values_from_storage_value(value)
+}
+
+pub fn save_orders_to_path(path: &Path, orders: Vec<Value>) -> Result<Vec<Value>, AppError> {
+    let orders = normalize_order_values(orders);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("orders directory create failed: {error}"))
+        })?;
+    }
+    let snapshot = OrderStoreSnapshot {
+        version: 1,
+        updated_at: Utc::now().to_rfc3339(),
+        orders: orders.clone(),
+    };
+    let json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| AppError::internal(format!("orders serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json)
+        .map_err(|error| AppError::internal(format!("orders temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("orders file replace failed: {error}")))?;
+    Ok(orders)
+}
+
+pub fn load_monitor_state_from_path(path: &Path) -> Result<Value, AppError> {
+    if !path.exists() {
+        return Ok(default_monitor_state());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("monitor file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("monitor json parse failed: {error}")))?;
+    Ok(normalize_monitor_state_value(value))
+}
+
+pub fn save_monitor_state_to_path(path: &Path, state: Value) -> Result<Value, AppError> {
+    let normalized = normalize_monitor_state_value(state);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("monitor directory create failed: {error}"))
+        })?;
+    }
+    let snapshot = MonitorStoreSnapshot {
+        version: 1,
+        updated_at: Utc::now().to_rfc3339(),
+        snapshot: normalized.get("snapshot").cloned().filter(|value| !value.is_null()),
+        records: normalized
+            .get("records")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default(),
+    };
+    let json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| AppError::internal(format!("monitor serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json)
+        .map_err(|error| AppError::internal(format!("monitor temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("monitor file replace failed: {error}")))?;
+    Ok(normalized)
+}
+
+pub fn load_risk_policy_from_path(path: &Path) -> Result<Value, AppError> {
+    if !path.exists() {
+        return Ok(default_risk_policy_value());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("risk policy file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("risk policy json parse failed: {error}")))?;
+    Ok(risk_policy_from_storage_value(value))
+}
+
+pub fn save_risk_policy_to_path(path: &Path, policy: Value) -> Result<Value, AppError> {
+    let normalized = normalize_risk_policy_value(policy);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("risk policy directory create failed: {error}"))
+        })?;
+    }
+    let snapshot = RiskPolicyStoreSnapshot {
+        version: 1,
+        updated_at: Utc::now().to_rfc3339(),
+        policy: normalized.clone(),
+    };
+    let json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| AppError::internal(format!("risk policy serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json)
+        .map_err(|error| AppError::internal(format!("risk policy temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("risk policy file replace failed: {error}")))?;
+    Ok(normalized)
+}
+
+pub fn export_order_audit_from_paths(
+    orders_path: &Path,
+    export_dir: &Path,
+    request: OrderAuditExportRequest,
+) -> Result<OrderAuditExportResult, AppError> {
+    export_order_audit_from_paths_with_policy(orders_path, None, export_dir, request)
+}
+
+pub fn export_order_audit_from_paths_with_policy(
+    orders_path: &Path,
+    risk_policy_path: Option<&Path>,
+    export_dir: &Path,
+    request: OrderAuditExportRequest,
+) -> Result<OrderAuditExportResult, AppError> {
+    let orders = load_orders_from_path(orders_path)?;
+    let risk_policy = risk_policy_path
+        .map(load_risk_policy_from_path)
+        .transpose()?;
+    let format = normalize_audit_format(request.format);
+    fs::create_dir_all(export_dir)
+        .map_err(|error| AppError::internal(format!("order audit directory create failed: {error}")))?;
+    let exported_at = Utc::now();
+    let events = count_order_events(&orders);
+    let path = export_dir.join(format!(
+        "order-audit-{}.{}",
+        exported_at.format("%Y%m%d-%H%M%S"),
+        format
+    ));
+
+    if format == "csv" {
+        write_order_audit_csv(&path, &orders)?;
+    } else {
+        write_order_audit_json(&path, &orders, risk_policy, exported_at.to_rfc3339(), events)?;
+    }
+
+    Ok(OrderAuditExportResult {
+        path: path.display().to_string(),
+        format,
+        orders: orders.len(),
+        events,
+        exported_at: exported_at.to_rfc3339(),
+        summary: format!("已导出 {} 条委托、{} 条事件", orders.len(), events),
+    })
+}
+
+fn order_values_from_storage_value(value: Value) -> Result<Vec<Value>, AppError> {
+    match value {
+        Value::Array(orders) => Ok(normalize_order_values(orders)),
+        Value::Object(mut object) => {
+            let orders = object.remove("orders").ok_or_else(|| {
+                AppError::invalid("orders storage object is missing orders array".to_string())
+            })?;
+            match orders {
+                Value::Array(orders) => Ok(normalize_order_values(orders)),
+                _ => Err(AppError::invalid(
+                    "orders storage field orders must be an array".to_string(),
+                )),
+            }
+        }
+        _ => Err(AppError::invalid(
+            "orders storage must be an array or snapshot object".to_string(),
+        )),
+    }
+}
+
+fn normalize_order_values(orders: Vec<Value>) -> Vec<Value> {
+    orders
+        .into_iter()
+        .filter(|value| value.is_object())
+        .take(200)
+        .collect()
+}
+
+fn normalize_monitor_state_value(value: Value) -> Value {
+    let (snapshot, records) = match value {
+        Value::Object(mut object) => {
+            let has_store_shape = object.contains_key("snapshot") || object.contains_key("records");
+            if has_store_shape {
+                let snapshot = object.remove("snapshot").filter(|value| value.is_object());
+                let records = object
+                    .remove("records")
+                    .and_then(|value| value.as_array().cloned())
+                    .unwrap_or_default();
+                (snapshot, normalize_monitor_records(records))
+            } else {
+                (Some(Value::Object(object)), Vec::new())
+            }
+        }
+        _ => (None, Vec::new()),
+    };
+    serde_json::json!({
+        "version": 1,
+        "updatedAt": Utc::now().to_rfc3339(),
+        "snapshot": snapshot,
+        "records": records,
+    })
+}
+
+fn normalize_monitor_records(records: Vec<Value>) -> Vec<Value> {
+    records
+        .into_iter()
+        .filter(|value| value.is_object())
+        .take(500)
+        .collect()
+}
+
+fn default_monitor_state() -> Value {
+    serde_json::json!({
+        "version": 1,
+        "updatedAt": Utc::now().to_rfc3339(),
+        "snapshot": null,
+        "records": [],
+    })
+}
+
+fn risk_policy_from_storage_value(value: Value) -> Value {
+    match value {
+        Value::Object(mut object) => {
+            let policy = object
+                .remove("policy")
+                .filter(Value::is_object)
+                .unwrap_or(Value::Object(object));
+            normalize_risk_policy_value(policy)
+        }
+        _ => default_risk_policy_value(),
+    }
+}
+
+fn normalize_risk_policy_value(value: Value) -> Value {
+    let object = value.as_object();
+    let single_caps = object
+        .and_then(|item| item.get("singleOrderCaps"))
+        .and_then(Value::as_object);
+    let loss_brake = object
+        .and_then(|item| item.get("lossBrake"))
+        .and_then(Value::as_object);
+    serde_json::json!({
+        "version": 2,
+        "updatedAt": object
+            .and_then(|item| item.get("updatedAt"))
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("")
+            .to_string(),
+        "maxDailyOrders": risk_i64(object.and_then(|item| item.get("maxDailyOrders")), 8, 0, 200),
+        "cooldownMinutes": risk_f64(object.and_then(|item| item.get("cooldownMinutes")), 30.0, 0.0, 1440.0),
+        "requireLiveConfirmation": object
+            .and_then(|item| item.get("requireLiveConfirmation"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "singleOrderCaps": {
+            "etfPct": risk_f64(single_caps.and_then(|item| item.get("etfPct")), 5.0, 0.1, 50.0),
+            "fundPct": risk_f64(single_caps.and_then(|item| item.get("fundPct")), 4.0, 0.1, 50.0),
+            "leveragedEtfPct": risk_f64(single_caps.and_then(|item| item.get("leveragedEtfPct")), 1.0, 0.1, 20.0),
+            "otherPct": risk_f64(single_caps.and_then(|item| item.get("otherPct")), 2.0, 0.1, 50.0),
+            "stockPct": risk_f64(single_caps.and_then(|item| item.get("stockPct")), 3.0, 0.1, 50.0),
+        },
+        "lossBrake": {
+            "etfDailyDropBlockPct": risk_f64(loss_brake.and_then(|item| item.get("etfDailyDropBlockPct")), 7.0, 0.0, 50.0),
+            "etfDailyDropWarnPct": risk_f64(loss_brake.and_then(|item| item.get("etfDailyDropWarnPct")), 4.0, 0.0, 50.0),
+            "leveragedEtfDailyDropBlockPct": risk_f64(loss_brake.and_then(|item| item.get("leveragedEtfDailyDropBlockPct")), 4.0, 0.0, 50.0),
+            "portfolioDailyLossPct": risk_f64(loss_brake.and_then(|item| item.get("portfolioDailyLossPct")), 3.5, 0.0, 50.0),
+        },
+    })
+}
+
+fn default_risk_policy_value() -> Value {
+    normalize_risk_policy_value(serde_json::json!({}))
+}
+
+fn risk_f64(value: Option<&Value>, fallback: f64, min: f64, max: f64) -> f64 {
+    value
+        .and_then(Value::as_f64)
+        .filter(|candidate| candidate.is_finite())
+        .map(|candidate| candidate.clamp(min, max))
+        .unwrap_or(fallback)
+}
+
+fn risk_i64(value: Option<&Value>, fallback: i64, min: i64, max: i64) -> i64 {
+    value
+        .and_then(Value::as_i64)
+        .map(|candidate| candidate.clamp(min, max))
+        .unwrap_or(fallback)
+}
+
+fn normalize_audit_format(format: Option<String>) -> String {
+    match format
+        .unwrap_or_else(|| "json".to_string())
+        .trim()
+        .to_lowercase()
+        .as_str()
+    {
+        "csv" => "csv".to_string(),
+        _ => "json".to_string(),
+    }
+}
+
+fn count_order_events(orders: &[Value]) -> usize {
+    orders
+        .iter()
+        .map(|order| {
+            order
+                .get("events")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0)
+        })
+        .sum()
+}
+
+fn write_order_audit_json(
+    path: &Path,
+    orders: &[Value],
+    risk_policy: Option<Value>,
+    exported_at: String,
+    events: usize,
+) -> Result<(), AppError> {
+    let payload = serde_json::json!({
+        "version": 1,
+        "exportedAt": exported_at,
+        "summary": {
+            "orders": orders.len(),
+            "events": events,
+        },
+        "riskPolicy": risk_policy,
+        "orders": orders,
+    });
+    let json = serde_json::to_string_pretty(&payload)
+        .map_err(|error| AppError::internal(format!("order audit json serialize failed: {error}")))?;
+    atomic_write(path, json.as_bytes(), "order audit json")
+}
+
+fn write_order_audit_csv(path: &Path, orders: &[Value]) -> Result<(), AppError> {
+    let mut writer = csv::Writer::from_writer(Vec::new());
+    writer
+        .write_record([
+            "order_id",
+            "intent_key",
+            "symbol",
+            "name",
+            "side",
+            "status",
+            "route_status",
+            "broker",
+            "route",
+            "order_ref",
+            "source_kind",
+            "source_label",
+            "profile_key",
+            "profile_name",
+            "strategy_key",
+            "strategy_name",
+            "preset_key",
+            "preset_label",
+            "amount",
+            "weight",
+            "quantity",
+            "limit",
+            "state",
+            "created_at",
+            "created_iso",
+            "updated_at",
+            "updated_iso",
+            "submitted_at",
+            "filled_at",
+            "last_error",
+            "warnings",
+            "event_key",
+            "event_at",
+            "event_time",
+            "event_type",
+            "event_status",
+            "event_label",
+            "event_detail",
+        ])
+        .map_err(|error| AppError::internal(format!("order audit csv header failed: {error}")))?;
+
+    for order in orders {
+        let events = order.get("events").and_then(Value::as_array);
+        if let Some(events) = events.filter(|items| !items.is_empty()) {
+            for event in events {
+                write_order_audit_csv_row(&mut writer, order, Some(event))?;
+            }
+        } else {
+            write_order_audit_csv_row(&mut writer, order, None)?;
+        }
+    }
+
+    let bytes = writer
+        .into_inner()
+        .map_err(|error| AppError::internal(format!("order audit csv finalize failed: {error}")))?;
+    atomic_write(path, &bytes, "order audit csv")
+}
+
+fn write_order_audit_csv_row(
+    writer: &mut csv::Writer<Vec<u8>>,
+    order: &Value,
+    event: Option<&Value>,
+) -> Result<(), AppError> {
+    writer
+        .write_record([
+            value_field(order, "id"),
+            value_field(order, "intentKey"),
+            value_field(order, "symbol"),
+            value_field(order, "name"),
+            value_field(order, "side"),
+            value_field(order, "status"),
+            value_field(order, "routeStatus"),
+            value_field(order, "broker"),
+            value_field(order, "route"),
+            value_field(order, "orderRef"),
+            value_field(order, "sourceKind"),
+            value_field(order, "sourceLabel"),
+            value_field(order, "profileKey"),
+            value_field(order, "profileName"),
+            value_field(order, "strategyKey"),
+            value_field(order, "strategyName"),
+            value_field(order, "presetKey"),
+            value_field(order, "presetLabel"),
+            value_field(order, "amount"),
+            value_field(order, "weight"),
+            value_field(order, "quantity"),
+            value_field(order, "limit"),
+            value_field(order, "state"),
+            value_field(order, "createdAt"),
+            value_field(order, "createdIso"),
+            value_field(order, "updatedAt"),
+            value_field(order, "updatedIso"),
+            value_field(order, "submittedAt"),
+            value_field(order, "filledAt"),
+            value_field(order, "lastError"),
+            warnings_field(order),
+            event.map(|value| value_field(value, "key")).unwrap_or_default(),
+            event.map(|value| value_field(value, "at")).unwrap_or_default(),
+            event.map(|value| value_field(value, "time")).unwrap_or_default(),
+            event.map(|value| value_field(value, "type")).unwrap_or_default(),
+            event.map(|value| value_field(value, "status")).unwrap_or_default(),
+            event.map(|value| value_field(value, "label")).unwrap_or_default(),
+            event.map(|value| value_field(value, "detail")).unwrap_or_default(),
+        ])
+        .map_err(|error| AppError::internal(format!("order audit csv row failed: {error}")))
+}
+
+fn atomic_write(path: &Path, bytes: &[u8], label: &str) -> Result<(), AppError> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)
+            .map_err(|error| AppError::internal(format!("{label} directory create failed: {error}")))?;
+    }
+    let temp_path = path.with_extension(format!(
+        "{}.tmp",
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("tmp")
+    ));
+    fs::write(&temp_path, bytes)
+        .map_err(|error| AppError::internal(format!("{label} temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("{label} file replace failed: {error}")))
+}
+
+fn value_field(value: &Value, key: &str) -> String {
+    value
+        .get(key)
+        .map(value_to_cell)
+        .unwrap_or_default()
+}
+
+fn warnings_field(order: &Value) -> String {
+    order
+        .get("warnings")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().map(value_to_cell).collect::<Vec<_>>().join(" | "))
+        .unwrap_or_default()
+}
+
+fn value_to_cell(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::String(text) => text.clone(),
+        Value::Bool(value) => value.to_string(),
+        Value::Number(value) => value.to_string(),
+        _ => serde_json::to_string(value).unwrap_or_default(),
+    }
+}
+
+pub fn probe_broker_bridge(request: BrokerBridgeProbeRequest) -> Vec<BrokerBridgeStatus> {
+    let bridge = request.bridge.as_deref().map(normalize_bridge_key);
+    let qbot_path = request
+        .qbot_path
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| std::env::var("RPORTFOLIO_QBOT_PATH").ok())
+        .unwrap_or_else(|| DEFAULT_QBOT_PATH.to_string());
+    let vnpy_path = request
+        .vnpy_path
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| std::env::var("RPORTFOLIO_VNPY_PATH").ok())
+        .unwrap_or_else(|| DEFAULT_VNPY_PATH.to_string());
+    let python = request
+        .python
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| std::env::var("RPORTFOLIO_PYTHON").ok())
+        .unwrap_or_else(|| "python3".to_string());
+    let python_ok = python_available(&python);
+
+    let mut statuses = Vec::new();
+    if bridge.as_deref().is_none() || bridge.as_deref() == Some("qbot") {
+        statuses.push(qbot_bridge_status(&qbot_path, &python, python_ok));
+    }
+    if bridge.as_deref().is_none() || bridge.as_deref() == Some("vnpy") {
+        statuses.push(vnpy_bridge_status(&vnpy_path, &python, python_ok));
+    }
+    statuses
+}
+
+pub fn route_quant_order(request: QuantOrderRouteRequest) -> QuantOrderRouteResult {
+    let bridge = normalize_bridge_key(&request.bridge);
+    let live_enabled = broker_live_enabled(request.allow_live);
+    let status = probe_broker_bridge(BrokerBridgeProbeRequest {
+        bridge: Some(bridge.clone()),
+        qbot_path: None,
+        vnpy_path: None,
+        python: None,
+    })
+    .into_iter()
+    .next();
+
+    if bridge == "local-paper" {
+        return QuantOrderRouteResult {
+            accepted: true,
+            submitted: false,
+            bridge,
+            route: "Local Paper".to_string(),
+            status: "queued".to_string(),
+            order_ref: order_ref("paper", &request.symbol),
+            message: format!(
+                "Local Paper queued {} {} @ {}",
+                request.side, request.symbol, request.limit
+            ),
+            warnings: Vec::new(),
+            command_preview: Vec::new(),
+        };
+    }
+
+    let Some(status) = status else {
+        return QuantOrderRouteResult {
+            accepted: false,
+            submitted: false,
+            bridge,
+            route: "unknown".to_string(),
+            status: "missing_bridge".to_string(),
+            order_ref: order_ref("missing", &request.symbol),
+            message: "bridge is not supported".to_string(),
+            warnings: vec!["只支持 local-paper、qbot、vnpy。".to_string()],
+            command_preview: Vec::new(),
+        };
+    };
+
+    let mut warnings = status.warnings.clone();
+    let mut command_preview = status.command_preview.clone();
+    command_preview.push(format!(
+        "order {} {} qty={} limit={} amount={} weight={} strategy={}",
+        request.side,
+        request.symbol,
+        request.quantity,
+        request.limit,
+        request.amount,
+        request.weight,
+        request.strategy
+    ));
+
+    if !status.command_available {
+        return QuantOrderRouteResult {
+            accepted: false,
+            submitted: false,
+            bridge,
+            route: status.route_label,
+            status: "missing_adapter".to_string(),
+            order_ref: order_ref("adapter", &request.symbol),
+            message: format!("{} adapter is not ready", status.label),
+            warnings,
+            command_preview,
+        };
+    }
+
+    if !live_enabled {
+        warnings.push(
+            "Rust command 已经完成桥接路由；设置 RPORTFOLIO_BROKER_LIVE=1 并补齐账户配置后可放开真实提交。"
+                .to_string(),
+        );
+        return QuantOrderRouteResult {
+            accepted: true,
+            submitted: false,
+            bridge,
+            route: status.route_label,
+            status: if request.risk_override {
+                "prepared_override".to_string()
+            } else {
+                "prepared".to_string()
+            },
+            order_ref: order_ref("prepared", &request.symbol),
+            message: format!(
+                "{} prepared {} {} via {}",
+                request.broker_mode, request.side, request.symbol, request.platform
+            ),
+            warnings,
+            command_preview,
+        };
+    }
+
+    warnings.push("Live flag 已开启，但当前版本只完成 adapter handoff；真实成交回报需要下一步接入账户回调。".to_string());
+    QuantOrderRouteResult {
+        accepted: true,
+        submitted: false,
+        bridge,
+        route: status.route_label,
+        status: "ready_to_submit".to_string(),
+        order_ref: order_ref("live", &request.symbol),
+        message: format!(
+            "live adapter ready for {} {} {}",
+            request.trade_type, request.side, request.symbol
+        ),
+        warnings,
+        command_preview,
+    }
+}
+
+pub fn prepare_order(request: OrderCommandRequest) -> OrderCommandResult {
+    let route = route_quant_order(route_request_from_order_command(&request));
+    command_result_from_route("prepareOrder", &request, route)
+}
+
+pub fn submit_order(request: OrderCommandRequest) -> OrderCommandResult {
+    broker_order_command("submitOrder", request)
+}
+
+pub fn cancel_order(request: OrderCommandRequest) -> OrderCommandResult {
+    broker_order_command("cancelOrder", request)
+}
+
+pub fn sync_order_status(request: OrderCommandRequest) -> OrderCommandResult {
+    broker_order_command("syncOrderStatus", request)
+}
+
+pub fn sync_account(request: BrokerAccountSyncRequest) -> BrokerAccountSnapshot {
+    let bridge = normalize_bridge_key(&request.bridge);
+    if bridge == "local-paper" {
+        return BrokerAccountSnapshot {
+            accepted: true,
+            bridge,
+            route: "Local Paper".to_string(),
+            status: "synced".to_string(),
+            account_id: "local-paper".to_string(),
+            account_name: "本地模拟账户".to_string(),
+            currency: "CNY".to_string(),
+            synced_at: Utc::now().to_rfc3339(),
+            message: "Local Paper account snapshot is local-only; use order center for simulated lifecycle.".to_string(),
+            ..BrokerAccountSnapshot::default()
+        };
+    }
+
+    let status = probe_broker_bridge(BrokerBridgeProbeRequest {
+        bridge: Some(bridge.clone()),
+        qbot_path: None,
+        vnpy_path: None,
+        python: None,
+    })
+    .into_iter()
+    .next();
+
+    let Some(status) = status else {
+        return BrokerAccountSnapshot {
+            accepted: false,
+            bridge,
+            route: "unknown".to_string(),
+            status: "missing_bridge".to_string(),
+            synced_at: Utc::now().to_rfc3339(),
+            message: "bridge is not supported".to_string(),
+            warnings: vec!["只支持 local-paper、qbot、vnpy。".to_string()],
+            ..BrokerAccountSnapshot::default()
+        };
+    };
+
+    let mut warnings = status.warnings.clone();
+    let mut command_preview = status.command_preview.clone();
+    command_preview.push(format!(
+        "syncAccount platform={} tradeType={} strategy={}",
+        request.platform, request.trade_type, request.strategy
+    ));
+
+    if !status.command_available {
+        return BrokerAccountSnapshot {
+            accepted: false,
+            bridge,
+            route: status.route_label,
+            status: "missing_adapter".to_string(),
+            synced_at: Utc::now().to_rfc3339(),
+            message: format!("{} adapter is not ready", status.label),
+            warnings,
+            command_preview,
+            ..BrokerAccountSnapshot::default()
+        };
+    }
+
+    match run_account_adapter(&request, &bridge, &status.route_label) {
+        Ok(mut snapshot) => {
+            snapshot.accepted = snapshot.accepted || snapshot.status == "synced";
+            if snapshot.bridge.trim().is_empty() {
+                snapshot.bridge = bridge;
+            }
+            if snapshot.route.trim().is_empty() {
+                snapshot.route = status.route_label;
+            }
+            if snapshot.status.trim().is_empty() {
+                snapshot.status = "synced".to_string();
+            }
+            if snapshot.synced_at.trim().is_empty() {
+                snapshot.synced_at = Utc::now().to_rfc3339();
+            }
+            if snapshot.message.trim().is_empty() {
+                snapshot.message = format!(
+                    "{} account sync complete: {} positions, {} orders, {} trades",
+                    status.label,
+                    snapshot.positions.len(),
+                    snapshot.orders.len(),
+                    snapshot.trades.len()
+                );
+            }
+            warnings.extend(snapshot.warnings.clone());
+            command_preview.extend(snapshot.command_preview.clone());
+            snapshot.warnings = warnings;
+            snapshot.command_preview = command_preview;
+            snapshot
+        }
+        Err(message) => {
+            warnings.push(message.clone());
+            BrokerAccountSnapshot {
+                accepted: false,
+                bridge,
+                route: status.route_label,
+                status: "adapter_error".to_string(),
+                synced_at: Utc::now().to_rfc3339(),
+                message,
+                warnings,
+                command_preview,
+                ..BrokerAccountSnapshot::default()
+            }
+        }
+    }
+}
+
+pub fn sync_market_quote(request: MarketQuoteRequest) -> MarketQuoteSnapshot {
+    let bridge = normalize_bridge_key(&request.bridge);
+    if bridge == "local-paper" {
+        return local_paper_market_quote(&request, bridge);
+    }
+
+    let status = probe_broker_bridge(BrokerBridgeProbeRequest {
+        bridge: Some(bridge.clone()),
+        qbot_path: None,
+        vnpy_path: None,
+        python: None,
+    })
+    .into_iter()
+    .next();
+
+    let Some(status) = status else {
+        return MarketQuoteSnapshot {
+            accepted: false,
+            bridge,
+            route: "unknown".to_string(),
+            status: "missing_bridge".to_string(),
+            symbol: request.symbol,
+            name: request.name,
+            market: request.market,
+            asset_type: request.asset_type.unwrap_or_default(),
+            synced_at: Utc::now().to_rfc3339(),
+            message: "bridge is not supported".to_string(),
+            warnings: vec!["只支持 local-paper、qbot、vnpy。".to_string()],
+            ..MarketQuoteSnapshot::default()
+        };
+    };
+
+    let mut warnings = status.warnings.clone();
+    let mut command_preview = status.command_preview.clone();
+    command_preview.push(format!(
+        "syncMarketQuote symbol={} market={} tradeType={} strategy={}",
+        request.symbol, request.market, request.trade_type, request.strategy
+    ));
+
+    if !status.command_available {
+        return MarketQuoteSnapshot {
+            accepted: false,
+            bridge,
+            route: status.route_label,
+            status: "missing_adapter".to_string(),
+            symbol: request.symbol,
+            name: request.name,
+            market: request.market,
+            asset_type: request.asset_type.unwrap_or_default(),
+            synced_at: Utc::now().to_rfc3339(),
+            message: format!("{} market data adapter is not ready", status.label),
+            warnings,
+            command_preview,
+            ..MarketQuoteSnapshot::default()
+        };
+    }
+
+    match run_market_quote_adapter(&request, &bridge, &status.route_label) {
+        Ok(mut quote) => {
+            quote.accepted = quote.accepted || quote.status == "synced";
+            if quote.bridge.trim().is_empty() {
+                quote.bridge = bridge;
+            }
+            if quote.route.trim().is_empty() {
+                quote.route = status.route_label;
+            }
+            if quote.status.trim().is_empty() {
+                quote.status = "synced".to_string();
+            }
+            if quote.symbol.trim().is_empty() {
+                quote.symbol = request.symbol;
+            }
+            if quote.name.trim().is_empty() {
+                quote.name = request.name;
+            }
+            if quote.market.trim().is_empty() {
+                quote.market = request.market;
+            }
+            if quote.asset_type.trim().is_empty() {
+                quote.asset_type = request.asset_type.unwrap_or_default();
+            }
+            if quote.synced_at.trim().is_empty() {
+                quote.synced_at = Utc::now().to_rfc3339();
+            }
+            if quote.message.trim().is_empty() {
+                quote.message = format!("{} market quote synced for {}", status.label, quote.symbol);
+            }
+            warnings.extend(quote.warnings.clone());
+            command_preview.extend(quote.command_preview.clone());
+            quote.warnings = warnings;
+            quote.command_preview = command_preview;
+            quote
+        }
+        Err(message) => {
+            warnings.push(message.clone());
+            MarketQuoteSnapshot {
+                accepted: false,
+                bridge,
+                route: status.route_label,
+                status: "adapter_error".to_string(),
+                symbol: request.symbol,
+                name: request.name,
+                market: request.market,
+                asset_type: request.asset_type.unwrap_or_default(),
+                synced_at: Utc::now().to_rfc3339(),
+                message,
+                warnings,
+                command_preview,
+                ..MarketQuoteSnapshot::default()
+            }
+        }
+    }
+}
+
+fn broker_order_command(action: &str, request: OrderCommandRequest) -> OrderCommandResult {
+    let bridge = normalize_bridge_key(&request.bridge);
+    if bridge == "local-paper" {
+        return local_paper_order_command(action, &request, bridge);
+    }
+
+    let status = probe_broker_bridge(BrokerBridgeProbeRequest {
+        bridge: Some(bridge.clone()),
+        qbot_path: None,
+        vnpy_path: None,
+        python: None,
+    })
+    .into_iter()
+    .next();
+
+    let Some(status) = status else {
+        return order_command_result(OrderCommandResultInput {
+            accepted: false,
+            action,
+            bridge,
+            command_preview: Vec::new(),
+            event_label: "通道缺失",
+            message: "bridge is not supported".to_string(),
+            order_ref: command_order_ref(&request, "missing"),
+            request: &request,
+            route: "unknown".to_string(),
+            status: "missing_bridge".to_string(),
+            submitted: false,
+            warnings: vec!["只支持 local-paper、qbot、vnpy。".to_string()],
+        });
+    };
+
+    let mut warnings = status.warnings.clone();
+    let mut command_preview = status.command_preview.clone();
+    command_preview.push(order_command_preview(action, &request));
+
+    if !status.command_available {
+        return order_command_result(OrderCommandResultInput {
+            accepted: false,
+            action,
+            bridge,
+            command_preview,
+            event_label: "通道未就绪",
+            message: format!("{} adapter is not ready", status.label),
+            order_ref: command_order_ref(&request, "adapter"),
+            request: &request,
+            route: status.route_label,
+            status: "missing_adapter".to_string(),
+            submitted: false,
+            warnings,
+        });
+    }
+
+    if action != "syncOrderStatus" && !broker_live_enabled(request.allow_live) {
+        warnings.push(
+            "提交/撤单命令已进入 Rust command；设置 RPORTFOLIO_BROKER_LIVE=1 并补齐账户配置后才会放给真实 adapter。"
+                .to_string(),
+        );
+        return order_command_result(OrderCommandResultInput {
+            accepted: false,
+            action,
+            bridge,
+            command_preview,
+            event_label: "实盘未启用",
+            message: format!("{} live command is not enabled", status.label),
+            order_ref: command_order_ref(&request, "disabled"),
+            request: &request,
+            route: status.route_label,
+            status: "live_disabled".to_string(),
+            submitted: false,
+            warnings,
+        });
+    }
+
+    match run_broker_adapter(action, &request, &bridge, &status.route_label) {
+        Ok(adapter) => {
+            warnings.extend(adapter.warnings.clone());
+            command_preview.extend(adapter.command_preview.clone());
+            order_command_result(OrderCommandResultInput {
+                accepted: adapter.accepted,
+                action,
+                bridge,
+                command_preview,
+                event_label: if adapter.event_label.is_empty() {
+                    adapter_event_label(action, &adapter.status, adapter.accepted)
+                } else {
+                    &adapter.event_label
+                },
+                message: if adapter.message.is_empty() {
+                    format!("{} adapter command completed", status.label)
+                } else {
+                    adapter.message
+                },
+                order_ref: if adapter.order_ref.is_empty() {
+                    command_order_ref(&request, adapter_ref_prefix(action))
+                } else {
+                    adapter.order_ref
+                },
+                request: &request,
+                route: status.route_label,
+                status: if adapter.status.is_empty() {
+                    adapter_status_fallback(action, adapter.accepted)
+                } else {
+                    adapter.status
+                },
+                submitted: adapter.submitted,
+                warnings,
+            })
+        }
+        Err(message) => {
+            warnings.push(message.clone());
+            order_command_result(OrderCommandResultInput {
+                accepted: false,
+                action,
+                bridge,
+                command_preview,
+                event_label: "adapter 调用失败",
+                message,
+                order_ref: command_order_ref(&request, "adapter-error"),
+                request: &request,
+                route: status.route_label,
+                status: "adapter_error".to_string(),
+                submitted: false,
+                warnings,
+            })
+        }
+    }
+}
+
+struct OrderCommandResultInput<'a> {
+    accepted: bool,
+    action: &'a str,
+    bridge: String,
+    command_preview: Vec<String>,
+    event_label: &'a str,
+    message: String,
+    order_ref: String,
+    request: &'a OrderCommandRequest,
+    route: String,
+    status: String,
+    submitted: bool,
+    warnings: Vec<String>,
+}
+
+fn command_result_from_route(
+    action: &str,
+    request: &OrderCommandRequest,
+    route: QuantOrderRouteResult,
+) -> OrderCommandResult {
+    let event_label = match route.status.as_str() {
+        "queued" => "已排队",
+        "prepared" | "prepared_override" => "已预备",
+        "ready_to_submit" => "通道就绪",
+        "submitted" => "已提交",
+        "missing_adapter" | "missing_bridge" | "route_error" => "路由失败",
+        _ => "命令回写",
+    };
+    order_command_result(OrderCommandResultInput {
+        accepted: route.accepted,
+        action,
+        bridge: route.bridge,
+        command_preview: route.command_preview,
+        event_label,
+        message: route.message,
+        order_ref: route.order_ref,
+        request,
+        route: route.route,
+        status: route.status,
+        submitted: route.submitted,
+        warnings: route.warnings,
+    })
+}
+
+fn local_paper_order_command(
+    action: &str,
+    request: &OrderCommandRequest,
+    bridge: String,
+) -> OrderCommandResult {
+    let status = match action {
+        "submitOrder" => "submitted".to_string(),
+        "cancelOrder" => "cancelled".to_string(),
+        "syncOrderStatus" => request
+            .current_status
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| "queued".to_string()),
+        _ => "queued".to_string(),
+    };
+    let (event_label, message, prefix, submitted) = match action {
+        "submitOrder" => (
+            "已提交",
+            format!("Local Paper submitted {} {}", request.side, request.symbol),
+            "paper-submit",
+            true,
+        ),
+        "cancelOrder" => (
+            "已撤单",
+            format!("Local Paper cancelled {} {}", request.side, request.symbol),
+            "paper-cancel",
+            false,
+        ),
+        "syncOrderStatus" => (
+            "状态同步",
+            format!("Local Paper synced {} {}", request.side, request.symbol),
+            "paper-sync",
+            false,
+        ),
+        _ => (
+            "已排队",
+            format!("Local Paper queued {} {}", request.side, request.symbol),
+            "paper",
+            false,
+        ),
+    };
+
+    order_command_result(OrderCommandResultInput {
+        accepted: true,
+        action,
+        bridge,
+        command_preview: Vec::new(),
+        event_label,
+        message,
+        order_ref: command_order_ref(request, prefix),
+        request,
+        route: "Local Paper".to_string(),
+        status,
+        submitted,
+        warnings: Vec::new(),
+    })
+}
+
+fn local_paper_market_quote(request: &MarketQuoteRequest, bridge: String) -> MarketQuoteSnapshot {
+    let reference = request.reference_price.unwrap_or_default();
+    let (bid, ask, last) = if reference.is_finite() && reference > 0.0 {
+        (
+            Some(round_price(reference * 0.999)),
+            Some(round_price(reference * 1.001)),
+            Some(round_price(reference)),
+        )
+    } else {
+        (None, None, None)
+    };
+    MarketQuoteSnapshot {
+        accepted: true,
+        bridge,
+        route: "Local Paper".to_string(),
+        status: "synced".to_string(),
+        symbol: request.symbol.clone(),
+        name: request.name.clone(),
+        market: request.market.clone(),
+        asset_type: request.asset_type.clone().unwrap_or_default(),
+        bid,
+        ask,
+        last,
+        session: "unknown".to_string(),
+        source: "local-paper".to_string(),
+        synced_at: Utc::now().to_rfc3339(),
+        message: "Local Paper quote uses current holding/reference price for limit protection.".to_string(),
+        ..MarketQuoteSnapshot::default()
+    }
+}
+
+fn order_command_result(input: OrderCommandResultInput<'_>) -> OrderCommandResult {
+    OrderCommandResult {
+        accepted: input.accepted,
+        submitted: input.submitted,
+        bridge: input.bridge,
+        route: input.route,
+        status: input.status,
+        order_ref: input.order_ref,
+        message: input.message,
+        warnings: input.warnings,
+        command_preview: input.command_preview,
+        action: input.action.to_string(),
+        order_id: input
+            .request
+            .order_id
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| order_ref("order", &input.request.symbol)),
+        event_label: input.event_label.to_string(),
+    }
+}
+
+fn route_request_from_order_command(request: &OrderCommandRequest) -> QuantOrderRouteRequest {
+    QuantOrderRouteRequest {
+        bridge: request.bridge.clone(),
+        broker_mode: request.broker_mode.clone(),
+        symbol: request.symbol.clone(),
+        name: request.name.clone(),
+        side: request.side.clone(),
+        quantity: request.quantity.clone(),
+        limit: request.limit.clone(),
+        amount: request.amount.clone(),
+        weight: request.weight.clone(),
+        strategy: request.strategy.clone(),
+        platform: request.platform.clone(),
+        trade_type: request.trade_type.clone(),
+        risk_override: request.risk_override,
+        allow_live: request.allow_live,
+    }
+}
+
+fn broker_live_enabled(allow_live: Option<bool>) -> bool {
+    allow_live.unwrap_or(false)
+        && std::env::var("RPORTFOLIO_BROKER_LIVE")
+            .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+}
+
+fn command_order_ref(request: &OrderCommandRequest, prefix: &str) -> String {
+    request
+        .order_ref
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| order_ref(prefix, &request.symbol))
+}
+
+fn order_command_preview(action: &str, request: &OrderCommandRequest) -> String {
+    format!(
+        "{} {} {} qty={} limit={} amount={} weight={} strategy={} ref={}",
+        action,
+        request.side,
+        request.symbol,
+        request.quantity,
+        request.limit,
+        request.amount,
+        request.weight,
+        request.strategy,
+        command_order_ref(request, "preview")
+    )
+}
+
+fn run_broker_adapter(
+    action: &str,
+    request: &OrderCommandRequest,
+    bridge: &str,
+    route_label: &str,
+) -> Result<BrokerAdapterResponse, String> {
+    let script = adapter_script_for(bridge)
+        .ok_or_else(|| format!("unsupported broker adapter bridge: {bridge}"))?;
+    let python = resolved_python();
+    let workspace_path = resolved_bridge_path(bridge);
+    let payload = serde_json::json!({
+        "action": action,
+        "bridge": bridge,
+        "route": route_label,
+        "workspacePath": workspace_path,
+        "generatedAt": Utc::now().to_rfc3339(),
+        "request": request,
+    });
+    let payload_text = serde_json::to_string(&payload)
+        .map_err(|error| format!("cannot serialize broker adapter payload: {error}"))?;
+    let mut command = Command::new(&python);
+    command
+        .arg("-c")
+        .arg(script)
+        .arg(action)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let workspace = PathBuf::from(&workspace_path);
+    if workspace.exists() {
+        command.current_dir(&workspace);
+        command.env("PYTHONPATH", python_path_with_workspace(&workspace_path));
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("cannot start {bridge} adapter with {python}: {error}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(payload_text.as_bytes())
+            .map_err(|error| format!("cannot write broker adapter payload: {error}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("cannot read broker adapter output: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !output.status.success() {
+        return Err(if stderr.is_empty() {
+            format!("{bridge} adapter exited with {}", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    let mut response = parse_adapter_response(&stdout)?;
+    if !stderr.is_empty() {
+        response.warnings.push(stderr);
+    }
+    Ok(response)
+}
+
+fn run_account_adapter(
+    request: &BrokerAccountSyncRequest,
+    bridge: &str,
+    route_label: &str,
+) -> Result<BrokerAccountSnapshot, String> {
+    let script = adapter_script_for(bridge)
+        .ok_or_else(|| format!("unsupported broker adapter bridge: {bridge}"))?;
+    let python = resolved_python();
+    let workspace_path = resolved_bridge_path(bridge);
+    let payload = serde_json::json!({
+        "action": "syncAccount",
+        "bridge": bridge,
+        "route": route_label,
+        "workspacePath": workspace_path,
+        "generatedAt": Utc::now().to_rfc3339(),
+        "request": request,
+    });
+    let payload_text = serde_json::to_string(&payload)
+        .map_err(|error| format!("cannot serialize account sync payload: {error}"))?;
+    let mut command = Command::new(&python);
+    command
+        .arg("-c")
+        .arg(script)
+        .arg("syncAccount")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let workspace = PathBuf::from(&workspace_path);
+    if workspace.exists() {
+        command.current_dir(&workspace);
+        command.env("PYTHONPATH", python_path_with_workspace(&workspace_path));
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("cannot start {bridge} account adapter with {python}: {error}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(payload_text.as_bytes())
+            .map_err(|error| format!("cannot write account adapter payload: {error}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("cannot read account adapter output: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !output.status.success() {
+        return Err(if stderr.is_empty() {
+            format!("{bridge} account adapter exited with {}", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    let mut snapshot = parse_account_snapshot(&stdout)?;
+    if !stderr.is_empty() {
+        snapshot.warnings.push(stderr);
+    }
+    Ok(snapshot)
+}
+
+fn run_market_quote_adapter(
+    request: &MarketQuoteRequest,
+    bridge: &str,
+    route_label: &str,
+) -> Result<MarketQuoteSnapshot, String> {
+    let script = adapter_script_for(bridge)
+        .ok_or_else(|| format!("unsupported market data adapter bridge: {bridge}"))?;
+    let python = resolved_python();
+    let workspace_path = resolved_bridge_path(bridge);
+    let payload = serde_json::json!({
+        "action": "syncMarketQuote",
+        "bridge": bridge,
+        "route": route_label,
+        "workspacePath": workspace_path,
+        "generatedAt": Utc::now().to_rfc3339(),
+        "request": request,
+    });
+    let payload_text = serde_json::to_string(&payload)
+        .map_err(|error| format!("cannot serialize market quote payload: {error}"))?;
+    let mut command = Command::new(&python);
+    command
+        .arg("-c")
+        .arg(script)
+        .arg("syncMarketQuote")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let workspace = PathBuf::from(&workspace_path);
+    if workspace.exists() {
+        command.current_dir(&workspace);
+        command.env("PYTHONPATH", python_path_with_workspace(&workspace_path));
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("cannot start {bridge} market data adapter with {python}: {error}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(payload_text.as_bytes())
+            .map_err(|error| format!("cannot write market quote payload: {error}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("cannot read market data adapter output: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !output.status.success() {
+        return Err(if stderr.is_empty() {
+            format!("{bridge} market data adapter exited with {}", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    let mut quote = parse_market_quote_snapshot(&stdout)?;
+    if !stderr.is_empty() {
+        quote.warnings.push(stderr);
+    }
+    Ok(quote)
+}
+
+fn adapter_script_for(bridge: &str) -> Option<&'static str> {
+    match bridge {
+        "qbot" => Some(QBOT_ADAPTER_SCRIPT),
+        "vnpy" => Some(VNPY_ADAPTER_SCRIPT),
+        _ => None,
+    }
+}
+
+fn parse_adapter_response(stdout: &str) -> Result<BrokerAdapterResponse, String> {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return Err("broker adapter returned empty output".to_string());
+    }
+    if let Ok(response) = serde_json::from_str::<BrokerAdapterResponse>(trimmed) {
+        return Ok(response);
+    }
+    for line in trimmed.lines().rev() {
+        let candidate = line.trim();
+        if candidate.starts_with('{') {
+            if let Ok(response) = serde_json::from_str::<BrokerAdapterResponse>(candidate) {
+                return Ok(response);
+            }
+        }
+    }
+    Err(format!("broker adapter returned non-JSON output: {trimmed}"))
+}
+
+fn parse_account_snapshot(stdout: &str) -> Result<BrokerAccountSnapshot, String> {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return Err("account adapter returned empty output".to_string());
+    }
+    if let Ok(response) = serde_json::from_str::<BrokerAccountSnapshot>(trimmed) {
+        return Ok(response);
+    }
+    for line in trimmed.lines().rev() {
+        let candidate = line.trim();
+        if candidate.starts_with('{') {
+            if let Ok(response) = serde_json::from_str::<BrokerAccountSnapshot>(candidate) {
+                return Ok(response);
+            }
+        }
+    }
+    Err(format!("account adapter returned non-JSON output: {trimmed}"))
+}
+
+fn parse_market_quote_snapshot(stdout: &str) -> Result<MarketQuoteSnapshot, String> {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return Err("market data adapter returned empty output".to_string());
+    }
+    if let Ok(response) = serde_json::from_str::<MarketQuoteSnapshot>(trimmed) {
+        return Ok(response);
+    }
+    for line in trimmed.lines().rev() {
+        let candidate = line.trim();
+        if candidate.starts_with('{') {
+            if let Ok(response) = serde_json::from_str::<MarketQuoteSnapshot>(candidate) {
+                return Ok(response);
+            }
+        }
+    }
+    Err(format!("market data adapter returned non-JSON output: {trimmed}"))
+}
+
+fn adapter_event_label(action: &str, status: &str, accepted: bool) -> &'static str {
+    if !accepted {
+        return "命令失败";
+    }
+    match status {
+        "submitted" => "已提交",
+        "ready_to_submit" => "等待成交回报",
+        "ready_to_cancel" => "撤单已发送",
+        "cancelled" => "已撤单",
+        "partially_filled" => "部分成交",
+        "filled" => "已成交",
+        "synced" => "状态同步",
+        _ if action == "syncOrderStatus" => "状态同步",
+        _ if action == "cancelOrder" => "撤单已发送",
+        _ if action == "submitOrder" => "已提交",
+        _ => "命令回写",
+    }
+}
+
+fn adapter_status_fallback(action: &str, accepted: bool) -> String {
+    if !accepted {
+        return "adapter_error".to_string();
+    }
+    match action {
+        "submitOrder" => "submitted".to_string(),
+        "cancelOrder" => "ready_to_cancel".to_string(),
+        "syncOrderStatus" => "synced".to_string(),
+        _ => "prepared".to_string(),
+    }
+}
+
+fn adapter_ref_prefix(action: &str) -> &'static str {
+    match action {
+        "submitOrder" => "live",
+        "cancelOrder" => "cancel",
+        "syncOrderStatus" => "sync",
+        _ => "adapter",
+    }
+}
+
+fn resolved_bridge_path(bridge: &str) -> String {
+    if bridge == "qbot" {
+        std::env::var("RPORTFOLIO_QBOT_PATH")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| DEFAULT_QBOT_PATH.to_string())
+    } else {
+        std::env::var("RPORTFOLIO_VNPY_PATH")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| DEFAULT_VNPY_PATH.to_string())
+    }
+}
+
+fn resolved_python() -> String {
+    std::env::var("RPORTFOLIO_PYTHON")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "python3".to_string())
+}
+
+fn python_path_with_workspace(workspace_path: &str) -> String {
+    match std::env::var("PYTHONPATH") {
+        Ok(existing) if !existing.trim().is_empty() => {
+            format!("{workspace_path}:{}", existing.trim())
+        }
+        _ => workspace_path.to_string(),
+    }
+}
+
+fn qbot_bridge_status(path: &str, python: &str, python_ok: bool) -> BrokerBridgeStatus {
+    let root = PathBuf::from(path);
+    let path_exists = root.exists();
+    let trade_engine = root.join("qbot/engine/trade/trade_engine.py");
+    let command = std::env::var("RPORTFOLIO_QBOT_COMMAND")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let adapter_exists = command.is_some() || trade_engine.exists();
+    let mut warnings = Vec::new();
+    if !path_exists {
+        warnings.push(format!("Qbot 路径不存在：{path}"));
+    } else if command.is_none() {
+        warnings.push(
+            "Qbot 本地仓库未暴露可调用交易入口；设置 RPORTFOLIO_QBOT_COMMAND 后可接收 rPortfolio JSON 委托。"
+                .to_string(),
+        );
+        if !trade_engine.exists() {
+            warnings.push("未找到 qbot/engine/trade/trade_engine.py。".to_string());
+        }
+    }
+    if !python_ok {
+        warnings.push(format!("Python 不可用：{python}"));
+    }
+    let command_available = path_exists && command.is_some() && python_ok;
+    BrokerBridgeStatus {
+        bridge: "qbot".to_string(),
+        label: "Qbot Adapter".to_string(),
+        path: path.to_string(),
+        path_exists,
+        adapter_exists,
+        python_ok,
+        command_available,
+        route_label: "Qbot Bridge".to_string(),
+        summary: if command_available {
+            "Qbot command adapter ready".to_string()
+        } else if adapter_exists {
+            "Qbot workspace detected, command adapter pending".to_string()
+        } else {
+            "Qbot adapter not ready".to_string()
+        },
+        warnings,
+        capabilities: vec![
+            "trader_opts".to_string(),
+            "login".to_string(),
+            "get_positions".to_string(),
+            "start_trade".to_string(),
+        ],
+        command_preview: if let Some(command) = command {
+            vec![format!("cd {}", root.display()), format!("{command} < rportfolio-order.json")]
+        } else {
+            vec![
+                format!("cd {}", root.display()),
+                "export RPORTFOLIO_QBOT_COMMAND='python path/to/qbot_order_adapter.py'".to_string(),
+            ]
+        },
+    }
+}
+
+fn vnpy_bridge_status(path: &str, python: &str, python_ok: bool) -> BrokerBridgeStatus {
+    let root = PathBuf::from(path);
+    let path_exists = root.exists();
+    let gateway = root.join("vnpy/trader/gateway.py");
+    let engine = root.join("vnpy/trader/engine.py");
+    let adapter_exists = gateway.exists() && engine.exists();
+    let mut warnings = Vec::new();
+    if !path_exists {
+        warnings.push(format!("vn.py 路径不存在：{path}"));
+    } else if !adapter_exists {
+        warnings.push("vn.py 工作区不完整：缺少 vnpy/trader/gateway.py 或 engine.py。".to_string());
+    } else if std::env::var("RPORTFOLIO_VNPY_GATEWAY_MODULE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .is_none()
+        || std::env::var("RPORTFOLIO_VNPY_GATEWAY_CLASS")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .is_none()
+    {
+        warnings.push(
+            "vn.py 核心可用；真实提交需设置 RPORTFOLIO_VNPY_GATEWAY_MODULE / RPORTFOLIO_VNPY_GATEWAY_CLASS 和连接配置。"
+                .to_string(),
+        );
+    }
+    if !python_ok {
+        warnings.push(format!("Python 不可用：{python}"));
+    }
+    let command_available = path_exists && adapter_exists && python_ok;
+    BrokerBridgeStatus {
+        bridge: "vnpy".to_string(),
+        label: "vn.py Gateway".to_string(),
+        path: path.to_string(),
+        path_exists,
+        adapter_exists,
+        python_ok,
+        command_available,
+        route_label: "vn.py Gateway".to_string(),
+        summary: if command_available {
+            "vn.py gateway adapter ready".to_string()
+        } else {
+            "vn.py adapter not ready".to_string()
+        },
+        warnings,
+        capabilities: vec![
+            "EventEngine".to_string(),
+            "MainEngine".to_string(),
+            "BaseGateway".to_string(),
+            "send_order".to_string(),
+        ],
+        command_preview: vec![
+            format!("cd {}", root.display()),
+            format!("{python} -c \"from vnpy.trader.gateway import BaseGateway\""),
+        ],
+    }
+}
+
+fn normalize_bridge_key(value: &str) -> String {
+    match value.trim().to_lowercase().as_str() {
+        "qbot-bridge" | "qbot_trade_engine" | "qbot-trade-engine" | "qbot" => "qbot".to_string(),
+        "live-gateway" | "vn.py" | "vnpy-gateway" | "vnpy" => "vnpy".to_string(),
+        "paper" | "local" | "local-paper" | "local_paper" => "local-paper".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn python_available(python: &str) -> bool {
+    Command::new(python)
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+fn order_ref(prefix: &str, symbol: &str) -> String {
+    let cleaned = symbol
+        .chars()
+        .filter(|value| value.is_ascii_alphanumeric())
+        .collect::<String>();
+    format!("{}-{}-{}", prefix, cleaned, Utc::now().timestamp_millis())
+}
+
+fn round_price(value: f64) -> f64 {
+    round(value, 4)
 }
 
 pub async fn score_market(request: ScoreMarketRequest) -> Result<MarketAnalysisReport, AppError> {
@@ -11598,6 +13555,28 @@ fn round(value: f64, digits: u32) -> f64 {
 mod tests {
     use super::*;
 
+    fn test_order_command_request(bridge: &str) -> OrderCommandRequest {
+        OrderCommandRequest {
+            bridge: bridge.to_string(),
+            broker_mode: bridge.to_string(),
+            order_id: Some("ord-test".to_string()),
+            order_ref: None,
+            current_status: None,
+            symbol: "SPY".to_string(),
+            name: "SPDR S&P 500 ETF".to_string(),
+            side: "BUY".to_string(),
+            quantity: "10".to_string(),
+            limit: "500.00".to_string(),
+            amount: "5000".to_string(),
+            weight: "3%".to_string(),
+            strategy: "risk-gated-trend".to_string(),
+            platform: "local".to_string(),
+            trade_type: "ETF".to_string(),
+            risk_override: false,
+            allow_live: None,
+        }
+    }
+
     #[test]
     fn validates_builtin_profile_config() {
         let report = validate_profile_config(BUILTIN_PROFILES[0].1);
@@ -11605,6 +13584,425 @@ mod tests {
         assert!(report.valid, "{:?}", report.errors);
         assert!(report.stats.symbols > 0);
         assert!(report.stats.rules > 0);
+    }
+
+    #[test]
+    fn local_paper_order_commands_update_lifecycle() {
+        let request = test_order_command_request("local-paper");
+
+        let prepared = prepare_order(request.clone());
+        assert!(prepared.accepted);
+        assert!(!prepared.submitted);
+        assert_eq!(prepared.status, "queued");
+        assert_eq!(prepared.action, "prepareOrder");
+
+        let submitted = submit_order(OrderCommandRequest {
+            order_ref: Some(prepared.order_ref.clone()),
+            ..request.clone()
+        });
+        assert!(submitted.accepted);
+        assert!(submitted.submitted);
+        assert_eq!(submitted.status, "submitted");
+        assert_eq!(submitted.action, "submitOrder");
+        assert_eq!(submitted.order_ref, prepared.order_ref);
+
+        let cancelled = cancel_order(OrderCommandRequest {
+            current_status: Some("submitted".to_string()),
+            order_ref: Some(submitted.order_ref.clone()),
+            ..request
+        });
+        assert!(cancelled.accepted);
+        assert!(!cancelled.submitted);
+        assert_eq!(cancelled.status, "cancelled");
+        assert_eq!(cancelled.action, "cancelOrder");
+        assert_eq!(cancelled.order_ref, submitted.order_ref);
+    }
+
+    #[test]
+    fn local_paper_sync_preserves_current_status() {
+        let result = sync_order_status(OrderCommandRequest {
+            current_status: Some("prepared".to_string()),
+            ..test_order_command_request("local-paper")
+        });
+
+        assert!(result.accepted);
+        assert_eq!(result.status, "prepared");
+        assert_eq!(result.action, "syncOrderStatus");
+        assert_eq!(result.event_label, "状态同步");
+    }
+
+    #[test]
+    fn local_paper_account_sync_returns_snapshot() {
+        let snapshot = sync_account(BrokerAccountSyncRequest {
+            bridge: "local-paper".to_string(),
+            broker_mode: "local-paper".to_string(),
+            platform: "local".to_string(),
+            trade_type: "ETF".to_string(),
+            strategy: "risk-gated-trend".to_string(),
+            risk_override: false,
+            allow_live: None,
+        });
+
+        assert!(snapshot.accepted);
+        assert_eq!(snapshot.status, "synced");
+        assert_eq!(snapshot.account_id, "local-paper");
+        assert!(snapshot.positions.is_empty());
+    }
+
+    #[test]
+    fn local_paper_market_quote_returns_reference_spread() {
+        let quote = sync_market_quote(MarketQuoteRequest {
+            bridge: "local-paper".to_string(),
+            broker_mode: "local-paper".to_string(),
+            symbol: "SPY".to_string(),
+            name: "SPDR S&P 500 ETF".to_string(),
+            market: "US".to_string(),
+            asset_type: Some("etf".to_string()),
+            reference_price: Some(500.0),
+            platform: "local".to_string(),
+            trade_type: "ETF".to_string(),
+            strategy: "risk-gated-trend".to_string(),
+            risk_override: false,
+            allow_live: None,
+        });
+
+        assert!(quote.accepted);
+        assert_eq!(quote.status, "synced");
+        assert_eq!(quote.symbol, "SPY");
+        assert_eq!(quote.bid, Some(499.5));
+        assert_eq!(quote.ask, Some(500.5));
+        assert_eq!(quote.last, Some(500.0));
+    }
+
+    #[test]
+    fn orders_storage_roundtrips_snapshot() {
+        let path = temp_order_store_path("roundtrip");
+        let orders = vec![
+            serde_json::json!({"id": "ord-1", "symbol": "SPY", "status": "queued"}),
+            serde_json::json!("ignore-me"),
+            serde_json::json!({"id": "ord-2", "symbol": "QQQ", "status": "submitted"}),
+        ];
+
+        let saved = save_orders_to_path(&path, orders).expect("save orders");
+        let loaded = load_orders_from_path(&path).expect("load orders");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved.len(), 2);
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0]["id"], "ord-1");
+        assert_eq!(loaded[1]["status"], "submitted");
+    }
+
+    #[test]
+    fn orders_storage_reads_legacy_array() {
+        let path = temp_order_store_path("legacy");
+        fs::write(
+            &path,
+            r#"[{"id":"legacy-1","symbol":"SPY"},{"id":"legacy-2","symbol":"QQQ"}]"#,
+        )
+        .expect("write legacy orders");
+
+        let loaded = load_orders_from_path(&path).expect("load legacy orders");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0]["id"], "legacy-1");
+    }
+
+    #[test]
+    fn monitor_storage_roundtrips_state() {
+        let path = temp_order_store_path("monitor-roundtrip");
+        let state = serde_json::json!({
+            "snapshot": {
+                "key": "profile-state-1",
+                "profileKey": "us-core",
+                "profileName": "美股核心风险"
+            },
+            "records": [
+                {"key": "record-1", "summary": "建立基线"},
+                "ignore-me",
+                {"key": "record-2", "summary": "状态稳定"}
+            ]
+        });
+
+        let saved = save_monitor_state_to_path(&path, state).expect("save monitor");
+        let loaded = load_monitor_state_from_path(&path).expect("load monitor");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved["snapshot"]["key"], "profile-state-1");
+        assert_eq!(saved["records"].as_array().unwrap().len(), 2);
+        assert_eq!(loaded["snapshot"]["profileKey"], "us-core");
+        assert_eq!(loaded["records"][1]["key"], "record-2");
+    }
+
+    #[test]
+    fn monitor_storage_reads_legacy_snapshot() {
+        let path = temp_order_store_path("monitor-legacy");
+        fs::write(
+            &path,
+            r#"{"key":"legacy-monitor","profileKey":"us-core","profileName":"美股核心风险"}"#,
+        )
+        .expect("write legacy monitor");
+
+        let loaded = load_monitor_state_from_path(&path).expect("load monitor legacy");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(loaded["snapshot"]["key"], "legacy-monitor");
+        assert_eq!(loaded["records"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn risk_policy_storage_roundtrips_normalized_policy() {
+        let path = temp_order_store_path("risk-policy-roundtrip");
+        let policy = serde_json::json!({
+            "maxDailyOrders": 500,
+            "cooldownMinutes": 15,
+            "requireLiveConfirmation": false,
+            "singleOrderCaps": {
+                "etfPct": 6,
+                "fundPct": 4.5,
+                "leveragedEtfPct": 2,
+                "stockPct": 3.5
+            },
+            "lossBrake": {
+                "etfDailyDropWarnPct": 5,
+                "etfDailyDropBlockPct": 8,
+                "leveragedEtfDailyDropBlockPct": 3,
+                "portfolioDailyLossPct": 4
+            },
+            "updatedAt": "2026-06-19T00:00:00Z"
+        });
+
+        let saved = save_risk_policy_to_path(&path, policy).expect("save risk policy");
+        let loaded = load_risk_policy_from_path(&path).expect("load risk policy");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved["version"].as_i64(), Some(2));
+        assert_eq!(saved["maxDailyOrders"].as_i64(), Some(200));
+        assert_eq!(loaded["singleOrderCaps"]["etfPct"].as_f64(), Some(6.0));
+        assert_eq!(loaded["requireLiveConfirmation"].as_bool(), Some(false));
+    }
+
+    #[test]
+    fn exports_order_audit_json_snapshot() {
+        let orders_path = temp_order_store_path("audit-json-orders");
+        let export_dir = temp_order_export_dir("json");
+        save_orders_to_path(&orders_path, test_audit_orders()).expect("save audit orders");
+
+        let result = export_order_audit_from_paths(
+            &orders_path,
+            &export_dir,
+            OrderAuditExportRequest {
+                format: Some("json".to_string()),
+            },
+        )
+        .expect("export json audit");
+        let content = fs::read_to_string(&result.path).expect("audit json file");
+        let _ = fs::remove_file(&orders_path);
+        let _ = fs::remove_file(&result.path);
+        let _ = fs::remove_dir(&export_dir);
+
+        assert_eq!(result.format, "json");
+        assert_eq!(result.orders, 2);
+        assert_eq!(result.events, 2);
+        assert!(content.contains("\"orders\""));
+        assert!(content.contains("ord-audit-1"));
+    }
+
+    #[test]
+    fn exports_order_audit_json_with_risk_policy_snapshot() {
+        let orders_path = temp_order_store_path("audit-risk-orders");
+        let risk_policy_path = temp_order_store_path("audit-risk-policy");
+        let export_dir = temp_order_export_dir("risk-json");
+        save_orders_to_path(&orders_path, test_audit_orders()).expect("save audit orders");
+        save_risk_policy_to_path(
+            &risk_policy_path,
+            serde_json::json!({
+                "maxDailyOrders": 6,
+                "cooldownMinutes": 45,
+                "updatedAt": "2026-06-19T00:00:00Z"
+            }),
+        )
+        .expect("save risk policy");
+
+        let result = export_order_audit_from_paths_with_policy(
+            &orders_path,
+            Some(&risk_policy_path),
+            &export_dir,
+            OrderAuditExportRequest {
+                format: Some("json".to_string()),
+            },
+        )
+        .expect("export json audit with policy");
+        let content = fs::read_to_string(&result.path).expect("audit json file");
+        let payload: Value = serde_json::from_str(&content).expect("audit json parse");
+        let _ = fs::remove_file(&orders_path);
+        let _ = fs::remove_file(&risk_policy_path);
+        let _ = fs::remove_file(&result.path);
+        let _ = fs::remove_dir(&export_dir);
+
+        assert_eq!(payload["riskPolicy"]["maxDailyOrders"].as_i64(), Some(6));
+        assert_eq!(payload["riskPolicy"]["cooldownMinutes"].as_f64(), Some(45.0));
+    }
+
+    #[test]
+    fn exports_order_audit_csv_events() {
+        let orders_path = temp_order_store_path("audit-csv-orders");
+        let export_dir = temp_order_export_dir("csv");
+        save_orders_to_path(&orders_path, test_audit_orders()).expect("save audit orders");
+
+        let result = export_order_audit_from_paths(
+            &orders_path,
+            &export_dir,
+            OrderAuditExportRequest {
+                format: Some("csv".to_string()),
+            },
+        )
+        .expect("export csv audit");
+        let content = fs::read_to_string(&result.path).expect("audit csv file");
+        let _ = fs::remove_file(&orders_path);
+        let _ = fs::remove_file(&result.path);
+        let _ = fs::remove_dir(&export_dir);
+
+        assert_eq!(result.format, "csv");
+        assert_eq!(result.orders, 2);
+        assert_eq!(result.events, 2);
+        assert!(content.contains("order_id,intent_key,symbol"));
+        assert!(content.contains("ord-audit-1"));
+        assert!(content.contains("evt-1"));
+    }
+
+    #[test]
+    fn parses_adapter_response_from_json_stdout() {
+        let response = parse_adapter_response(
+            r#"{"accepted":true,"submitted":true,"status":"submitted","orderRef":"VNPY.1","message":"ok","eventLabel":"已提交"}"#,
+        )
+        .expect("adapter json");
+
+        assert!(response.accepted);
+        assert!(response.submitted);
+        assert_eq!(response.status, "submitted");
+        assert_eq!(response.order_ref, "VNPY.1");
+    }
+
+    #[test]
+    fn parses_adapter_response_from_last_json_line() {
+        let response = parse_adapter_response(
+            "gateway log line\n{\"accepted\":false,\"status\":\"adapter_error\",\"message\":\"bad\"}",
+        )
+        .expect("adapter json line");
+
+        assert!(!response.accepted);
+        assert_eq!(response.status, "adapter_error");
+        assert_eq!(response.message, "bad");
+    }
+
+    #[test]
+    fn parses_account_snapshot_from_json_stdout() {
+        let snapshot = parse_account_snapshot(
+            "log\n{\"accepted\":true,\"status\":\"synced\",\"accountId\":\"ACC-1\",\"cash\":1200,\"positions\":[{\"symbol\":\"SPY\"}],\"orders\":[{\"vtOrderId\":\"VNPY.1\"}],\"trades\":[]}",
+        )
+        .expect("account snapshot json line");
+
+        assert!(snapshot.accepted);
+        assert_eq!(snapshot.status, "synced");
+        assert_eq!(snapshot.account_id, "ACC-1");
+        assert_eq!(snapshot.positions.len(), 1);
+        assert_eq!(snapshot.orders.len(), 1);
+    }
+
+    #[test]
+    fn parses_market_quote_from_json_stdout() {
+        let quote = parse_market_quote_snapshot(
+            "log\n{\"accepted\":true,\"status\":\"synced\",\"symbol\":\"SPY\",\"bid\":499.8,\"ask\":500.2,\"last\":500,\"indicativeNav\":499.9,\"premiumDiscountPct\":0.02,\"session\":\"open\",\"source\":\"adapter\"}",
+        )
+        .expect("market quote json line");
+
+        assert!(quote.accepted);
+        assert_eq!(quote.status, "synced");
+        assert_eq!(quote.symbol, "SPY");
+        assert_eq!(quote.bid, Some(499.8));
+        assert_eq!(quote.ask, Some(500.2));
+        assert_eq!(quote.indicative_nav, Some(499.9));
+        assert_eq!(quote.session, "open");
+    }
+
+    #[test]
+    fn unsupported_order_bridge_fails_without_submission() {
+        let result = submit_order(OrderCommandRequest {
+            allow_live: Some(true),
+            ..test_order_command_request("unknown-live-bridge")
+        });
+
+        assert!(!result.accepted);
+        assert!(!result.submitted);
+        assert_eq!(result.status, "missing_bridge");
+        assert_eq!(result.event_label, "通道缺失");
+    }
+
+    fn temp_order_store_path(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "rportfolio-orders-{label}-{}-{}.json",
+            std::process::id(),
+            Utc::now().timestamp_millis()
+        ))
+    }
+
+    fn temp_order_export_dir(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "rportfolio-order-audit-{label}-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_millis()
+        ))
+    }
+
+    fn test_audit_orders() -> Vec<Value> {
+        vec![
+            serde_json::json!({
+                "id": "ord-audit-1",
+                "intentKey": "intent-1",
+                "symbol": "SPY",
+                "name": "SPY ETF",
+                "side": "BUY",
+                "status": "submitted",
+                "routeStatus": "submitted",
+                "broker": "local-paper",
+                "route": "本地模拟",
+                "orderRef": "paper-1",
+                "sourceKind": "strategy",
+                "sourceLabel": "策略建议",
+                "amount": "5000",
+                "weight": "3%",
+                "quantity": "10",
+                "limit": "500",
+                "events": [
+                    {
+                        "key": "evt-1",
+                        "at": "2026-06-19T00:00:00Z",
+                        "time": "08:00:00",
+                        "type": "submitted",
+                        "status": "submitted",
+                        "label": "已提交",
+                        "detail": "paper submitted"
+                    },
+                    {
+                        "key": "evt-2",
+                        "at": "2026-06-19T00:01:00Z",
+                        "time": "08:01:00",
+                        "type": "queued",
+                        "status": "queued",
+                        "label": "进入队列",
+                        "detail": "created"
+                    }
+                ]
+            }),
+            serde_json::json!({
+                "id": "ord-audit-2",
+                "symbol": "QQQ",
+                "status": "queued",
+                "events": []
+            }),
+        ]
     }
 
     #[test]
