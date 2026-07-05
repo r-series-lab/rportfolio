@@ -2,6 +2,24 @@ export type HoldingRole = "real" | "proxy" | "watch";
 export type HoldingAssetType = "stock" | "etf" | "fund" | "cash" | "other";
 export type HoldingQuoteSource = "manual" | "eastmoney_tiantian" | "yahoo" | "csv";
 
+export type FundHoldingPosition = {
+  symbol: string;
+  name: string;
+  weight: number;
+};
+
+export type FundNavPoint = {
+  date: string;
+  nav: number;
+};
+
+export type FundRedemptionFeeTier = {
+  label: string;
+  minDays: number | null;
+  maxDaysExclusive: number | null;
+  rate: number;
+};
+
 export type HoldingRecord = {
   id: string;
   symbol: string;
@@ -15,6 +33,17 @@ export type HoldingRecord = {
   quantity: number;
   costPrice: number;
   currentPrice: number;
+  confirmedNav?: number;
+  confirmedNavAsOf?: string;
+  fundPurchaseStatus?: string;
+  fundPurchaseOpen?: boolean;
+  fundPurchaseLimit?: number;
+  fundRedemptionOpen?: boolean;
+  fundTradeStatusAsOf?: string;
+  fundHoldingsAsOf?: string;
+  fundTopHoldings?: FundHoldingPosition[];
+  fundNavHistory?: FundNavPoint[];
+  fundRedemptionFeeSchedule?: FundRedemptionFeeTier[];
   targetMinWeight?: number;
   targetWeight: number;
   targetMaxWeight?: number;

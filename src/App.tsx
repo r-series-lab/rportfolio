@@ -6,6 +6,7 @@ import { Card, CardContent, CircularProgress, CssBaseline, ThemeProvider } from 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { AppTitlebarActions, AppTopbar } from "./components/app-topbar";
+import { AssetAnalysisWorkspace } from "./components/asset-analysis-workspace";
 import { AssetLights } from "./components/asset-lights";
 import { BacktestPanel } from "./components/backtest-panel";
 import { BacktestSummaryPanel } from "./components/backtest-summary-panel";
@@ -14,6 +15,7 @@ import { DecisionSummaryPanel } from "./components/decision-summary-panel";
 import { HoldingsWorkspace } from "./components/holdings-workspace";
 import { PortfolioProfilePanel } from "./components/portfolio-profile-panel";
 import { QuantLabWorkspace } from "./components/quant-lab-workspace";
+import { RecommendationOutcomePanel } from "./components/recommendation-outcome-panel";
 import { RulesPanel } from "./components/rules-panel";
 import { SettingsPanel, type ConfigPanelSection } from "./components/settings-panel";
 import { Toaster } from "./components/ui/sonner";
@@ -29,12 +31,25 @@ import {
 } from "./lib/holding-storage";
 import { isHoldingRecord, type HoldingRecord } from "./lib/holdings";
 import {
+  DEFAULT_FUND_EXECUTION_POLICY,
+  normalizeFundExecutionPolicy,
+  type FundExecutionPolicy,
+} from "./lib/fund-execution-policy";
+import {
   DEFAULT_POSITION_POLICY,
   createPositionPlan,
   normalizePositionPolicy,
   profileRiskGateFromReport,
   type PositionPolicy,
 } from "./lib/position-plan";
+import {
+  appendRecommendationRecords,
+  loadRecommendationRecords,
+  recommendationRecordsForPositionPlan,
+  type RecommendationRecord,
+} from "./lib/recommendation-log";
+import { recommendationReadinessFor } from "./lib/recommendation-readiness";
+import { buildExecutionAttribution } from "./lib/execution-attribution";
 import {
   REQUESTED_FUND_SEED_STORAGE_KEY,
   applyResearchTargetBands,
@@ -46,12 +61,12 @@ import { isTradeRecord, type TradeRecord } from "./lib/trades";
 import type { DataSource, ProfileSummary } from "./lib/types";
 import { createRPortfolioTheme, type RPortfolioStyleMode } from "./theme/r-theme";
 
-type AppWorkspace = "holdings" | "analysis" | "quant";
+type AppWorkspace = "holdings" | "asset" | "analysis" | "quant";
 type WorkspaceTab = "overview" | "structure" | "backtest" | "rules" | "indicators";
 
 const APP_WORKSPACES: Array<{ key: AppWorkspace; label: string; detail: string; icon: typeof AccountBalanceWalletRoundedIcon }> = [
   { key: "holdings", label: "持仓管理", detail: "真实仓位、代理与观察", icon: AccountBalanceWalletRoundedIcon },
-  { key: "analysis", label: "组合分析", detail: "Profile、规则、回测", icon: QueryStatsRoundedIcon },
+  { key: "analysis", label: "组合决策", detail: "状态、证据与仓位", icon: QueryStatsRoundedIcon },
   { key: "quant", label: "量化交易", detail: "监测、下单、执行", icon: ScienceRoundedIcon },
 ];
 
@@ -69,13 +84,14 @@ function App() {
   const didHydrateTradesRef = useRef(false);
   const skipNextHoldingsPersistRef = useRef(false);
   const skipNextTradesPersistRef = useRef(false);
+  const dailyDecisionSignatureRef = useRef("");
   const [activeWorkspace, setActiveWorkspace] = useLocalStorageState<AppWorkspace>("rportfolio.workspace", "analysis");
+  const [assetResearchSymbol, setAssetResearchSymbol] = useState("");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [activeConfigSection, setActiveConfigSection] = useState<ConfigPanelSection>("global");
   const [configProfile, setConfigProfile] = useState("us-core");
   const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorageState("rportfolio.sidebarCollapsed", false);
-  const [rightRailCollapsed, setRightRailCollapsed] = useLocalStorageState("rportfolio.rightRailCollapsed", false);
   const [styleMode, setStyleMode] = useLocalStorageState<RPortfolioStyleMode>("rportfolio.styleMode", "light", {
     legacyKeys: ["rmarket.styleMode"],
   });
@@ -85,12 +101,17 @@ function App() {
   const [defaultSource, setDefaultSource] = useLocalStorageState<DataSource>("rportfolio.defaultSource", "auto", {
     legacyKeys: ["rmarket.defaultSource"],
   });
+  const [fundExecutionPolicy, setFundExecutionPolicy] = useLocalStorageState<FundExecutionPolicy>(
+    "rportfolio.fundExecutionPolicy",
+    DEFAULT_FUND_EXECUTION_POLICY,
+  );
   const [positionPolicy, setPositionPolicy] = useLocalStorageState<PositionPolicy>(
     "rportfolio.positionPolicy",
     DEFAULT_POSITION_POLICY,
   );
   const [holdings, setHoldings] = useLocalStorageState<HoldingRecord[]>("rportfolio.holdings", []);
   const [trades, setTrades] = useLocalStorageState<TradeRecord[]>("rportfolio.trades", []);
+  const [recommendationRecords, setRecommendationRecords] = useState<RecommendationRecord[]>([]);
   const [holdingsPersistenceMessage, setHoldingsPersistenceMessage] = useState(
     isTauriRuntime() ? "正在读取本机持仓文件…" : "Web 预览保存在浏览器。",
   );
@@ -118,6 +139,10 @@ function App() {
   const localHoldingRows = useMemo(() => holdings.filter(isHoldingRecord), [holdings]);
   const localTradeRows = useMemo(() => trades.filter(isTradeRecord), [trades]);
   const normalizedPositionPolicy = useMemo(() => normalizePositionPolicy(positionPolicy), [positionPolicy]);
+  const normalizedFundExecutionPolicy = useMemo(
+    () => normalizeFundExecutionPolicy(fundExecutionPolicy),
+    [fundExecutionPolicy],
+  );
   const activePositionRiskGate = useMemo(() => profileRiskGateFromReport(report), [report]);
   const activePositionPlan = useMemo(() => {
     return createPositionPlan(localHoldingRows, {
@@ -126,6 +151,20 @@ function App() {
       riskGate: activePositionRiskGate,
     });
   }, [activePositionRiskGate, localHoldingRows, normalizedPositionPolicy, report?.score]);
+  const recommendationReadiness = useMemo(
+    () => recommendationReadinessFor({ plan: activePositionPlan, report, reportIsCurrent }),
+    [activePositionPlan, report, reportIsCurrent],
+  );
+  const executionAttribution = useMemo(
+    () => buildExecutionAttribution(recommendationRecords, localTradeRows, report?.profileKey),
+    [localTradeRows, recommendationRecords, report?.profileKey],
+  );
+
+  useEffect(() => {
+    if (activeWorkspace === "asset" && !assetResearchSymbol) {
+      setActiveWorkspace("holdings");
+    }
+  }, [activeWorkspace, assetResearchSymbol, setActiveWorkspace]);
 
   useEffect(() => {
     document.documentElement.dataset.rportfolioStyle = styleMode;
@@ -154,8 +193,46 @@ function App() {
     decisionMainScrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [report?.profileKey, reportIsCurrent]);
 
+  useEffect(() => {
+    if (!report || !reportIsCurrent) return;
+    let cancelled = false;
+    void loadRecommendationRecords()
+      .then((records) => {
+        if (!cancelled) setRecommendationRecords(records);
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendationRecords([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [report?.generatedAt, report, reportIsCurrent]);
+
+  useEffect(() => {
+    if (!report || !reportIsCurrent) return;
+    const assetActions = activePositionPlan.actions.filter((action) => action.holdingId);
+    if (!assetActions.length) return;
+    const signature = [
+      report.asOf,
+      report.profileKey,
+      report.profileVersion,
+      ...assetActions.map((action) => `${action.symbol}:${action.action}:${action.weightLabel}:${action.reason}`),
+    ].join("|");
+    if (dailyDecisionSignatureRef.current === signature) return;
+    dailyDecisionSignatureRef.current = signature;
+    const records = recommendationRecordsForPositionPlan({
+      actions: assetActions,
+      readiness: recommendationReadiness,
+      report,
+    });
+    void appendRecommendationRecords(records).catch(() => {
+      dailyDecisionSignatureRef.current = "";
+    });
+  }, [activePositionPlan.actions, recommendationReadiness, report, reportIsCurrent]);
+
   const openProfileConfig = () => {
     setConfigProfile(profile);
+    setActiveConfigSection("global");
     setProfileDrawerOpen(true);
   };
 
@@ -342,7 +419,8 @@ function App() {
     };
   }, [localTradeRows]);
 
-  const analysisRightRailVisible = activeWorkspace === "analysis" && Boolean(report && reportIsCurrent && !rightRailCollapsed);
+  const analysisToolbarVisible = activeWorkspace === "analysis";
+  const analysisRightRailVisible = activeWorkspace === "analysis" && Boolean(report && reportIsCurrent);
 
   return (
     <ThemeProvider theme={theme}>
@@ -350,20 +428,16 @@ function App() {
         <CssBaseline />
         <div className="window-drag-region" data-tauri-drag-region />
         <AppTitlebarActions
-        onOpenProfileConfig={openProfileConfig}
-        onToggleSidebar={() => setSidebarCollapsed((current) => !current)}
-        onToggleRightRail={() => setRightRailCollapsed((current) => !current)}
-        sidebarCollapsed={sidebarCollapsed}
-        rightRailCollapsed={rightRailCollapsed}
-        rightRailLabel={
-          activeWorkspace === "holdings"
-            ? "资产详情栏"
-            : activeWorkspace === "quant"
-              ? "交易执行栏"
-              : "组合分析右侧区域"
-        }
+          onOpenProfileConfig={openProfileConfig}
+          onToggleSidebar={() => setSidebarCollapsed((current) => !current)}
+          sidebarCollapsed={sidebarCollapsed}
+          sourceDetail={recommendationReadiness.dataQuality.detail}
+          sourceLabel={report && reportIsCurrent
+            ? report.sourceLabel
+            : dataSources.find((item) => item.key === source)?.name ?? source}
+          sourceQuality={recommendationReadiness.dataQuality.severity}
         />
-        {activeWorkspace === "analysis" ? (
+        {analysisToolbarVisible ? (
         <div
           className={`window-center-toolbar ${analysisRightRailVisible ? "has-right-rail" : ""} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
         >
@@ -372,18 +446,15 @@ function App() {
             loading={loading}
             profile={profile}
             profiles={profiles}
-            dataSources={dataSources}
-            source={source}
             onAsOfChange={setAsOf}
             onProfileChange={setProfile}
-            onSourceChange={setSource}
             onRefresh={() => void refresh()}
           />
         </div>
       ) : null}
-      <main className="app-shell">
+      <main className="app-shell" data-workspace={activeWorkspace}>
         <div className={`workspace-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
-          <nav className="app-menu" aria-label="工作区" data-tauri-drag-region>
+          <nav className="app-menu" aria-label="工作区">
             <div className="app-menu-brand" aria-hidden={sidebarCollapsed ? "true" : undefined}>
               <span>
                 <AccountBalanceWalletRoundedIcon fontSize="inherit" />
@@ -423,13 +494,33 @@ function App() {
                 positionPlan={activePositionPlan}
                 positionPolicy={normalizedPositionPolicy}
                 profiles={profiles}
-                rightRailCollapsed={rightRailCollapsed}
                 onProfileGenerated={(summary) => void applyGeneratedProfile(summary)}
+                onOpenResearch={(holding) => {
+                  setAssetResearchSymbol(holding.symbol);
+                  setActiveWorkspace("asset");
+                }}
+                report={report}
+                reportIsCurrent={reportIsCurrent}
+              />
+            ) : null}
+
+            {activeWorkspace === "asset" ? (
+              <AssetAnalysisWorkspace
+                focusSymbol={assetResearchSymbol}
+                holdings={localHoldingRows}
+                loading={loading}
+                onHoldingsChange={setHoldings}
+                onOpenAnalysis={() => setActiveWorkspace("analysis")}
+                onOpenHoldings={() => setActiveWorkspace("holdings")}
+                onOpenQuant={() => setActiveWorkspace("quant")}
+                positionPlan={activePositionPlan}
+                report={report}
+                reportIsCurrent={reportIsCurrent}
               />
             ) : null}
 
             {activeWorkspace === "analysis" ? (
-              <div className={`analysis-page-stack ${!rightRailCollapsed && report && reportIsCurrent ? "has-decision-rail" : ""}`}>
+              <div className={`analysis-page-stack ${report && reportIsCurrent ? "has-decision-rail" : ""}`}>
                 <div className="analysis-main-column">
                   {error ? (
                     <Card className="error-card">
@@ -502,7 +593,16 @@ function App() {
                               </div>
                             ) : null}
 
-                            {activeTab === "backtest" ? <BacktestPanel backtest={report.backtest} showRules={false} /> : null}
+                            {activeTab === "backtest" ? (
+                              <div className="tab-stack recommendation-validation-stack">
+                                <RecommendationOutcomePanel
+                                  action={report.calibrationAction}
+                                  attribution={executionAttribution}
+                                  performance={report.recommendationPerformance}
+                                />
+                                <BacktestPanel backtest={report.backtest} showRules={false} />
+                              </div>
+                            ) : null}
 
                             {activeTab === "rules" ? <RulesPanel report={report} /> : null}
 
@@ -521,20 +621,22 @@ function App() {
                   ) : null}
                 </div>
 
-                {!rightRailCollapsed && report && reportIsCurrent ? <DecisionRail report={report} /> : null}
+                {report && reportIsCurrent ? <DecisionRail report={report} /> : null}
               </div>
             ) : null}
 
             {activeWorkspace === "quant" ? (
               <QuantLabWorkspace
+                fundExecutionPolicy={normalizedFundExecutionPolicy}
                 holdings={localHoldingRows}
                 loading={loading}
+                onHoldingsChange={setHoldings}
                 onOpenAnalysis={() => setActiveWorkspace("analysis")}
+                onOpenHoldings={() => setActiveWorkspace("holdings")}
                 onRefresh={() => void refresh()}
                 positionPlan={activePositionPlan}
                 report={report}
                 reportIsCurrent={reportIsCurrent}
-                rightRailCollapsed={rightRailCollapsed}
                 trades={localTradeRows}
               />
             ) : null}
@@ -555,13 +657,16 @@ function App() {
             dataSources={dataSources}
             defaultProfile={defaultProfile}
             defaultSource={defaultSource}
+            fundExecutionPolicy={normalizedFundExecutionPolicy}
+            fundHoldings={localHoldingRows.filter((holding) => holding.assetType === "fund")}
             source={source}
             styleMode={styleMode}
             onSetStyleMode={setStyleMode}
             onSetDefaultProfile={setDefaultProfile}
             onSetDefaultSource={setDefaultSource}
+            onFundExecutionPolicyChange={(policy) => setFundExecutionPolicy(normalizeFundExecutionPolicy(policy))}
+            onSourceChange={setSource}
             onApplyDefaultProfile={() => setProfile(defaultProfile)}
-            onApplyDefaultSource={() => setSource(defaultSource)}
             onProfileChange={setConfigProfile}
             onUseProfile={setProfile}
             onProfilesChanged={reloadProfiles}

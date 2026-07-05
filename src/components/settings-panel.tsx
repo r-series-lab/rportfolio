@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Clock3,
   Database,
   LayoutDashboard,
   Moon,
@@ -11,9 +12,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,6 +22,12 @@ import { cn } from "@/lib/utils";
 import { ProfileConfigPanel, type ProfileConfigSection } from "./profile-config-panel";
 import type { RPortfolioStyleMode } from "../theme/r-theme";
 import type { DataSource, MarketAnalysisReport, ProfileSummary } from "../lib/types";
+import type { HoldingRecord } from "../lib/holdings";
+import {
+  fundFeesFor,
+  updateFundFeeOverride,
+  type FundExecutionPolicy,
+} from "../lib/fund-execution-policy";
 
 export type ConfigPanelSection = "global" | ProfileConfigSection;
 
@@ -31,15 +38,18 @@ type SettingsPanelProps = {
   dataSources: Array<{ key: DataSource; name: string; description: string; requiresConfig: boolean }>;
   defaultProfile: string;
   defaultSource: DataSource;
+  fundExecutionPolicy: FundExecutionPolicy;
+  fundHoldings: HoldingRecord[];
   onActiveSectionChange: (section: ConfigPanelSection) => void;
   onApplyDefaultProfile: () => void;
-  onApplyDefaultSource: () => void;
+  onFundExecutionPolicyChange: (policy: FundExecutionPolicy) => void;
   onOpenChange: (open: boolean) => void;
   onProfileChange: (profile: string) => void;
   onProfilesChanged: () => Promise<ProfileSummary[]>;
   onRefresh: () => void;
   onSetDefaultProfile: (profile: string) => void;
   onSetDefaultSource: (source: DataSource) => void;
+  onSourceChange: (source: DataSource) => void;
   onSetStyleMode: (mode: RPortfolioStyleMode) => void;
   onUseProfile: (profile: string) => void;
   open: boolean;
@@ -83,15 +93,18 @@ export function SettingsPanel({
   dataSources,
   defaultProfile,
   defaultSource,
+  fundExecutionPolicy,
+  fundHoldings,
   onActiveSectionChange,
   onApplyDefaultProfile,
-  onApplyDefaultSource,
+  onFundExecutionPolicyChange,
   onOpenChange,
   onProfileChange,
   onProfilesChanged,
   onRefresh,
   onSetDefaultProfile,
   onSetDefaultSource,
+  onSourceChange,
   onSetStyleMode,
   onUseProfile,
   open,
@@ -105,6 +118,7 @@ export function SettingsPanel({
   const activeProfileConfigSection: ProfileConfigSection = activeSection === "global" ? "profile" : activeSection;
   const defaultProfileName = profiles.find((item) => item.key === defaultProfile)?.name ?? defaultProfile;
   const defaultSourceName = dataSources.find((item) => item.key === defaultSource)?.name ?? defaultSource;
+  const currentSourceName = dataSources.find((item) => item.key === source)?.name ?? source;
   const profileOptions = profiles.length
     ? profiles
     : [{ key: profile, name: report.profileName, market: report.profileMarket, description: "", builtin: false }];
@@ -113,13 +127,13 @@ export function SettingsPanel({
     : [{ key: source, name: source, description: "", requiresConfig: false }];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" showCloseButton={false} className="settings-sheet sm:max-w-none">
-        <SheetHeader className="settings-sheet-head">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="settings-dialog">
+        <DialogHeader className="settings-sheet-head">
           <div className="settings-sheet-title">
             <span>设置</span>
-            <SheetTitle>配置工作台</SheetTitle>
-            <SheetDescription>{report.profileName} · {report.sourceLabel}</SheetDescription>
+            <DialogTitle>配置工作台</DialogTitle>
+            <DialogDescription>{report.profileName} · {report.sourceLabel}</DialogDescription>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -129,7 +143,7 @@ export function SettingsPanel({
             </TooltipTrigger>
             <TooltipContent>关闭设置</TooltipContent>
           </Tooltip>
-        </SheetHeader>
+        </DialogHeader>
 
         <Separator />
 
@@ -220,16 +234,16 @@ export function SettingsPanel({
 
                   <Card className="settings-preference-card">
                     <CardHeader>
-                      <CardTitle>默认数据源</CardTitle>
-                      <CardDescription>{defaultSourceName}</CardDescription>
+                      <CardTitle>全局数据源</CardTitle>
+                      <CardDescription>当前：{currentSourceName}</CardDescription>
                       <CardAction>
                         <Database />
                       </CardAction>
                     </CardHeader>
                     <CardContent>
                       <label className="settings-field">
-                        <span>启动时拉取</span>
-                        <select value={defaultSource} aria-label="默认数据源" onChange={(event) => onSetDefaultSource(event.target.value as DataSource)}>
+                        <span>当前会话</span>
+                        <select value={source} aria-label="当前数据源" onChange={(event) => onSourceChange(event.target.value as DataSource)}>
                           {sourceOptions.map((item) => (
                             <option key={item.key} value={item.key}>
                               {item.name}
@@ -237,10 +251,149 @@ export function SettingsPanel({
                           ))}
                         </select>
                       </label>
-                      <p>控制默认数据入口；顶部仍可临时切换来源。</p>
-                      <Button type="button" variant="outline" onClick={onApplyDefaultSource} disabled={source === defaultSource}>
-                        应用到当前分析
+                      <p>切换后作用于持仓、组合决策和量化交易；启动默认值为 {defaultSourceName}。</p>
+                      <Button type="button" variant="outline" onClick={() => onSetDefaultSource(source)} disabled={source === defaultSource}>
+                        设为启动默认
                       </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="settings-preference-card settings-fund-execution-card">
+                    <CardHeader>
+                      <CardTitle>场外基金成交规则</CardTitle>
+                      <CardDescription>截止时间、到账周期、默认费率与产品覆盖</CardDescription>
+                      <CardAction>
+                        <Clock3 />
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="settings-fund-policy-grid">
+                        <label className="settings-field">
+                          <span>当日净值截止</span>
+                          <Input
+                            type="time"
+                            value={fundExecutionPolicy.cutoffTime}
+                            aria-label="场外基金当日净值截止时间"
+                            onChange={(event) => onFundExecutionPolicyChange({
+                              ...fundExecutionPolicy,
+                              cutoffTime: event.target.value,
+                            })}
+                          />
+                        </label>
+                        <label className="settings-field">
+                          <span>默认申购费（%）</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="0.01"
+                            value={fundExecutionPolicy.defaultBuyFeeRate * 100}
+                            aria-label="场外基金默认申购费率"
+                            onChange={(event) => onFundExecutionPolicyChange({
+                              ...fundExecutionPolicy,
+                              defaultBuyFeeRate: Number(event.target.value) / 100,
+                            })}
+                          />
+                        </label>
+                        <label className="settings-field">
+                          <span>默认赎回费（%）</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="0.01"
+                            value={fundExecutionPolicy.defaultSellFeeRate * 100}
+                            aria-label="场外基金默认赎回费率"
+                            onChange={(event) => onFundExecutionPolicyChange({
+                              ...fundExecutionPolicy,
+                              defaultSellFeeRate: Number(event.target.value) / 100,
+                            })}
+                          />
+                        </label>
+                        <label className="settings-field">
+                          <span>赎回到账（交易日）</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="10"
+                            step="1"
+                            value={fundExecutionPolicy.defaultRedemptionSettlementDays}
+                            aria-label="场外基金默认赎回到账交易日"
+                            onChange={(event) => onFundExecutionPolicyChange({
+                              ...fundExecutionPolicy,
+                              defaultRedemptionSettlementDays: Number(event.target.value),
+                            })}
+                          />
+                        </label>
+                      </div>
+                      <p>15:00 前使用当日净值，之后顺延到下一交易日；赎回净值确认与资金到账分开计算，默认到账周期可按产品覆盖。</p>
+                      {fundHoldings.length ? (
+                        <div className="settings-fund-overrides" aria-label="基金产品规则覆盖">
+                          <header>
+                            <span>产品规则覆盖</span>
+                            <small>{fundHoldings.length} 只基金</small>
+                          </header>
+                          {fundHoldings.map((holding) => {
+                            const fees = fundFeesFor(fundExecutionPolicy, holding.symbol);
+                            return (
+                              <div key={holding.id} className="settings-fund-override-row">
+                                <span title={holding.name}>
+                                  <strong>{holding.symbol}</strong>
+                                  <small>{holding.name}</small>
+                                </span>
+                                <label>
+                                  <span>申购%</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    step="0.01"
+                                    value={fees.buyFeeRate * 100}
+                                    aria-label={`${holding.symbol} 申购费率`}
+                                    onChange={(event) => onFundExecutionPolicyChange(updateFundFeeOverride(
+                                      fundExecutionPolicy,
+                                      holding.symbol,
+                                      { buyFeeRate: Number(event.target.value) / 100 },
+                                    ))}
+                                  />
+                                </label>
+                                <label>
+                                  <span>赎回%</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    step="0.01"
+                                    value={fees.sellFeeRate * 100}
+                                    aria-label={`${holding.symbol} 赎回费率`}
+                                    onChange={(event) => onFundExecutionPolicyChange(updateFundFeeOverride(
+                                      fundExecutionPolicy,
+                                      holding.symbol,
+                                      { sellFeeRate: Number(event.target.value) / 100 },
+                                    ))}
+                                  />
+                                </label>
+                                <label>
+                                  <span>到账 T+</span>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={fees.redemptionSettlementDays}
+                                    aria-label={`${holding.symbol} 赎回到账交易日`}
+                                    onChange={(event) => onFundExecutionPolicyChange(updateFundFeeOverride(
+                                      fundExecutionPolicy,
+                                      holding.symbol,
+                                      { redemptionSettlementDays: Number(event.target.value) },
+                                    ))}
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </CardContent>
                   </Card>
 
@@ -281,7 +434,7 @@ export function SettingsPanel({
             </div>
           </div>
         </Tabs>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -15,9 +15,9 @@ type PortfolioProfilePanelProps = {
 
 export function PortfolioProfilePanel({ portfolio }: PortfolioProfilePanelProps) {
   const exposureGroups = [
-    { key: "sector", title: "行业", rows: portfolio.sectorExposure.slice(0, 4), focus: portfolio.topSector },
-    { key: "style", title: "风格", rows: portfolio.styleExposure.slice(0, 4), focus: portfolio.topStyle },
-    { key: "exposure", title: "暴露", rows: portfolio.exposureBreakdown.slice(0, 4), focus: portfolio.topExposure },
+    { key: "sector", title: "行业", rows: portfolio.sectorExposure, focus: portfolio.topSector },
+    { key: "style", title: "风格", rows: portfolio.styleExposure, focus: portfolio.topStyle },
+    { key: "exposure", title: "暴露", rows: portfolio.exposureBreakdown, focus: portfolio.topExposure },
   ];
   const scoreCopy = portfolioScoreCopy(portfolio);
 
@@ -105,32 +105,43 @@ export function PortfolioProfilePanel({ portfolio }: PortfolioProfilePanelProps)
           </div>
         </div>
 
-        <div className="portfolio-exposure-board">
-          <div className="portfolio-board-head">
-            <strong>权重结构</strong>
-            <span>按 Profile 配置</span>
+        <div className="portfolio-detail-stack">
+          <div className="portfolio-holdings-board">
+            <div className="portfolio-board-head">
+              <strong>标的健康</strong>
+              <span>{portfolio.holdings.length} 个标的</span>
+            </div>
+            <div className="portfolio-holding-columns" aria-hidden="true">
+              <span>权重</span>
+              <span>健康分</span>
+              <span>收益</span>
+            </div>
+            <div className="portfolio-holding-list">
+              {portfolio.holdings.length > 0 ? (
+                portfolio.holdings.map((holding) => <HoldingRow key={holding.symbol} holding={holding} />)
+              ) : (
+                <div className="portfolio-list-empty" role="status">
+                  当前 Profile 暂无标的
+                </div>
+              )}
+            </div>
+            <div className={`portfolio-holding-fill is-${portfolio.healthTone}`}>
+              <span>Profile 结构摘要</span>
+              <strong>{portfolio.healthLabel} · {formatNumber(portfolio.healthScore, 0)}/100</strong>
+              <p>{compactPortfolioAction(portfolio.actions[0])}</p>
+            </div>
           </div>
-          <div className="portfolio-exposure-block">
-            {exposureGroups.map((group) => (
-              <ExposureColumn key={group.key} title={group.title} focus={group.focus} rows={group.rows} />
-            ))}
-          </div>
-        </div>
 
-        <div className="portfolio-holdings-board">
-          <div className="portfolio-board-head">
-            <strong>标的健康</strong>
-            <span>{portfolio.holdings.length} 个标的</span>
-          </div>
-          <div className="portfolio-holding-list">
-            {portfolio.holdings.slice(0, 6).map((holding) => (
-              <HoldingRow key={holding.symbol} holding={holding} />
-            ))}
-          </div>
-          <div className={`portfolio-holding-fill is-${portfolio.healthTone}`}>
-            <span>Profile 结构摘要</span>
-            <strong>{portfolio.healthLabel} · {formatNumber(portfolio.healthScore, 0)}/100</strong>
-            <p>{compactPortfolioAction(portfolio.actions[0])}</p>
+          <div className="portfolio-exposure-board">
+            <div className="portfolio-board-head">
+              <strong>权重结构</strong>
+              <span>按 Profile 配置</span>
+            </div>
+            <div className="portfolio-exposure-block">
+              {exposureGroups.map((group) => (
+                <ExposureColumn key={group.key} title={group.title} focus={group.focus} rows={group.rows} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -208,17 +219,23 @@ function ExposureColumn({ focus, rows, title }: { focus: string; rows: Portfolio
         <span>{title}</span>
         <strong>{focus}</strong>
       </div>
-      {rows.map((row) => (
-        <article key={`${row.kind}-${row.key}`} className={`portfolio-exposure-row is-${row.tone}`}>
-          <div>
-            <strong>{row.label}</strong>
-            <em>{formatNumber(row.weight, 0)}%</em>
-          </div>
-          <div className="portfolio-bar-track">
-            <span style={{ width: `${Math.max(4, Math.min(100, row.weight))}%` }} />
-          </div>
-        </article>
-      ))}
+      <div className="portfolio-exposure-rows">
+        {rows.length > 0 ? (
+          rows.map((row) => (
+            <article key={`${row.kind}-${row.key}`} className={`portfolio-exposure-row is-${row.tone}`}>
+              <div>
+                <strong>{row.label}</strong>
+                <em>{formatNumber(row.weight, 0)}%</em>
+              </div>
+              <div className="portfolio-bar-track">
+                <span style={{ width: `${Math.max(4, Math.min(100, row.weight))}%` }} />
+              </div>
+            </article>
+          ))
+        ) : (
+          <div className="portfolio-exposure-empty">暂无配置</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -237,13 +254,20 @@ function HoldingRow({ holding }: { holding: PortfolioHolding }) {
         <strong>{formatNumber(holding.weight, 0)}%</strong>
         <span>{holding.exposure}</span>
       </div>
-      <div className="portfolio-holding-health">
+      <div className={`portfolio-holding-health is-${holding.healthTone}`}>
         <strong>{holding.healthScore}</strong>
-        <span>{formatPercent(holding.return20d)}</span>
       </div>
+      <strong className={`portfolio-holding-return is-${portfolioReturnTone(holding.return20d)}`}>
+        {formatPercent(holding.return20d)}
+      </strong>
       <div className="portfolio-holding-meter" aria-hidden="true">
         <span style={{ width: `${Math.max(4, Math.min(100, holding.healthScore))}%` }} />
       </div>
     </article>
   );
+}
+
+function portfolioReturnTone(value: number | null) {
+  if (value === null || value === 0) return "neutral";
+  return value > 0 ? "positive" : "negative";
 }

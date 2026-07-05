@@ -1,0 +1,617 @@
+/* Holdings: dense ledger, calm glass hierarchy, bounded scrolling. */
+html[data-rportfolio-style] .holdings-workspace {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--rp-inspector-width) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  color: var(--rp-ink);
+  background: transparent;
+}
+
+html[data-rportfolio-style] .holdings-workspace.is-detail-rail-collapsed {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html[data-rportfolio-style] .holdings-main-column {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
+html[data-rportfolio-style] .holdings-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: var(--rp-page-gutter);
+  border-bottom: 1px solid var(--rp-hairline);
+  background: color-mix(in srgb, var(--rp-workspace-glass) 58%, transparent);
+}
+
+html[data-rportfolio-style] .holdings-summary-card[data-slot="card"] {
+  min-width: 0;
+  min-height: 82px;
+  padding: 11px 12px;
+  overflow: hidden;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent),
+    var(--rp-panel-glass);
+  box-shadow: var(--rp-panel-shadow);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+html[data-rportfolio-style] .holdings-workbench,
+html[data-rportfolio-style] .holdings-grid,
+html[data-rportfolio-style] .holdings-list-card[data-slot="card"],
+html[data-rportfolio-style] .holdings-asset-workbench {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+html[data-rportfolio-style] .holdings-list-card[data-slot="card"] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px var(--rp-page-gutter) var(--rp-page-gutter);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-rportfolio-style] .holding-card-head {
+  min-width: 0;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html[data-rportfolio-style] .holding-list-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .holding-list-actions > p {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .holding-toolbar-button[data-slot="button"] {
+  height: 30px;
+  border-color: var(--rp-hairline);
+  color: var(--rp-ink-secondary);
+  background: var(--rp-control-glass);
+}
+
+html[data-rportfolio-style] .holding-toolbar-button[data-slot="button"]:hover {
+  border-color: var(--rp-hairline-strong);
+  color: var(--rp-ink);
+  background: var(--rp-control-hover);
+}
+
+html[data-rportfolio-style] .holding-toolbar-button.is-primary[data-slot="button"] {
+  border-color: color-mix(in srgb, var(--rp-accent) 34%, var(--rp-hairline));
+  color: var(--rp-canvas-deep);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rp-accent) 94%, white 6%), var(--rp-accent));
+}
+
+html[data-rportfolio-style="light"] .holding-toolbar-button.is-primary[data-slot="button"] {
+  color: #f7fafc;
+  background: linear-gradient(180deg, #566b82, #3f5268);
+}
+
+html[data-rportfolio-style] .holdings-table-wrap {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow: auto;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background: color-mix(in srgb, var(--rp-panel-glass) 72%, transparent);
+  box-shadow: var(--rp-panel-shadow);
+  scrollbar-gutter: stable;
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table thead th {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  height: 36px;
+  border-bottom: 1px solid var(--rp-hairline);
+  color: var(--rp-ink-muted);
+  background: color-mix(in srgb, var(--rp-panel-strong) 92%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table tbody td {
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rp-hairline) 76%, transparent);
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table tbody tr:hover td {
+  background: var(--rp-selection);
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table tbody tr.is-selected td {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--rp-accent-soft) 74%, transparent), transparent 70%),
+    var(--rp-selection);
+}
+
+html[data-rportfolio-style] .holdings-table.holdings-asset-table tbody tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--rp-accent);
+}
+
+html[data-rportfolio-style] .holdings-detail-rail.workspace-inspector-rail {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: var(--rp-page-gutter);
+  overflow: hidden auto;
+  border-left: 1px solid var(--rp-hairline);
+  background: var(--rp-sidebar-glass);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, white 3%, transparent);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+html[data-rportfolio-style] .holdings-detail-rail > .holding-detail-panel[data-slot="card"] {
+  padding: 13px;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background: var(--rp-panel-glass);
+  box-shadow: var(--rp-panel-shadow);
+}
+
+@media (max-width: 1380px) {
+  html[data-rportfolio-style] .holdings-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1120px) {
+  html[data-rportfolio-style] .holdings-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1020px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-area > .holdings-workspace {
+    display: block !important;
+    overflow: auto !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-workspace > .holdings-main-column {
+    width: 100% !important;
+    min-height: calc(100dvh - var(--window-drag-height)) !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding: 8px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-asset-workbench {
+    min-height: 0 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-table-wrap {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-workspace > .holdings-detail-rail.workspace-inspector-rail {
+    position: static !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+    min-height: 280px !important;
+    border-top: 1px solid var(--rp-hairline) !important;
+    border-left: 0 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  html[data-rportfolio-style] .holdings-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-rportfolio-style] .holding-card-head,
+  html[data-rportfolio-style] .holding-list-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  html[data-rportfolio-style] .holding-list-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Holdings final sync: one-line portfolio summary and a continuous decision-ledger inspector. */
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-grid,
+html[data-rportfolio-style="light"] .holdings-workspace.has-detail-rail .holdings-summary-grid,
+html[data-rportfolio-style="dark"] .holdings-workspace.has-detail-rail .holdings-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-auto-flow: column !important;
+  gap: 7px !important;
+  padding: 0 !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] {
+  min-width: 0 !important;
+  min-height: 92px !important;
+  display: grid !important;
+  grid-template-rows: auto auto auto !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 12px 14px !important;
+  overflow: hidden !important;
+  border-radius: 11px !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent) !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > span,
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > strong,
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > p {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > span {
+  font-size: 0.68rem !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > strong {
+  font-size: clamp(0.92rem, 1vw, 1.22rem) !important;
+  line-height: 1.12 !important;
+  letter-spacing: -0.025em !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail .holdings-summary-card[data-slot="card"] > p {
+  font-size: 0.64rem !important;
+  line-height: 1.25 !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail {
+  align-content: start !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden auto !important;
+  border-left: 1px solid var(--rp-hairline) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent 24%),
+    color-mix(in srgb, var(--rp-panel-glass) 36%, var(--rp-canvas-deep)) !important;
+  box-shadow: inset 1px 0 0 color-mix(in srgb, white 3%, transparent) !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: color-mix(in srgb, var(--rp-ink-muted) 18%, transparent) transparent !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail::-webkit-scrollbar {
+  width: 3px !important;
+}
+
+html[data-rportfolio-style] .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail::-webkit-scrollbar-thumb {
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--rp-ink-muted) 18%, transparent) !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail > .holding-detail-panel[data-slot="card"],
+html[data-rportfolio-style="light"] .holdings-detail-rail > .holding-detail-panel[data-slot="card"],
+html[data-rportfolio-style="dark"] .holdings-detail-rail > .holding-detail-panel[data-slot="card"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 0 12px !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-head,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-head,
+html[data-rportfolio-style="dark"] .holdings-detail-rail .holding-detail-head {
+  gap: 8px 10px !important;
+  margin: 0 !important;
+  padding: 14px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--rp-hairline) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-identity h3 {
+  margin: 5px 0 2px !important;
+  font-size: 1rem !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-summary {
+  gap: 4px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid color-mix(in srgb, var(--rp-hairline) 76%, transparent) !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-separator {
+  display: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-upgrade-strip {
+  margin: 10px 14px 0 !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid var(--rp-hairline) !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-metrics article,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-metrics article,
+html[data-rportfolio-style="dark"] .holdings-detail-rail .holding-detail-metrics article {
+  min-height: 52px !important;
+  align-content: center !important;
+  gap: 3px !important;
+  padding: 8px 9px !important;
+  border: 1px solid color-mix(in srgb, var(--rp-hairline) 82%, transparent) !important;
+  border-radius: 9px !important;
+  background: color-mix(in srgb, var(--rp-control-glass) 44%, transparent) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-band-meter,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-band-meter,
+html[data-rportfolio-style="dark"] .holdings-detail-rail .holding-band-meter {
+  margin: 0 14px !important;
+  padding: 12px 0 14px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--rp-hairline) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-detail-callout,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-callout,
+html[data-rportfolio-style="dark"] .holdings-detail-rail .holding-detail-callout {
+  margin: 12px 14px 0 !important;
+  padding: 10px 11px !important;
+  border-width: 1px 1px 1px 3px !important;
+  border-radius: 9px !important;
+  background:
+    linear-gradient(90deg, rgba(var(--holding-tone-rgb), 0.08), transparent 72%),
+    color-mix(in srgb, var(--rp-control-glass) 38%, transparent) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  margin: 12px 0 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-top: 1px solid var(--rp-hairline) !important;
+  border-bottom: 1px solid var(--rp-hairline) !important;
+  border-radius: 0 !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid article,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article,
+html[data-rportfolio-style="dark"] .holdings-detail-rail .holding-horizon-grid article {
+  min-height: 48px !important;
+  display: grid !important;
+  grid-template-columns: 42px minmax(58px, auto) minmax(0, 1fr) !important;
+  grid-template-rows: auto !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 8px 14px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid article + article {
+  border-top: 1px solid color-mix(in srgb, var(--rp-hairline) 76%, transparent) !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid article > span {
+  grid-row: auto !important;
+  align-self: center !important;
+  display: block !important;
+  border-right: 0 !important;
+}
+
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid article > strong,
+html[data-rportfolio-style] .holdings-detail-rail .holding-horizon-grid article > em {
+  grid-column: auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 1020px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-workspace.has-detail-rail .holdings-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-flow: column !important;
+    padding: 8px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail {
+    border-top: 1px solid var(--rp-hairline) !important;
+    border-left: 0 !important;
+  }
+}
+
+@media (max-width: 680px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .holdings-workspace.has-detail-rail .holdings-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+  }
+}
+
+/* Light inspector hierarchy: preserve the dark layout, add cooler surface separation. */
+html[data-rportfolio-style="light"] .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail {
+  border-left-color: rgba(61, 84, 110, 0.2) !important;
+  background:
+    linear-gradient(180deg, rgba(244, 248, 252, 0.9), rgba(222, 232, 243, 0.94) 118px),
+    rgba(222, 232, 243, 0.94) !important;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.72),
+    -10px 0 24px rgba(52, 73, 96, 0.055) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-head {
+  border-bottom-color: rgba(63, 87, 114, 0.15) !important;
+  background: rgba(250, 252, 255, 0.4) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-summary,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-metrics,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-band-meter,
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid {
+  border-color: rgba(63, 87, 114, 0.15) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-metrics article {
+  border-color: rgba(63, 87, 114, 0.16) !important;
+  background: rgba(250, 252, 255, 0.66) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-band-meter {
+  background: rgba(248, 251, 255, 0.28) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-callout {
+  border-color: rgba(63, 87, 114, 0.16) !important;
+  background:
+    linear-gradient(90deg, rgba(var(--holding-tone-rgb), 0.1), transparent 72%),
+    rgba(250, 252, 255, 0.62) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article {
+  background: rgba(248, 251, 255, 0.28) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article + article {
+  border-top-color: rgba(63, 87, 114, 0.14) !important;
+}
+
+/* Light holdings inspector: use the same restrained palette as the analysis rail. */
+html[data-rportfolio-style="light"] .holdings-workspace.has-detail-rail > .holdings-detail-rail.workspace-inspector-rail {
+  border-left-color: rgba(61, 84, 110, 0.2) !important;
+  background:
+    linear-gradient(180deg, rgba(244, 248, 252, 0.92), rgba(222, 232, 243, 0.96) 112px),
+    rgba(222, 232, 243, 0.96) !important;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.72),
+    -10px 0 24px rgba(52, 73, 96, 0.055) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-head {
+  border-bottom-color: rgba(63, 87, 114, 0.16) !important;
+  background: rgba(250, 252, 255, 0.42) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-metrics {
+  border-bottom-color: rgba(63, 87, 114, 0.16) !important;
+  background: rgba(241, 246, 251, 0.34) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-metrics article {
+  border-color: rgba(63, 87, 114, 0.16) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.52), transparent 68%),
+    rgba(247, 250, 253, 0.76) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 5px 12px rgba(55, 76, 99, 0.04) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-band-meter {
+  border-bottom-color: rgba(63, 87, 114, 0.16) !important;
+  background: rgba(241, 246, 251, 0.38) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-detail-callout {
+  border-color: rgba(63, 87, 114, 0.17) !important;
+  background:
+    linear-gradient(90deg, rgba(var(--holding-tone-rgb), 0.1), transparent 72%),
+    rgba(247, 250, 253, 0.76) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 5px 12px rgba(55, 76, 99, 0.04) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid {
+  border-color: rgba(63, 87, 114, 0.16) !important;
+  background: rgba(232, 240, 248, 0.46) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article {
+  background: rgba(247, 250, 253, 0.62) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article:nth-child(even) {
+  background: rgba(241, 246, 251, 0.62) !important;
+}
+
+html[data-rportfolio-style="light"] .holdings-detail-rail .holding-horizon-grid article + article {
+  border-top-color: rgba(63, 87, 114, 0.14) !important;
+}

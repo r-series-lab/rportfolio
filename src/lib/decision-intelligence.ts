@@ -97,7 +97,9 @@ export function deriveStateConfidence(report: MarketAnalysisReport, riskVector =
   const crossAssetScore = riskLikeState
     ? clamp(Math.round(42 + relativeWeakness * 0.52), 25, 88)
     : clamp(Math.round(82 - relativeWeakness * 0.38), 25, 88);
-  const sampleCount = report.backtest?.stateValidation?.sampleCount ?? 0;
+  const validation = report.backtest?.stateValidation;
+  const sampleCount = validation?.effectiveSampleCount ?? validation?.sampleCount ?? 0;
+  const rawSampleCount = validation?.rawSampleCount ?? sampleCount;
   const durationScore = clamp(Math.round(42 + Math.sqrt(sampleCount) * 7), 36, 82);
   const failedReboundSignal = report.marketInternals.signals.find((signal) => signal.key.includes("gap") || /失败|反抽/u.test(signal.label));
   const failedReboundScore = !failedReboundSignal || failedReboundSignal.tone === "positive" ? 52 : riskLikeState ? 76 : 44;
@@ -107,7 +109,7 @@ export function deriveStateConfidence(report: MarketAnalysisReport, riskVector =
     driver("triggered_rules", "规则一致性", ruleScore, `通过 ${passed}/${total} 个动作门；观察 ${watched}，卡住 ${blocked}。`, "confidence"),
     driver("breadth", "广度确认", breadthScore, report.marketInternals.scopeLabel, "confidence"),
     driver("cross_asset_confirmation", "跨资产确认", crossAssetScore, `相对弱势样本 ${report.marketInternals.relativeWeaknessSampleSize}，结构压力 ${Math.round(relativeWeakness)}。`, "confidence"),
-    driver("duration", "样本稳定性", durationScore, `同状态样本 n=${sampleCount || "—"}，用于判断状态是否足够常见。`, "confidence"),
+    driver("duration", "样本稳定性", durationScore, `有效样本 n=${sampleCount || "—"}（原始 ${rawSampleCount || "—"}），已降低连续重叠样本的影响。`, "confidence"),
     driver("failed_rebound", "失败反抽", failedReboundScore, failedReboundSignal?.detail ?? "未发现失败反抽或缺口失败。", "confidence"),
   ];
   const score = clamp(
@@ -155,13 +157,21 @@ export function deriveSignalQuality(
         : 66;
   const dataCoverage = clamp(Math.round(sourceScore * 0.58 + fundFreshness * 0.42), 0, 100);
 
-  const stateSamples = report.backtest?.stateValidation?.sampleCount ?? 0;
+  const validation = report.backtest?.stateValidation;
+  const stateSamples = validation?.effectiveSampleCount ?? validation?.sampleCount ?? 0;
+  const rawStateSamples = validation?.rawSampleCount ?? stateSamples;
+  const independenceRatio = rawStateSamples > 0 ? stateSamples / rawStateSamples : 0;
   const protocolSamples = report.backtest?.protocolValidation?.sampleCount ?? 0;
   const exactSamples = report.backtest?.stateValidation?.exactSampleCount ?? 0;
   const sampleScore = clamp(Math.round(26 + Math.sqrt(stateSamples + protocolSamples) * 6 + Math.min(exactSamples, 16) * 1.2), 22, 92);
   const qualityLabel = report.backtest?.stateValidation?.sampleQualityLabel ?? report.backtest?.stateValidation?.confidence;
   const sampleQualityBonus = /高/u.test(qualityLabel ?? "") ? 8 : /低/u.test(qualityLabel ?? "") ? -10 : 0;
-  const backtestDepth = clamp(sampleScore + sampleQualityBonus, 0, 100);
+  const independencePenalty = independenceRatio > 0 && independenceRatio < 0.35
+    ? 12
+    : independenceRatio > 0 && independenceRatio < 0.55
+      ? 6
+      : 0;
+  const backtestDepth = clamp(sampleScore + sampleQualityBonus - independencePenalty, 0, 100);
 
   const rules = report.backtest?.ruleSet;
   const ruleCount = (rules?.stateRules.length ?? 0) + (rules?.actionRules.length ?? 0) + (rules?.profileRules.length ?? 0);
@@ -177,7 +187,7 @@ export function deriveSignalQuality(
   const drivers: IntelligenceDriver[] = [
     driver("profile_coverage", "Profile 覆盖", profileCoverage, `已配置 ${weightedHoldings.length} 个带权重资产，总权重 ${Math.round(totalWeight)}%。`, "confidence"),
     driver("data_coverage", "数据来源", dataCoverage, `${report.sourceLabel || report.source}；${report.profileFund?.freshnessLabel ?? "Profile 数据新鲜度未单独声明"}。`, "confidence"),
-    driver("backtest_depth", "回测样本", backtestDepth, `状态样本 n=${stateSamples || "—"}，协议样本 n=${protocolSamples || "—"}。`, "confidence"),
+    driver("backtest_depth", "回测样本", backtestDepth, `有效状态样本 n=${stateSamples || "—"} / 原始 ${rawStateSamples || "—"}，协议样本 n=${protocolSamples || "—"}。`, "confidence"),
     driver("rule_completeness", "规则完整度", ruleCompleteness, `规则 ${ruleCount} 条，动作门 ${gateCount} 个，阻断 ${blockedGates} 个。`, "confidence"),
     driver("signal_consistency", "信号一致性", consistency, `状态置信 ${stateConfidence.score}/100，风险向量分歧 ${riskSpread}。`, "confidence"),
   ];

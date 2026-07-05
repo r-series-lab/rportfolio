@@ -1,0 +1,219 @@
+/* Asset analysis: three-pane research desk with a stable center stage. */
+html[data-rportfolio-style] .asset-analysis-page {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: var(--rp-section-gap) !important;
+  padding: var(--rp-page-gutter) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+html[data-rportfolio-style] .asset-analysis-header {
+  min-width: 0;
+  min-height: 48px;
+  padding: 2px 4px;
+}
+
+html[data-rportfolio-style] .asset-analysis-grid {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: minmax(202px, 232px) minmax(0, 1fr) var(--rp-inspector-width) !important;
+  gap: var(--rp-section-gap) !important;
+  overflow: hidden !important;
+}
+
+html[data-rportfolio-style] .asset-analysis-picker,
+html[data-rportfolio-style] .asset-analysis-main,
+html[data-rportfolio-style] .asset-analysis-rail.workspace-inspector-rail {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    var(--rp-panel-glass);
+  box-shadow: var(--rp-panel-shadow);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+html[data-rportfolio-style] .asset-analysis-picker {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .asset-analysis-search {
+  border-color: var(--rp-hairline);
+  border-radius: var(--rp-control-radius);
+  background: var(--rp-control-glass);
+}
+
+html[data-rportfolio-style] .asset-analysis-filters {
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-control-radius);
+  background: var(--rp-panel-quiet);
+}
+
+html[data-rportfolio-style] .asset-analysis-filters button {
+  border-radius: 7px;
+  color: var(--rp-ink-secondary);
+}
+
+html[data-rportfolio-style] .asset-analysis-filters button:hover,
+html[data-rportfolio-style] .asset-analysis-filters button.is-active {
+  color: var(--rp-ink);
+  background: var(--rp-control-hover);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+html[data-rportfolio-style] .asset-analysis-list {
+  min-height: 0;
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+}
+
+html[data-rportfolio-style] .asset-analysis-list > button {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--rp-ink-secondary);
+  background: transparent;
+}
+
+html[data-rportfolio-style] .asset-analysis-list > button:hover {
+  border-color: var(--rp-hairline);
+  color: var(--rp-ink);
+  background: var(--rp-control-glass);
+}
+
+html[data-rportfolio-style] .asset-analysis-list > button.is-active {
+  border-color: var(--rp-hairline-strong);
+  color: var(--rp-ink);
+  background:
+    linear-gradient(90deg, var(--rp-accent-soft), transparent 82%),
+    var(--rp-selection);
+  box-shadow: inset 3px 0 0 var(--rp-accent);
+}
+
+html[data-rportfolio-style] .asset-analysis-main {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 10px;
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+}
+
+html[data-rportfolio-style] .asset-detail-tabs-list {
+  position: sticky;
+  z-index: 4;
+  top: -10px;
+  border-color: var(--rp-hairline);
+  background: color-mix(in srgb, var(--rp-panel-strong) 88%, transparent);
+  box-shadow: var(--rp-panel-shadow);
+}
+
+html[data-rportfolio-style] .asset-detail-tabs-list [data-slot="tabs-trigger"] {
+  color: var(--rp-ink-secondary);
+}
+
+html[data-rportfolio-style] .asset-detail-tabs-list [data-slot="tabs-trigger"]:hover,
+html[data-rportfolio-style] .asset-detail-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
+  border-color: var(--rp-hairline);
+  color: var(--rp-ink);
+  background: var(--rp-control-hover);
+}
+
+html[data-rportfolio-style] .asset-live-card,
+html[data-rportfolio-style] .asset-focus-card,
+html[data-rportfolio-style] .asset-analysis-band,
+html[data-rportfolio-style] .asset-research-card,
+html[data-rportfolio-style] .asset-position-card,
+html[data-rportfolio-style] .asset-action-card,
+html[data-rportfolio-style] .asset-live-rail-card {
+  border-color: var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  color: var(--rp-ink);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    var(--rp-panel-quiet);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+}
+
+html[data-rportfolio-style] .asset-analysis-rail.workspace-inspector-rail {
+  display: grid !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: max-content !important;
+  align-content: start !important;
+  gap: 10px !important;
+  padding: 10px !important;
+  overflow: hidden auto !important;
+}
+
+html[data-rportfolio-style] .asset-live-price-stack > strong {
+  min-height: 1.08em !important;
+  padding-block: 2px !important;
+  overflow: visible !important;
+  line-height: 1.04 !important;
+}
+
+@media (max-width: 1280px) {
+  html[data-rportfolio-style] .asset-analysis-grid {
+    grid-template-columns: minmax(190px, 216px) minmax(0, 1fr) 252px;
+  }
+}
+
+@media (max-width: 1120px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-area > .asset-analysis-page {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .asset-analysis-page > .asset-analysis-grid {
+    grid-template-columns: minmax(190px, 220px) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(500px, auto) auto !important;
+    overflow: visible !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .asset-analysis-picker,
+  html[data-rportfolio-style][data-rportfolio-style] body .asset-analysis-main {
+    min-height: 500px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .asset-analysis-grid > .asset-analysis-rail.workspace-inspector-rail {
+    position: static !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    grid-column: 1 / -1 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    min-height: 240px !important;
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 820px) {
+  html[data-rportfolio-style] .asset-analysis-grid,
+  html[data-rportfolio-style] .asset-analysis-rail.workspace-inspector-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-rportfolio-style] .asset-analysis-picker,
+  html[data-rportfolio-style] .asset-analysis-main {
+    min-height: auto;
+    max-height: none;
+  }
+}

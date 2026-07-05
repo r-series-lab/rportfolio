@@ -7,6 +7,7 @@ import type {
   DecisionMetricContext,
   FactorScore,
   FundProfileSeed,
+  FundNavLookup,
   MarketInternals,
   MarketAnalysisReport,
   MarketState,
@@ -100,6 +101,27 @@ export async function lookupFundProfileSeed(code: string): Promise<FundProfileSe
   return previewFundProfileSeed(normalized);
 }
 
+export async function lookupFundNav(code: string, date: string): Promise<FundNavLookup> {
+  const normalized = code.trim();
+  if ("__TAURI_INTERNALS__" in window) {
+    return invoke<FundNavLookup>("lookup_fund_nav", { code: normalized, date });
+  }
+  const seed = await lookupFundProfileSeed(normalized);
+  if (seed.nav == null || seed.navDate !== date) {
+    throw new Error(`基金 ${normalized} 未找到 ${date} 的确认净值`);
+  }
+  return {
+    code: normalized,
+    requestedDate: date,
+    navDate: date,
+    nav: seed.nav,
+    exact: true,
+    sourceName: seed.sourceName,
+    sourceUrl: seed.sourceUrl,
+    fetchedAt: seed.fetchedAt,
+  };
+}
+
 export async function validateProfileConfig(content: string): Promise<ProfileValidationReport> {
   if ("__TAURI_INTERNALS__" in window) {
     return invoke<ProfileValidationReport>("validate_profile_config", { content });
@@ -117,7 +139,8 @@ export async function fetchDataSourceSummaries(): Promise<DataSourceSummary[]> {
 }
 
 const DATA_SOURCE_SUMMARIES: DataSourceSummary[] = [
-  { key: "auto", name: "自动", description: "优先 CSV，其次 Stooq，失败后 Yahoo/FRED 或示例。", requiresConfig: false },
+  { key: "auto", name: "自动", description: "A 股优先东方财富双源校验；其他市场按 CSV、Stooq、Yahoo/FRED 降级。", requiresConfig: false },
+  { key: "china", name: "A股免费多源", description: "东方财富前复权日线 + Yahoo 核心基准校验。", requiresConfig: false },
   { key: "stooq", name: "Stooq 历史页", description: "抓取公开历史页表格并分页拼接。", requiresConfig: false },
   { key: "hybrid", name: "免费混合", description: "Yahoo + FRED 宏观覆盖。", requiresConfig: false },
   { key: "yahoo", name: "Yahoo", description: "Yahoo Finance 非官方 chart 接口。", requiresConfig: false },
@@ -161,6 +184,14 @@ function previewFundProfileSeed(code: string): FundProfileSeed {
     bondWeight: null,
     cashWeight: null,
     netAsset: null,
+    purchaseStatus: "交易状态待同步",
+    purchaseOpen: null,
+    purchaseLimit: null,
+    redemptionOpen: null,
+    holdingsAsOf: null,
+    topHoldings: [],
+    navHistory: [],
+    redemptionFeeSchedule: [],
     topicLabels: [],
     sourceName: "Web 预览示例",
     sourceUrl: `https://fund.eastmoney.com/${normalized}.html`,

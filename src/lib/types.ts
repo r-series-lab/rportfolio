@@ -1,4 +1,4 @@
-export type DataSource = "auto" | "stooq" | "hybrid" | "yahoo" | "csv" | "sample";
+export type DataSource = "auto" | "china" | "stooq" | "hybrid" | "yahoo" | "csv" | "sample";
 export type LightStatus = "green" | "yellow" | "red";
 
 export interface ScoreMarketRequest {
@@ -13,6 +13,9 @@ export interface ProfileSummary {
   market: string;
   description: string;
   builtin: boolean;
+  schemaVersion?: number;
+  profileVersion?: string;
+  parentProfile?: string | null;
 }
 
 export interface ProfileConfigBundle {
@@ -47,11 +50,48 @@ export interface FundProfileSeed {
   bondWeight: number | null;
   cashWeight: number | null;
   netAsset: number | null;
+  purchaseStatus: string;
+  purchaseOpen: boolean | null;
+  purchaseLimit: number | null;
+  redemptionOpen: boolean | null;
+  holdingsAsOf: string | null;
+  topHoldings: FundHoldingSeed[];
+  navHistory: FundNavPoint[];
+  redemptionFeeSchedule: FundRedemptionFeeTier[];
   topicLabels: string[];
   sourceName: string;
   sourceUrl: string;
   fetchedAt: string;
   warnings: string[];
+}
+
+export interface FundHoldingSeed {
+  symbol: string;
+  name: string;
+  weight: number;
+}
+
+export interface FundNavPoint {
+  date: string;
+  nav: number;
+}
+
+export interface FundRedemptionFeeTier {
+  label: string;
+  minDays: number | null;
+  maxDaysExclusive: number | null;
+  rate: number;
+}
+
+export interface FundNavLookup {
+  code: string;
+  requestedDate: string;
+  navDate: string;
+  nav: number;
+  exact: boolean;
+  sourceName: string;
+  sourceUrl: string;
+  fetchedAt: string;
 }
 
 export interface ProfileValidationIssue {
@@ -119,6 +159,85 @@ export interface ProfileFund {
   freshnessTone: "positive" | "neutral" | "caution" | "negative" | string;
   summary: string;
   notes: string[];
+}
+
+export interface ProfileExecutionPolicy {
+  quoteWarnAgeSeconds: number;
+  quoteBlockAgeSeconds: number;
+  etfWarnSpreadBps: number;
+  etfBlockSpreadBps: number;
+  etfWarnPremiumDiscountPct: number;
+  etfBlockPremiumDiscountPct: number;
+  fundWarnHoldingsAgeDays: number;
+  fundBlockHoldingsAgeDays: number;
+}
+
+export interface ProfileCalibrationStatus {
+  stage: "validated" | "manual-baseline" | "legacy" | "evidence-gap" | string;
+  label: string;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  executionGrade: boolean;
+  method: string;
+  trainingWindow: string;
+  validationWindow: string;
+  dataSignature: string;
+  objective: string;
+  effectiveSampleCount: number;
+  summary: string;
+  warnings: string[];
+}
+
+export interface RecommendationPerformanceSlice {
+  key: string;
+  label: string;
+  sampleCount: number;
+  correctCount: number;
+  hitRatePct: number | null;
+  averageSignedReturnPct: number | null;
+  averageExcessReturnPct: number | null;
+  averageMaxAdversePct: number | null;
+}
+
+export interface RecommendationPerformanceSummary {
+  profileKey: string;
+  label: string;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  summary: string;
+  evaluatedRecords: number;
+  rawEvaluatedOutcomes: number;
+  effectiveEvaluatedOutcomes: number;
+  pendingOutcomes: number;
+  insufficientOutcomes: number;
+  horizons: RecommendationPerformanceSlice[];
+  directions: RecommendationPerformanceSlice[];
+  marketStates: RecommendationPerformanceSlice[];
+  priorities: RecommendationPerformanceSlice[];
+}
+
+export interface ProfileParameterProposal {
+  key: string;
+  label: string;
+  path: string;
+  currentValue: string;
+  proposedValue: string;
+  expectedEffect: string;
+  reason: string;
+  sampleCount: number;
+  confidence: string;
+  directlyApplicable: boolean;
+}
+
+export interface ProfileCalibrationAction {
+  key: "collect" | "candidate" | "hold" | "review" | string;
+  label: string;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  action: string;
+  rationale: string;
+  nextReview: string;
+  minimumSampleCount: number;
+  currentSampleCount: number;
+  proposals: ProfileParameterProposal[];
+  evidence: string[];
 }
 
 export interface DataSourceSummary {
@@ -559,6 +678,9 @@ export interface StateValidation {
   stateKey: string;
   stateLabel: string;
   sampleCount: number;
+  rawSampleCount?: number;
+  effectiveSampleCount?: number;
+  sampleSpacingDays?: number;
   exactSampleCount?: number;
   similarSampleCount?: number;
   matchMode: string;
@@ -631,6 +753,9 @@ export interface MarketAnalysisReport {
   source: string;
   sourceLabel: string;
   providerNote: string;
+  profileSchemaVersion?: number;
+  profileVersion?: string;
+  parentProfile?: string | null;
   asOf: string;
   score: number;
   level: RiskLevel;
@@ -664,6 +789,10 @@ export interface MarketAnalysisReport {
   portfolioProfile: PortfolioProfile;
   profileMandate: ProfileMandate;
   profileFund: ProfileFund | null;
+  profileCalibrationStatus?: ProfileCalibrationStatus;
+  recommendationPerformance?: RecommendationPerformanceSummary;
+  calibrationAction?: ProfileCalibrationAction;
+  executionPolicy?: ProfileExecutionPolicy;
   backtest: BacktestSummary;
   policyNote: string;
 }

@@ -1,5 +1,6 @@
 use crate::core::{
-    list_data_sources, list_profiles, score_market, AppError, MarketAnalysisReport, ScoreMarketRequest,
+    list_data_sources, list_profiles, score_market, AppError, MarketAnalysisReport,
+    ScoreMarketRequest,
 };
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -37,6 +38,7 @@ pub enum Commands {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum SourceArg {
     Auto,
+    China,
     Stooq,
     Yahoo,
     Hybrid,
@@ -48,6 +50,7 @@ impl SourceArg {
     fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
+            Self::China => "china",
             Self::Stooq => "stooq",
             Self::Yahoo => "yahoo",
             Self::Hybrid => "hybrid",
@@ -159,6 +162,7 @@ fn capability_manifest() -> CapabilityManifest {
                 reads_network: true,
                 examples: vec![
                     "rportfolio score --profile us-core --source auto --json",
+                    "rportfolio score --profile a-share-risk --source china --json",
                     "rportfolio score --profile us-core --source stooq --json",
                     "rportfolio score --profile ./my-profile.json --source csv --json",
                     "rportfolio score --profile global-risk --source sample --json",

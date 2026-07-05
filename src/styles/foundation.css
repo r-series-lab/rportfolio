@@ -1,0 +1,2035 @@
+/* Generated from the former App.css and grouped by foundation. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  --panel-bg: rgba(6, 13, 21, 0.86);
+  --panel-bg-soft: rgba(136, 166, 198, 0.05);
+  --panel-border: rgba(118, 154, 190, 0.13);
+  --text-primary: #f3f7fb;
+  --text-secondary: #bac5d1;
+  --text-muted: #7a8796;
+  --market-up: #c84f4f;
+  --market-down: #118866;
+  --risk-rise: #c84f4f;
+  --risk-fall: #118866;
+  --green: var(--market-down);
+  --yellow: #b8a35d;
+  --blue: #7897b4;
+  --red: var(--market-up);
+  --green-rgb: 17, 136, 102;
+  --yellow-rgb: 184, 163, 93;
+  --blue-rgb: 120, 151, 180;
+  --red-rgb: 200, 79, 79;
+  --line-soft: rgba(118, 154, 190, 0.1);
+  --line-visible: rgba(20, 160, 111, 0.18);
+  --surface-quiet: rgba(136, 166, 198, 0.05);
+  --surface-lift: rgba(136, 166, 198, 0.075);
+  --surface-glass: rgba(8, 15, 24, 0.74);
+  --terminal-grid: rgba(92, 119, 146, 0.06);
+  --amber-glow: rgba(215, 196, 111, 0.16);
+  --window-drag-height: 42px;
+  --window-chrome-bg: rgba(4, 9, 14, 0.97);
+  --config-drawer-height: min(660px, calc(100dvh - var(--window-drag-height) - 32px));
+  --scrollbar-size: 3px;
+  --scrollbar-thumb: rgba(110, 128, 146, 0.16);
+  --scrollbar-thumb-hover: rgba(122, 141, 162, 0.3);
+  --scrollbar-track: transparent;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+html[data-rportfolio-style="light"] {
+  color-scheme: light;
+  --panel-bg: rgba(255, 255, 255, 0.86);
+  --panel-bg-soft: rgba(31, 37, 48, 0.035);
+  --panel-border: rgba(42, 82, 132, 0.14);
+  --text-primary: #172133;
+  --text-secondary: #58667c;
+  --text-muted: #6f7e94;
+  --market-up: #c43f38;
+  --market-down: #0f8f62;
+  --risk-rise: #c43f38;
+  --risk-fall: #0f8f62;
+  --green: var(--market-down);
+  --yellow: #96741a;
+  --blue: #2563eb;
+  --red: var(--market-up);
+  --green-rgb: 15, 143, 98;
+  --yellow-rgb: 150, 116, 26;
+  --blue-rgb: 37, 99, 235;
+  --red-rgb: 196, 63, 56;
+  --line-soft: rgba(42, 82, 132, 0.12);
+  --line-visible: rgba(37, 99, 235, 0.2);
+  --surface-quiet: rgba(31, 37, 48, 0.035);
+  --surface-lift: rgba(37, 99, 235, 0.058);
+  --surface-glass: rgba(255, 255, 255, 0.78);
+  --terminal-grid: rgba(42, 82, 132, 0.032);
+  --amber-glow: rgba(37, 99, 235, 0.14);
+  --window-chrome-bg: rgba(244, 247, 251, 0.97);
+  --scrollbar-thumb: rgba(82, 101, 126, 0.16);
+  --scrollbar-thumb-hover: rgba(82, 101, 126, 0.28);
+  --scrollbar-track: transparent;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(12, 24, 36, 0.9), rgba(5, 12, 20, 0.42) 44%, rgba(3, 6, 10, 0) 72%),
+    linear-gradient(120deg, rgba(42, 72, 105, 0.13), rgba(20, 160, 111, 0.028) 48%, transparent 72%),
+    linear-gradient(var(--terminal-grid) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 119, 146, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 48% 0%, rgba(132, 167, 207, 0.08), transparent 30%),
+    linear-gradient(180deg, #07111a 0%, #050b12 58%, #03070c 100%);
+  background-size: auto, auto, 32px 32px, 32px 32px, auto, auto;
+}
+
+html[data-rportfolio-style="light"] body {
+  --panel-bg: rgba(255, 255, 255, 0.86);
+  --panel-bg-soft: rgba(31, 37, 48, 0.035);
+  --panel-border: rgba(42, 82, 132, 0.14);
+  --text-primary: #172133;
+  --text-secondary: #58667c;
+  --text-muted: #6f7e94;
+  --line-soft: rgba(42, 82, 132, 0.12);
+  --line-visible: rgba(37, 99, 235, 0.2);
+  --surface-quiet: rgba(31, 37, 48, 0.035);
+  --surface-lift: rgba(37, 99, 235, 0.058);
+  --surface-glass: rgba(255, 255, 255, 0.78);
+  color: var(--text-primary);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.92), rgba(244, 247, 251, 0.18) 42%, rgba(238, 243, 249, 0) 70%),
+    linear-gradient(120deg, rgba(37, 99, 235, 0.032), rgba(42, 82, 132, 0.022) 46%, transparent 70%),
+    linear-gradient(var(--terminal-grid) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 82, 132, 0.032) 1px, transparent 1px),
+    linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%);
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  border: 0;
+  box-shadow: none;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+html[data-rportfolio-style="light"] .MuiTooltip-tooltip.MuiTooltip-tooltip {
+  color: #172133;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(238, 244, 250, 0.99)),
+    rgba(248, 251, 255, 0.99);
+  box-shadow:
+    0 18px 42px rgba(46, 83, 126, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+html[data-rportfolio-style="light"] .MuiTooltip-arrow {
+  color: rgba(248, 251, 255, 0.98);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip strong,
+html[data-rportfolio-style="light"] .axis-policy-tooltip strong {
+  color: #172133;
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip p,
+html[data-rportfolio-style="light"] .axis-policy-tooltip p {
+  color: rgba(35, 49, 72, 0.9);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-meta span,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li {
+  color: rgba(31, 45, 68, 0.9);
+  border-color: rgba(37, 99, 235, 0.13);
+  background: rgba(37, 99, 235, 0.045);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-meta span i {
+  color: rgba(84, 101, 126, 0.78);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-meta span b,
+html[data-rportfolio-style="light"] .advice-policy-tooltip p b {
+  color: #172133;
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip .advice-policy-verdict {
+  color: #172133;
+  border-color: rgba(37, 99, 235, 0.14);
+  background: rgba(37, 99, 235, 0.045);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li b,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li i,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li small {
+  color: rgba(31, 45, 68, 0.9);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-triggered {
+  background:
+    linear-gradient(135deg, rgba(15, 143, 98, 0.055), rgba(37, 99, 235, 0.028)),
+    rgba(255, 255, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-block i,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-block small {
+  color: #c14e4e;
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-watch i,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-watch small {
+  color: #9b7211;
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-pass i,
+html[data-rportfolio-style="light"] .advice-policy-tooltip li.is-pass small {
+  color: #0f8f62;
+}
+
+html[data-rportfolio-style="light"] .advice-policy-tooltip li em,
+html[data-rportfolio-style="light"] .axis-policy-tooltip span {
+  color: rgba(82, 98, 123, 0.82);
+}
+
+html[data-rportfolio-style="light"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(61, 48, 36, 0.26), rgba(61, 48, 36, 0.12));
+  border-color: rgba(255, 250, 242, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.46);
+}
+
+html[data-rportfolio-style="light"] *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(61, 48, 36, 0.36), rgba(61, 48, 36, 0.18));
+}
+
+html[data-rportfolio-style="light"] .reason-item,
+html[data-rportfolio-style="light"] .position-horizon {
+  color: var(--text-secondary);
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 250, 242, 0.28)),
+    rgba(49, 40, 31, 0.035);
+}
+
+html[data-rportfolio-style="light"] .panel,
+html[data-rportfolio-style="light"] .score-panel,
+html[data-rportfolio-style="light"] .loading-state {
+  border-color: var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 250, 242, 0.28)),
+    var(--panel-bg);
+  box-shadow:
+    0 18px 40px rgba(88, 63, 38, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-rportfolio-style="light"] .rail-card {
+  border-color: var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 250, 242, 0.28)),
+    rgba(255, 250, 242, 0.84);
+  box-shadow:
+    0 16px 34px rgba(88, 63, 38, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-rportfolio-style="light"] .rail-section-head {
+  color: var(--text-primary);
+}
+
+html[data-rportfolio-style="light"] .rail-risk-grid article,
+html[data-rportfolio-style="light"] .rail-internal-grid article,
+html[data-rportfolio-style="light"] .rail-scope-line,
+html[data-rportfolio-style="light"] .rail-trigger-list article,
+html[data-rportfolio-style="light"] .rail-position-list article {
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.48), rgba(255, 250, 242, 0.15)),
+    rgba(49, 40, 31, 0.04);
+}
+
+html[data-rportfolio-style="light"] .strength-scroll-wrap::before {
+  background: linear-gradient(90deg, rgba(245, 241, 233, 0.66), rgba(245, 241, 233, 0));
+}
+
+html[data-rportfolio-style="light"] .strength-scroll-wrap::after {
+  background: linear-gradient(270deg, rgba(245, 241, 233, 0.66), rgba(245, 241, 233, 0));
+}
+
+html[data-rportfolio-style="light"] .appearance-mode-switch {
+  border-color: var(--line-soft);
+  background: rgba(49, 40, 31, 0.045);
+}
+
+html[data-rportfolio-style="light"] .appearance-mode-switch {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .appearance-mode-switch i {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(var(--yellow-rgb), 0.1)),
+    rgba(255, 250, 242, 0.92);
+  box-shadow:
+    0 9px 18px rgba(88, 63, 38, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+html[data-rportfolio-style="light"] .fund-seed-search-row .MuiButton-root,
+html[data-rportfolio-style="light"] .fund-seed-result .MuiButton-root,
+html[data-rportfolio-style="light"] .ai-recipe-generator .MuiButton-root,
+html[data-rportfolio-style="light"] .import-quality-presets button {
+  color: var(--text-primary);
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 250, 242, 0.32)),
+    rgba(49, 40, 31, 0.04);
+}
+
+html[data-rportfolio-style="light"] .fund-seed-search-row .MuiButton-root,
+html[data-rportfolio-style="light"] .fund-seed-result .MuiButton-root,
+html[data-rportfolio-style="light"] .ai-recipe-generator .MuiButton-root:first-child {
+  border-color: rgba(37, 99, 235, 0.18);
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.026)),
+    rgba(251, 253, 255, 0.78);
+}
+
+html[data-rportfolio-style="light"] .fund-seed-generator,
+html[data-rportfolio-style="light"] .fund-seed-result,
+html[data-rportfolio-style="light"] .fund-seed-result dl div,
+html[data-rportfolio-style="light"] .fund-seed-tags span,
+html[data-rportfolio-style="light"] .profile-generate-flow div,
+html[data-rportfolio-style="light"] .profile-generate-tools,
+html[data-rportfolio-style="light"] .profile-generate-tools-head em,
+html[data-rportfolio-style="light"] .ai-recipe-generator,
+html[data-rportfolio-style="light"] .ai-recipe-preview,
+html[data-rportfolio-style="light"] .profile-validation-card,
+html[data-rportfolio-style="light"] .profile-validation-card dl div,
+html[data-rportfolio-style="light"] .profile-validation-card li {
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 250, 242, 0.16)),
+    rgba(49, 40, 31, 0.035);
+}
+
+html[data-rportfolio-style="light"] .profile-generate-flow div.is-active {
+  border-color: rgba(37, 99, 235, 0.18);
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.075), rgba(255, 255, 255, 0.38)),
+    rgba(251, 253, 255, 0.76);
+}
+
+html[data-rportfolio-style="light"] .profile-generate-flow div.is-done {
+  border-color: rgba(var(--green-rgb), 0.18);
+  background:
+    linear-gradient(180deg, rgba(var(--green-rgb), 0.08), rgba(255, 255, 255, 0.38)),
+    rgba(251, 253, 255, 0.76);
+}
+
+html[data-rportfolio-style="light"] .fund-seed-search-row input {
+  color: var(--text-primary);
+  border-color: rgba(42, 82, 132, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.26)),
+    rgba(251, 253, 255, 0.76);
+}
+
+html[data-rportfolio-style="light"] .fund-seed-search-row input:focus-visible {
+  border-color: rgba(37, 99, 235, 0.3);
+  background: rgba(251, 253, 255, 0.96);
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .profile-validation-card.is-positive {
+  border-color: rgba(var(--green-rgb), 0.18);
+  background: rgba(var(--green-rgb), 0.055);
+}
+
+html[data-rportfolio-style="light"] .profile-validation-card.is-caution {
+  border-color: rgba(var(--yellow-rgb), 0.18);
+  background: rgba(var(--yellow-rgb), 0.06);
+}
+
+html[data-rportfolio-style="light"] .profile-validation-card.is-negative {
+  border-color: rgba(var(--red-rgb), 0.18);
+  background: rgba(var(--red-rgb), 0.055);
+}
+
+html[data-rportfolio-style="light"] .error-card {
+  border-color: rgba(var(--red-rgb), 0.22) !important;
+  background: rgba(var(--red-rgb), 0.08) !important;
+}
+
+html[data-rportfolio-style="light"] .error-card .MuiCardContent-root {
+  color: var(--red);
+}
+
+html[data-rportfolio-style="light"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(35, 40, 53, 0.24), rgba(35, 40, 53, 0.1));
+  border-color: rgba(248, 251, 255, 0.78);
+}
+
+html[data-rportfolio-style="light"] .panel,
+html[data-rportfolio-style="light"] .score-panel,
+html[data-rportfolio-style="light"] .rail-card {
+  border-color: var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(248, 251, 255, 0.34)),
+    rgba(251, 253, 255, 0.86);
+  box-shadow:
+    0 16px 36px rgba(46, 83, 126, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+html[data-rportfolio-style="light"] .rail-risk-grid article,
+html[data-rportfolio-style="light"] .rail-internal-grid article,
+html[data-rportfolio-style="light"] .rail-scope-line,
+html[data-rportfolio-style="light"] .rail-trigger-list article,
+html[data-rportfolio-style="light"] .rail-position-list article,
+html[data-rportfolio-style="light"] .ai-recipe-generator,
+html[data-rportfolio-style="light"] .ai-recipe-preview,
+html[data-rportfolio-style="light"] .ai-recipe-generator .MuiButton-root,
+html[data-rportfolio-style="light"] .profile-validation-card,
+html[data-rportfolio-style="light"] .profile-validation-card dl div,
+html[data-rportfolio-style="light"] .profile-validation-card li,
+html[data-rportfolio-style="light"] .appearance-mode-switch {
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(248, 251, 255, 0.18)),
+    rgba(31, 37, 48, 0.035);
+}
+
+html[data-rportfolio-style="light"] .strength-scroll-wrap::before {
+  background: linear-gradient(90deg, rgba(244, 247, 251, 0.78), rgba(244, 247, 251, 0));
+}
+
+html[data-rportfolio-style="light"] .strength-scroll-wrap::after {
+  background: linear-gradient(270deg, rgba(244, 247, 251, 0.78), rgba(244, 247, 251, 0));
+}
+
+html[data-rportfolio-style="light"] .appearance-mode-switch[aria-checked="true"] i {
+  border-color: rgba(37, 99, 235, 0.22);
+  background: #2f6ff4;
+  box-shadow:
+    0 8px 18px rgba(37, 99, 235, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+html[data-rportfolio-style="light"] .appearance-mode-switch[aria-checked="true"] .is-light {
+  color: #ffffff;
+}
+
+html[data-rportfolio-style="light"] .fund-seed-search-row .MuiButton-root,
+html[data-rportfolio-style="light"] .fund-seed-result .MuiButton-root,
+html[data-rportfolio-style="light"] .ai-recipe-generator .MuiButton-root:first-child {
+  border-color: rgba(37, 99, 235, 0.18);
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.026)),
+    rgba(251, 253, 255, 0.78);
+}
+
+html[data-rportfolio-style="light"] .main-pattern-strip,
+html[data-rportfolio-style="light"] .action-line,
+html[data-rportfolio-style="light"] .protocol-grid article,
+html[data-rportfolio-style="light"] .action-validation-grid article {
+  border-color: rgba(42, 82, 132, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.62), rgba(248, 251, 255, 0.18)),
+    rgba(251, 253, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+html[data-rportfolio-style="light"] .protocol-mini-verdict,
+html[data-rportfolio-style="light"] .protocol-verdict {
+  background:
+    linear-gradient(110deg, rgba(255, 255, 255, 0.64), transparent 52%),
+    rgba(31, 37, 48, 0.032);
+}
+
+html[data-rportfolio-style="light"] .indicator-filter-strip button {
+  color: var(--text-secondary);
+}
+
+html[data-rportfolio-style="light"] .indicator-filter-strip button:hover {
+  color: var(--text-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(248, 251, 255, 0.24)),
+    rgba(31, 37, 48, 0.032);
+}
+
+html[data-rportfolio-style="light"] .indicator-filter-strip button.is-active {
+  color: var(--text-primary);
+  border-color: rgba(42, 82, 132, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(37, 99, 235, 0.055)),
+    rgba(251, 253, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 7px 16px rgba(46, 83, 126, 0.07);
+}
+
+html[data-rportfolio-style="light"] .muted-cell {
+  color: var(--text-muted);
+}
+
+html[data-rportfolio-style="light"] .status-chip.is-green {
+  color: var(--green);
+  background: rgba(var(--green-rgb), 0.075);
+  border-color: rgba(var(--green-rgb), 0.16);
+}
+
+html[data-rportfolio-style="light"] .status-chip.is-yellow {
+  color: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.075);
+  border-color: rgba(var(--yellow-rgb), 0.17);
+}
+
+html[data-rportfolio-style="light"] .status-chip.is-red {
+  color: var(--red);
+  background: rgba(var(--red-rgb), 0.07);
+  border-color: rgba(var(--red-rgb), 0.16);
+}
+
+html[data-rportfolio-style="light"] .strength-pill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 251, 255, 0.18)),
+    rgba(31, 37, 48, 0.032);
+  border-color: rgba(42, 82, 132, 0.11);
+}
+
+html[data-rportfolio-style="light"] .advice-pill-head i {
+  border-color: rgba(42, 82, 132, 0.11);
+  background: rgba(31, 37, 48, 0.035);
+}
+
+html[data-rportfolio-style="light"] .action-line,
+html[data-rportfolio-style="light"] .main-pattern-strip {
+  border-color: rgba(42, 82, 132, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(248, 251, 255, 0.24)),
+    rgba(251, 253, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+html[data-rportfolio-style="light"] .profile-draft-facts div {
+  border-color: rgba(42, 82, 132, 0.11);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(248, 251, 255, 0.2)),
+    rgba(31, 37, 48, 0.028);
+}
+
+html[data-rportfolio-style="light"] .profile-draft-head em {
+  border-color: rgba(42, 82, 132, 0.13);
+  background: rgba(37, 99, 235, 0.045);
+}
+
+html[data-rportfolio-style="light"] .trade-habit-board {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.62)),
+    var(--panel-bg);
+  box-shadow:
+    0 18px 48px rgba(35, 48, 70, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button,
+html[data-rportfolio-style="light"] .primary-action-button {
+  border-color: rgba(42, 82, 132, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 251, 255, 0.58)),
+    rgba(255, 255, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button {
+  color: #172133;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 6px 14px rgba(35, 48, 70, 0.06);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button:hover,
+html[data-rportfolio-style="light"] .primary-action-button:hover {
+  border-color: rgba(var(--green-rgb), 0.24);
+  background:
+    linear-gradient(180deg, rgba(var(--green-rgb), 0.09), rgba(255, 255, 255, 0.64)),
+    rgba(255, 255, 255, 0.9);
+}
+
+html[data-rportfolio-style="light"] .rail-collapse-titlebar-button.MuiIconButton-root {
+  color: rgba(88, 102, 124, 0.92);
+  border-color: rgba(42, 82, 132, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(239, 245, 251, 0.64)),
+    rgba(255, 255, 255, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 5px 12px rgba(35, 48, 70, 0.08);
+}
+
+html[data-rportfolio-style="light"] .rail-collapse-titlebar-button.MuiIconButton-root:hover {
+  color: #172133;
+  border-color: rgba(42, 82, 132, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(239, 245, 251, 0.78)),
+    rgba(255, 255, 255, 0.88);
+}
+
+html[data-rportfolio-style="light"] .trade-habit-summary,
+html[data-rportfolio-style="light"] .trade-habit-actions article,
+html[data-rportfolio-style="light"] .trade-reconcile-mini,
+html[data-rportfolio-style="light"] .trade-reconcile-mini article,
+html[data-rportfolio-style="light"] .trade-list-mini,
+html[data-rportfolio-style="light"] .trade-list-mini article,
+html[data-rportfolio-style="light"] .trade-side-segment label {
+  border-color: rgba(42, 82, 132, 0.1);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+:root {
+  --workspace-side-rail-width: clamp(300px, 22vw, 360px);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  border-color: rgba(42, 82, 132, 0.11);
+  background:
+    radial-gradient(circle at 18% 42%, rgba(15, 143, 98, 0.105), transparent 32%),
+    radial-gradient(circle at 86% 18%, rgba(37, 99, 235, 0.075), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(248, 251, 255, 0.64)),
+    rgba(255, 255, 255, 0.84);
+  box-shadow:
+    0 18px 48px rgba(42, 82, 132, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html[data-rportfolio-style="light"] .position-chart-cell.is-band {
+  border-left-color: rgba(42, 82, 132, 0.1);
+}
+
+html[data-rportfolio-style="light"] .position-chart-legend i {
+  box-shadow: 0 0 0 3px rgba(42, 82, 132, 0.055);
+}
+
+html[data-rportfolio-style="light"] .position-donut-center strong,
+html[data-rportfolio-style="light"] .position-chart-legend strong,
+html[data-rportfolio-style="light"] .position-band-summary strong,
+html[data-rportfolio-style="light"] .position-band-summary em {
+  color: #172238;
+}
+
+html[data-rportfolio-style="light"] .position-chart-title,
+html[data-rportfolio-style="light"] .position-donut-center span,
+html[data-rportfolio-style="light"] .position-chart-legend span,
+html[data-rportfolio-style="light"] .position-band-summary span {
+  color: #65748a;
+}
+
+html[data-rportfolio-style="light"] .trade-overview-card,
+html[data-rportfolio-style="light"] .trade-signal-board {
+  border-color: rgba(42, 82, 132, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 251, 255, 0.46)),
+    rgba(255, 255, 255, 0.66);
+}
+
+html[data-rportfolio-style="light"] .trade-stat-grid article {
+  border-color: rgba(42, 82, 132, 0.08);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+html[data-rportfolio-style="light"] .trade-list-mini {
+  scrollbar-color: rgba(82, 101, 126, 0.16) transparent;
+}
+
+html[data-rportfolio-style="light"] .trade-list-mini::-webkit-scrollbar-thumb {
+  background: rgba(82, 101, 126, 0.16);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  border-color: var(--holdings-line);
+  background:
+    linear-gradient(90deg, rgba(15, 143, 98, 0.06), rgba(37, 99, 235, 0.025) 58%, rgba(150, 116, 26, 0.018)),
+    rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button,
+html[data-rportfolio-style="light"] .primary-action-button {
+  border-color: rgba(42, 82, 132, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(245, 249, 253, 0.72)),
+    rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 5px 12px rgba(35, 48, 70, 0.04);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button:hover,
+html[data-rportfolio-style="light"] .primary-action-button:hover {
+  border-color: rgba(15, 143, 98, 0.24);
+  background:
+    linear-gradient(180deg, rgba(15, 143, 98, 0.08), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.92);
+}
+
+/* GPT portfolio concept pass: airy light ledger layout. */
+
+html[data-rportfolio-style="light"] {
+  --window-chrome-bg: rgba(247, 250, 253, 0.96);
+  --panel-bg: rgba(255, 255, 255, 0.9);
+  --panel-border: rgba(32, 72, 116, 0.12);
+  --surface-quiet: rgba(15, 143, 98, 0.045);
+  --surface-lift: rgba(15, 143, 98, 0.075);
+  --terminal-grid: rgba(32, 72, 116, 0.024);
+}
+
+html[data-rportfolio-style="light"] body {
+  background:
+    linear-gradient(90deg, rgba(243, 248, 252, 0.98), rgba(249, 252, 255, 0.94) 22%, rgba(255, 255, 255, 0.96)),
+    linear-gradient(var(--terminal-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--terminal-grid) 1px, transparent 1px),
+    #f7fafc;
+  background-size: auto, 32px 32px, 32px 32px, auto;
+}
+
+html[data-rportfolio-style="light"] .position-map-panel,
+html[data-rportfolio-style="light"] .trade-overview-card,
+html[data-rportfolio-style="light"] .trade-signal-board {
+  border-color: rgba(32, 72, 116, 0.12);
+  border-radius: 10px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(248, 251, 255, 0.72)),
+    rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 18px 42px rgba(32, 72, 116, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  padding: 18px 20px;
+}
+
+html[data-rportfolio-style="light"] .position-map-head {
+  margin-bottom: 2px;
+}
+
+html[data-rportfolio-style="light"] .position-map-head h2 {
+  color: #172133;
+  font-size: 1rem;
+}
+
+html[data-rportfolio-style="light"] .position-map-head span {
+  height: 28px;
+  border-color: rgba(150, 116, 26, 0.2);
+  color: #a57910;
+  background: rgba(150, 116, 26, 0.065);
+}
+
+html[data-rportfolio-style="light"] .position-chart-grid {
+  gap: 22px;
+}
+
+html[data-rportfolio-style="light"] .position-donut-shell,
+html[data-rportfolio-style="light"] .position-donut-shell .position-chart-canvas {
+  width: 148px;
+  height: 148px;
+}
+
+html[data-rportfolio-style="light"] .position-donut-layout {
+  grid-template-columns: 148px minmax(0, 1fr);
+}
+
+html[data-rportfolio-style="light"] .position-donut-center strong {
+  font-size: 1.32rem;
+}
+
+html[data-rportfolio-style="light"] .position-chart-cell.is-band {
+  border-left-color: rgba(32, 72, 116, 0.1);
+}
+
+html[data-rportfolio-style="light"] .trade-overview-card,
+html[data-rportfolio-style="light"] .trade-signal-board {
+  border-color: rgba(32, 72, 116, 0.09);
+  background: rgba(248, 251, 255, 0.62);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button,
+html[data-rportfolio-style="light"] .primary-action-button {
+  border-radius: 8px;
+}
+
+html[data-rportfolio-style="light"] .primary-action-button {
+  color: #ffffff;
+  border-color: rgba(15, 143, 98, 0.22);
+  background: linear-gradient(180deg, #10b981, #0f9f70);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  padding: 14px 16px;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+html[data-rportfolio-style="light"] .position-map-head {
+  margin-bottom: 0;
+}
+
+html[data-rportfolio-style="light"] .position-map-head h2 {
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+html[data-rportfolio-style="light"] .position-chart-grid {
+  gap: 18px;
+  align-items: start;
+}
+
+html[data-rportfolio-style="light"] .position-chart-title {
+  font-size: 0.64rem;
+}
+
+html[data-rportfolio-style="light"] .position-chart-cell {
+  min-height: 188px;
+}
+
+html[data-rportfolio-style="light"] .position-chart-canvas {
+  height: 156px;
+}
+
+html[data-rportfolio-style="light"] .position-donut-layout {
+  gap: 14px;
+  align-items: center;
+}
+
+html[data-rportfolio-style="light"] .position-chart-legend {
+  gap: 8px;
+}
+
+html[data-rportfolio-style="light"] .position-chart-legend article,
+html[data-rportfolio-style="light"] .position-band-summary article {
+  padding: 0;
+}
+
+html[data-rportfolio-style="light"] .position-chart-legend strong,
+html[data-rportfolio-style="light"] .position-band-summary strong {
+  font-size: 0.78rem;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary {
+  gap: 9px;
+  align-content: start;
+}
+
+html[data-rportfolio-style="light"] .trade-side-segment label {
+  border-color: rgba(42, 82, 132, 0.12);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(246, 250, 254, 0.78)),
+    rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 6px 18px rgba(35, 48, 70, 0.04);
+}
+
+html[data-rportfolio-style="light"] .trade-side-segment label.is-active {
+  border-color: rgba(15, 143, 98, 0.22);
+  background:
+    linear-gradient(180deg, rgba(15, 143, 98, 0.1), rgba(255, 255, 255, 0.76)),
+    rgba(250, 253, 251, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 10px 24px rgba(15, 143, 98, 0.08);
+}
+
+html[data-rportfolio-style="light"] .trade-side-segment {
+  gap: 10px;
+}
+
+html[data-rportfolio-style="light"] .trade-side-segment label {
+  min-height: 44px;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+/* rDevTool family alignment pass. */
+
+html[data-rportfolio-style="light"] {
+  --window-drag-height: 52px;
+  --workspace-menu-width: 168px;
+  --rp-window-radius: 18px;
+  --rp-control-radius: 12px;
+  --rp-center-bg: rgba(232, 238, 245, 0.96);
+  --rp-center-top: rgba(246, 249, 252, 0.9);
+  --rp-side-bg: rgba(226, 232, 239, 0.9);
+  --rp-side-top: rgba(246, 249, 252, 0.86);
+  --rp-card-bg: rgba(250, 252, 255, 0.76);
+  --rp-card-strong: rgba(250, 252, 255, 0.9);
+  --rp-control-bg: rgba(250, 252, 255, 0.74);
+  --rp-control-hover: rgba(255, 255, 255, 0.92);
+  --rp-line: rgba(52, 76, 96, 0.14);
+  --rp-line-soft: rgba(52, 76, 96, 0.08);
+  --rp-text: #17202b;
+  --rp-muted: rgba(63, 79, 97, 0.68);
+  --rp-accent: #5c7085;
+  --rp-accent-hover: #455a70;
+  --rp-accent-text: #ffffff;
+  --rp-accent-soft: rgba(92, 112, 133, 0.12);
+  --rp-accent-border: rgba(92, 112, 133, 0.24);
+  --rp-success: #3f8269;
+  --rp-danger: #aa6069;
+  --rp-shadow: 0 20px 54px rgba(45, 67, 88, 0.12);
+  --rp-glass-shadow: 0 20px 62px rgba(45, 67, 88, 0.16);
+  --panel-bg: var(--rp-card-bg);
+  --panel-bg-soft: var(--rp-accent-soft);
+  --panel-border: var(--rp-line);
+  --surface-glass: var(--rp-card-bg);
+  --surface-quiet: rgba(52, 76, 96, 0.055);
+  --surface-lift: var(--rp-accent-soft);
+  --line-soft: var(--rp-line-soft);
+  --line-visible: var(--rp-accent-border);
+  --blue: var(--rp-accent);
+  --blue-rgb: 92, 112, 133;
+  --green: var(--rp-success);
+  --green-rgb: 63, 130, 105;
+  --red: var(--rp-danger);
+  --red-rgb: 170, 96, 105;
+  --background: var(--rp-center-bg);
+  --foreground: var(--rp-text);
+  --card: rgba(250, 252, 255, 0.78);
+  --card-foreground: var(--rp-text);
+  --popover: rgba(250, 252, 255, 0.9);
+  --popover-foreground: var(--rp-text);
+  --primary: var(--rp-accent);
+  --primary-foreground: var(--rp-accent-text);
+  --secondary: rgba(92, 112, 133, 0.1);
+  --secondary-foreground: var(--rp-text);
+  --muted: rgba(52, 76, 96, 0.08);
+  --muted-foreground: var(--rp-muted);
+  --accent: rgba(92, 112, 133, 0.1);
+  --accent-foreground: var(--rp-text);
+  --destructive: var(--rp-danger);
+  --border: var(--rp-line);
+  --input: rgba(52, 76, 96, 0.16);
+  --ring: rgba(92, 112, 133, 0.28);
+  --radius: 0.75rem;
+  --sidebar: var(--rp-side-bg);
+  --sidebar-foreground: var(--rp-text);
+  --sidebar-primary: var(--rp-accent);
+  --sidebar-primary-foreground: var(--rp-accent-text);
+  --sidebar-accent: var(--rp-accent-soft);
+  --sidebar-accent-foreground: var(--rp-text);
+  --sidebar-border: var(--rp-line);
+  --sidebar-ring: var(--rp-accent-border);
+}
+
+html[data-rportfolio-style="dark"] {
+  --window-drag-height: 52px;
+  --workspace-menu-width: 168px;
+  --rp-window-radius: 18px;
+  --rp-control-radius: 12px;
+  --rp-center-bg: rgba(13, 17, 23, 0.96);
+  --rp-center-top: rgba(20, 25, 33, 0.92);
+  --rp-side-bg: rgba(16, 20, 27, 0.92);
+  --rp-side-top: rgba(22, 27, 35, 0.9);
+  --rp-card-bg: rgba(19, 24, 32, 0.78);
+  --rp-card-strong: rgba(23, 29, 38, 0.9);
+  --rp-control-bg: rgba(20, 26, 35, 0.72);
+  --rp-control-hover: rgba(29, 37, 49, 0.88);
+  --rp-line: rgba(226, 232, 240, 0.12);
+  --rp-line-soft: rgba(226, 232, 240, 0.065);
+  --rp-text: #f2f6fb;
+  --rp-muted: rgba(218, 226, 238, 0.62);
+  --rp-accent: #8fb8ea;
+  --rp-accent-hover: #b6d2f4;
+  --rp-accent-text: #07111a;
+  --rp-accent-soft: rgba(143, 184, 234, 0.14);
+  --rp-accent-border: rgba(182, 210, 244, 0.32);
+  --rp-success: #86c2a0;
+  --rp-danger: #df8b94;
+  --rp-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  --rp-glass-shadow: 0 28px 78px rgba(0, 0, 0, 0.42);
+  --panel-bg: var(--rp-card-bg);
+  --panel-bg-soft: var(--rp-accent-soft);
+  --panel-border: var(--rp-line);
+  --surface-glass: var(--rp-card-bg);
+  --surface-quiet: rgba(255, 255, 255, 0.045);
+  --surface-lift: var(--rp-accent-soft);
+  --line-soft: var(--rp-line-soft);
+  --line-visible: var(--rp-accent-border);
+  --blue: var(--rp-accent);
+  --blue-rgb: 143, 184, 234;
+  --green: var(--rp-success);
+  --green-rgb: 134, 194, 160;
+  --red: var(--rp-danger);
+  --red-rgb: 223, 139, 148;
+  --background: var(--rp-center-bg);
+  --foreground: var(--rp-text);
+  --card: rgba(19, 24, 32, 0.82);
+  --card-foreground: var(--rp-text);
+  --popover: rgba(18, 23, 31, 0.92);
+  --popover-foreground: var(--rp-text);
+  --primary: var(--rp-accent);
+  --primary-foreground: var(--rp-accent-text);
+  --secondary: rgba(143, 184, 234, 0.12);
+  --secondary-foreground: var(--rp-text);
+  --muted: rgba(226, 232, 240, 0.07);
+  --muted-foreground: var(--rp-muted);
+  --accent: rgba(143, 184, 234, 0.12);
+  --accent-foreground: var(--rp-text);
+  --destructive: var(--rp-danger);
+  --border: var(--rp-line);
+  --input: rgba(226, 232, 240, 0.15);
+  --ring: rgba(182, 210, 244, 0.34);
+  --radius: 0.75rem;
+  --sidebar: var(--rp-side-bg);
+  --sidebar-foreground: var(--rp-text);
+  --sidebar-primary: var(--rp-accent);
+  --sidebar-primary-foreground: var(--rp-accent-text);
+  --sidebar-accent: var(--rp-accent-soft);
+  --sidebar-accent-foreground: var(--rp-text);
+  --sidebar-border: var(--rp-line);
+  --sidebar-ring: var(--rp-accent-border);
+}
+
+html[data-rportfolio-style="light"] body,
+html[data-rportfolio-style="dark"] body {
+  color: var(--rp-text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 28%),
+    var(--rp-center-bg);
+}
+
+html[data-rportfolio-style="light"] .rail-card,
+html[data-rportfolio-style="dark"] .rail-card {
+  border: 1px solid var(--rp-line);
+  border-radius: 12px;
+  background: var(--rp-card-bg);
+  box-shadow: 0 14px 34px rgba(20, 35, 52, 0.12);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+html[data-rportfolio-style="dark"] .rail-card {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+}
+
+html[data-rportfolio-style="light"] .card,
+html[data-rportfolio-style="dark"] .card,
+html[data-rportfolio-style="light"] .summary-card,
+html[data-rportfolio-style="dark"] .summary-card,
+html[data-rportfolio-style="light"] .panel,
+html[data-rportfolio-style="dark"] .panel {
+  border-color: var(--rp-line);
+  background: var(--rp-card-bg);
+  box-shadow: var(--rp-shadow);
+}
+
+html[data-rportfolio-style="light"] .MuiButton-contained,
+html[data-rportfolio-style="dark"] .MuiButton-contained {
+  border-radius: var(--rp-control-radius);
+  background: var(--rp-accent);
+}
+
+html[data-rportfolio-style="light"] .MuiButton-contained:hover,
+html[data-rportfolio-style="dark"] .MuiButton-contained:hover {
+  background: var(--rp-accent-hover);
+}
+
+html[data-rportfolio-style="light"] .MuiOutlinedInput-root,
+html[data-rportfolio-style="dark"] .MuiOutlinedInput-root {
+  color: var(--rp-text);
+  border-radius: var(--rp-control-radius);
+  background: var(--rp-control-bg);
+}
+
+html[data-rportfolio-style="light"] .MuiPopover-paper,
+html[data-rportfolio-style="light"] .MuiMenu-paper {
+  border: 1px solid var(--rp-line);
+  color: var(--rp-text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 252, 0.96)),
+    rgba(246, 249, 252, 0.96);
+  box-shadow: 0 18px 42px rgba(46, 83, 126, 0.16);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+html[data-rportfolio-style="dark"] .MuiPopover-paper,
+html[data-rportfolio-style="dark"] .MuiMenu-paper {
+  border: 1px solid var(--rp-line);
+  color: var(--rp-text);
+  background:
+    linear-gradient(180deg, rgba(29, 36, 47, 0.98), rgba(18, 23, 31, 0.98)),
+    rgba(18, 23, 31, 0.98);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+html[data-rportfolio-style="light"] .MuiMenuItem-root,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root {
+  color: var(--rp-text);
+  border-radius: 8px;
+}
+
+html[data-rportfolio-style="light"] .MuiMenuItem-root.Mui-selected,
+html[data-rportfolio-style="light"] .MuiMenuItem-root:hover,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root.Mui-selected,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root:hover {
+  background: var(--rp-accent-soft);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel,
+html[data-rportfolio-style="dark"] .position-map-panel {
+  padding: 16px;
+  border-radius: 14px;
+  overflow: visible;
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  border-color: rgba(42, 82, 132, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.7)),
+    rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 16px 36px rgba(31, 53, 84, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+html[data-rportfolio-style="dark"] .position-map-panel {
+  border-color: rgba(127, 159, 194, 0.12);
+  background:
+    linear-gradient(145deg, rgba(16, 30, 43, 0.82), rgba(6, 13, 21, 0.72)),
+    rgba(5, 10, 16, 0.76);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(196, 220, 255, 0.06);
+}
+
+/* rPortfolio Figma-direction pass: lighter workspace, calmer typography, denser holdings UI. */
+
+html[data-rportfolio-style="light"] body {
+  background:
+    linear-gradient(90deg, rgba(210, 222, 235, 0.34) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(210, 222, 235, 0.22) 1px, transparent 1px),
+    radial-gradient(circle at 78% 8%, rgba(15, 155, 112, 0.08), transparent 28%),
+    radial-gradient(circle at 12% 10%, rgba(79, 126, 232, 0.06), transparent 30%),
+    #f6f9fc;
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  border-color: rgba(42, 82, 132, 0.12);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.7)),
+    rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 16px 36px rgba(31, 53, 84, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+}
+
+html[data-rportfolio-style="light"] .position-map-panel {
+  padding: 16px;
+  overflow: visible;
+}
+
+html[data-rportfolio-style="light"] .position-map-head {
+  margin-bottom: 2px;
+}
+
+html[data-rportfolio-style="light"] .position-map-head h2 {
+  color: #172133;
+  font-size: 0.96rem;
+  font-weight: 780;
+  letter-spacing: 0;
+}
+
+html[data-rportfolio-style="light"] .position-map-head span {
+  height: 28px;
+  border-color: rgba(150, 116, 26, 0.2);
+  color: #9b7211;
+  background: rgba(150, 116, 26, 0.06);
+  font-weight: 760;
+}
+
+html[data-rportfolio-style="light"] .position-chart-grid {
+  gap: 18px;
+  align-items: start;
+}
+
+html[data-rportfolio-style="light"] .position-chart-title,
+html[data-rportfolio-style="light"] .position-chart-legend span,
+html[data-rportfolio-style="light"] .position-band-summary span {
+  color: #66778f;
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+html[data-rportfolio-style="light"] .position-chart-cell {
+  min-height: 188px;
+}
+
+html[data-rportfolio-style="light"] .position-chart-canvas {
+  height: 156px;
+}
+
+html[data-rportfolio-style="light"] .position-donut-shell,
+html[data-rportfolio-style="light"] .position-donut-shell .position-chart-canvas {
+  width: 150px;
+  height: 150px;
+}
+
+html[data-rportfolio-style="light"] .position-donut-layout {
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+html[data-rportfolio-style="light"] .position-donut-center strong {
+  font-size: 1.22rem;
+  font-weight: 780;
+}
+
+html[data-rportfolio-style="light"] .position-donut-center span,
+html[data-rportfolio-style="light"] .position-chart-legend strong,
+html[data-rportfolio-style="light"] .position-band-summary strong {
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style="light"] .position-chart-cell.is-band {
+  border-left-color: rgba(42, 82, 132, 0.1);
+}
+
+html[data-rportfolio-style="light"] .icon-text-button {
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 9px;
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+/* Holdings map and collapsed-detail table polish. */
+
+html[data-rportfolio-style="light"] .position-band-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 176px);
+  gap: 10px;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary {
+  gap: 6px;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary article {
+  grid-template-columns: minmax(52px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  min-height: 42px;
+  padding: 7px 9px 7px 10px;
+  border: 1px solid rgba(42, 82, 132, 0.1);
+  border-left-width: 3px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(var(--green-rgb), 0.055), rgba(255, 255, 255, 0.56)),
+    rgba(255, 255, 255, 0.46);
+}
+
+html[data-rportfolio-style="light"] .position-band-summary article.is-caution {
+  background:
+    linear-gradient(90deg, rgba(var(--yellow-rgb), 0.06), rgba(255, 255, 255, 0.56)),
+    rgba(255, 255, 255, 0.46);
+}
+
+html[data-rportfolio-style="light"] .position-band-summary article.is-negative {
+  background:
+    linear-gradient(90deg, rgba(var(--red-rgb), 0.055), rgba(255, 255, 255, 0.56)),
+    rgba(255, 255, 255, 0.46);
+}
+
+html[data-rportfolio-style="light"] .position-band-summary strong {
+  grid-row: 1 / span 2;
+  color: #142038;
+  font-size: 0.76rem;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary span {
+  color: #64758c;
+  font-size: 0.62rem;
+  font-weight: 660;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary em {
+  width: fit-content;
+  min-width: 0;
+  padding: 1px 7px 2px;
+  border-radius: 999px;
+  color: #0f8f62;
+  background: rgba(15, 143, 98, 0.08);
+  font-size: 0.58rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+html[data-rportfolio-style="light"] .position-band-summary article.is-caution em {
+  color: #9b7211;
+  background: rgba(150, 116, 26, 0.08);
+}
+
+html[data-rportfolio-style="light"] .position-band-summary article.is-negative em {
+  color: #c14e4e;
+  background: rgba(204, 75, 75, 0.08);
+}
+
+html[data-rportfolio-style="light"] .rail-transition-card .rail-section-head em,
+html[data-rportfolio-style="light"] .rail-quality-card .rail-section-head em {
+  color: #718097;
+  border-color: rgba(42, 82, 132, 0.1);
+  background: rgba(246, 250, 253, 0.78);
+}
+
+html[data-rportfolio-style="light"] .rail-transition-card p,
+html[data-rportfolio-style="light"] .rail-quality-card p {
+  color: #65748b;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row,
+html[data-rportfolio-style="light"] .rail-quality-row {
+  border-color: rgba(32, 72, 116, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.6)),
+    rgba(255, 255, 255, 0.78);
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row span,
+html[data-rportfolio-style="light"] .rail-quality-row span {
+  color: #65748b;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row strong,
+html[data-rportfolio-style="light"] .rail-quality-row strong {
+  color: #172133;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row div,
+html[data-rportfolio-style="light"] .rail-quality-row div {
+  background: rgba(104, 124, 150, 0.13);
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row i,
+html[data-rportfolio-style="light"] .rail-quality-row i {
+  background: #4e7df0;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-positive i,
+html[data-rportfolio-style="light"] .rail-quality-row.is-positive i {
+  background: #17ad79;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-positive strong,
+html[data-rportfolio-style="light"] .rail-quality-row.is-positive strong {
+  color: #0f8f62;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-caution i,
+html[data-rportfolio-style="light"] .rail-quality-row.is-caution i {
+  background: #d2aa37;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-caution strong,
+html[data-rportfolio-style="light"] .rail-quality-row.is-caution strong {
+  color: #9b7211;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-negative i,
+html[data-rportfolio-style="light"] .rail-quality-row.is-negative i {
+  background: #d46a6a;
+}
+
+html[data-rportfolio-style="light"] .rail-transition-row.is-negative strong,
+html[data-rportfolio-style="light"] .rail-quality-row.is-negative strong {
+  color: #c14e4e;
+}
+
+html[data-rportfolio-style="light"] .MuiPopover-paper,
+html[data-rportfolio-style="light"] .MuiMenu-paper,
+html[data-rportfolio-style="dark"] .MuiPopover-paper,
+html[data-rportfolio-style="dark"] .MuiMenu-paper {
+  border: 1px solid var(--rp-line);
+  color: var(--rp-text);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+html[data-rportfolio-style="light"] .MuiPopover-paper,
+html[data-rportfolio-style="light"] .MuiMenu-paper {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 252, 0.96)),
+    rgba(246, 249, 252, 0.96);
+}
+
+html[data-rportfolio-style="dark"] .MuiPopover-paper,
+html[data-rportfolio-style="dark"] .MuiMenu-paper {
+  background:
+    linear-gradient(180deg, rgba(29, 36, 47, 0.98), rgba(18, 23, 31, 0.98)),
+    rgba(18, 23, 31, 0.98);
+}
+
+/* rDevTool family spacing lock: remove nested gutters and make the three panes read as one shell. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --workspace-menu-width: 154px;
+}
+
+html[data-rportfolio-style="light"] .rail-card,
+html[data-rportfolio-style="dark"] .rail-card {
+  padding: 12px;
+  border-radius: 12px;
+}
+
+html[data-rportfolio-style="light"] .rail-card:first-child,
+html[data-rportfolio-style="dark"] .rail-card:first-child {
+  margin-top: 0;
+}
+
+html[data-rportfolio-style="light"] .error-card,
+html[data-rportfolio-style="dark"] .error-card,
+html[data-rportfolio-style="light"] .loading-state,
+html[data-rportfolio-style="dark"] .loading-state {
+  margin: 0 !important;
+}
+
+/* rPortfolio visual acceptance pass: one macOS-style three-pane shell for both workspaces. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --workspace-menu-width: 158px;
+  --rp-window-radius: 18px;
+  --rp-inner-gap: 10px;
+  --rp-rail-width: clamp(318px, 22vw, 360px);
+  --rp-control-radius: 12px;
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-app-bg: rgba(232, 238, 245, 0.94);
+  --rp-center-bg: rgba(229, 236, 244, 0.96);
+  --rp-center-top: rgba(238, 244, 251, 0.98);
+  --rp-side-bg: rgba(224, 231, 239, 0.9);
+  --rp-side-top: rgba(235, 241, 248, 0.95);
+  --rp-panel-bg: rgba(247, 250, 253, 0.86);
+  --rp-panel-strong: rgba(251, 253, 255, 0.94);
+  --rp-panel-soft: rgba(241, 246, 251, 0.72);
+  --rp-control-bg: rgba(248, 251, 254, 0.76);
+  --rp-control-hover: rgba(255, 255, 255, 0.9);
+  --rp-line: rgba(75, 96, 118, 0.14);
+  --rp-line-soft: rgba(75, 96, 118, 0.075);
+  --rp-line-strong: rgba(75, 96, 118, 0.22);
+  --rp-text: #17202b;
+  --rp-muted: rgba(67, 82, 101, 0.68);
+  --rp-muted-soft: rgba(67, 82, 101, 0.48);
+  --rp-accent: #5f758c;
+  --rp-accent-hover: #4d6379;
+  --rp-accent-soft: rgba(95, 117, 140, 0.14);
+  --rp-accent-border: rgba(95, 117, 140, 0.3);
+  --rp-success: #3f8269;
+  --rp-danger: #aa6069;
+  --rp-shadow: 0 22px 56px rgba(49, 71, 94, 0.13);
+  --rp-panel-shadow: 0 14px 32px rgba(53, 74, 96, 0.11);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-app-bg: rgba(12, 15, 20, 0.94);
+  --rp-center-bg: rgba(10, 14, 20, 0.96);
+  --rp-center-top: rgba(16, 21, 29, 0.96);
+  --rp-side-bg: rgba(12, 16, 23, 0.9);
+  --rp-side-top: rgba(17, 22, 30, 0.92);
+  --rp-panel-bg: rgba(16, 22, 31, 0.78);
+  --rp-panel-strong: rgba(19, 26, 36, 0.9);
+  --rp-panel-soft: rgba(13, 19, 28, 0.68);
+  --rp-control-bg: rgba(18, 25, 35, 0.78);
+  --rp-control-hover: rgba(27, 36, 49, 0.92);
+  --rp-line: rgba(198, 216, 236, 0.13);
+  --rp-line-soft: rgba(198, 216, 236, 0.07);
+  --rp-line-strong: rgba(198, 216, 236, 0.2);
+  --rp-text: #f2f6fb;
+  --rp-muted: rgba(218, 228, 238, 0.62);
+  --rp-muted-soft: rgba(218, 228, 238, 0.44);
+  --rp-accent: #8fb8ea;
+  --rp-accent-hover: #b7d4f5;
+  --rp-accent-soft: rgba(143, 184, 234, 0.16);
+  --rp-accent-border: rgba(143, 184, 234, 0.34);
+  --rp-success: #78bfa0;
+  --rp-danger: #d77d88;
+  --rp-shadow: 0 28px 68px rgba(0, 0, 0, 0.36);
+  --rp-panel-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+html[data-rportfolio-style="light"] body,
+html[data-rportfolio-style="dark"] body,
+html[data-rportfolio-style="light"] #root,
+html[data-rportfolio-style="dark"] #root {
+  background: transparent !important;
+}
+
+html[data-rportfolio-style="light"] .rail-card,
+html[data-rportfolio-style="dark"] .rail-card {
+  padding: 12px !important;
+  border: 1px solid var(--rp-line) !important;
+  border-radius: 14px !important;
+  color: var(--rp-text) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    var(--rp-panel-bg) !important;
+  box-shadow: var(--rp-panel-shadow) !important;
+}
+
+html[data-rportfolio-style="light"] .rail-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.035)),
+    var(--rp-panel-bg) !important;
+}
+
+html[data-rportfolio-style="light"] .MuiOutlinedInput-root,
+html[data-rportfolio-style="dark"] .MuiOutlinedInput-root {
+  border-radius: var(--rp-control-radius) !important;
+  color: var(--rp-text) !important;
+  background: var(--rp-control-bg) !important;
+}
+
+html[data-rportfolio-style="light"] .MuiPopover-paper,
+html[data-rportfolio-style="light"] .MuiMenu-paper,
+html[data-rportfolio-style="dark"] .MuiPopover-paper,
+html[data-rportfolio-style="dark"] .MuiMenu-paper {
+  border: 1px solid var(--rp-line-strong) !important;
+  border-radius: 14px !important;
+  color: var(--rp-text) !important;
+  box-shadow: var(--rp-shadow) !important;
+  backdrop-filter: blur(16px) saturate(1.05) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.05) !important;
+}
+
+html[data-rportfolio-style="light"] .MuiPopover-paper,
+html[data-rportfolio-style="light"] .MuiMenu-paper {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 252, 0.98)),
+    rgba(244, 248, 252, 0.98) !important;
+}
+
+html[data-rportfolio-style="dark"] .MuiPopover-paper,
+html[data-rportfolio-style="dark"] .MuiMenu-paper {
+  background:
+    linear-gradient(180deg, rgba(26, 34, 45, 0.98), rgba(15, 21, 30, 0.98)),
+    rgba(15, 21, 30, 0.98) !important;
+}
+
+html[data-rportfolio-style="light"] .MuiMenuItem-root,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root {
+  border-radius: 10px !important;
+  color: var(--rp-text) !important;
+}
+
+html[data-rportfolio-style="light"] .MuiMenuItem-root:hover,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root:hover,
+html[data-rportfolio-style="light"] .MuiMenuItem-root.Mui-selected,
+html[data-rportfolio-style="dark"] .MuiMenuItem-root.Mui-selected {
+  background: var(--rp-accent-soft) !important;
+}
+
+html[data-rportfolio-style="light"] ::-webkit-scrollbar,
+html[data-rportfolio-style="dark"] ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+html[data-rportfolio-style="light"] ::-webkit-scrollbar-track,
+html[data-rportfolio-style="dark"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-rportfolio-style="light"] ::-webkit-scrollbar-thumb,
+html[data-rportfolio-style="dark"] ::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rp-muted) 26%, transparent);
+}
+
+@media (max-width: 980px) {
+  html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+    --workspace-menu-width: 132px;
+    --rp-rail-width: minmax(0, 1fr);
+  }
+}
+
+/* rPortfolio final rail lock: continuous sidebars with subtle dividers only. */
+
+html[data-rportfolio-style="light"] {
+  --rp-final-rail-bg: rgba(226, 234, 243, 0.84);
+  --rp-final-rail-top: rgba(239, 245, 251, 0.88);
+  --rp-final-rail-line: rgba(76, 97, 119, 0.105);
+  --rp-final-rail-line-soft: rgba(76, 97, 119, 0.075);
+  --rp-final-rail-cell: rgba(255, 255, 255, 0.3);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-final-rail-bg: rgba(12, 17, 25, 0.86);
+  --rp-final-rail-top: rgba(16, 22, 31, 0.9);
+  --rp-final-rail-line: rgba(198, 216, 236, 0.09);
+  --rp-final-rail-line-soft: rgba(198, 216, 236, 0.06);
+  --rp-final-rail-cell: rgba(255, 255, 255, 0.025);
+}
+
+/* rPortfolio true EOF polish lock: keep the window as one shell, with only theme colors changing. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --workspace-menu-width: 176px;
+  --rp-window-radius: 18px;
+  --rp-rail-width: clamp(330px, 22vw, 382px);
+  --rp-section-radius: 14px;
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-final-shell-bg: rgba(230, 238, 247, 0.96);
+  --rp-final-shell-top: rgba(239, 245, 252, 0.97);
+  --rp-final-pane-bg: rgba(224, 233, 242, 0.9);
+  --rp-final-pane-top: rgba(236, 243, 250, 0.94);
+  --rp-final-main-bg: rgba(237, 244, 251, 0.96);
+  --rp-final-surface: rgba(249, 252, 255, 0.7);
+  --rp-final-surface-strong: rgba(253, 254, 255, 0.84);
+  --rp-final-surface-soft: rgba(255, 255, 255, 0.28);
+  --rp-final-line: rgba(67, 89, 114, 0.11);
+  --rp-final-line-soft: rgba(67, 89, 114, 0.066);
+  --rp-final-shadow: 0 12px 34px rgba(42, 64, 88, 0.08);
+  --rp-final-shadow-soft: 0 8px 22px rgba(42, 64, 88, 0.048);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-final-shell-bg: rgba(10, 14, 21, 0.96);
+  --rp-final-shell-top: rgba(15, 20, 29, 0.96);
+  --rp-final-pane-bg: rgba(11, 16, 24, 0.9);
+  --rp-final-pane-top: rgba(16, 22, 31, 0.94);
+  --rp-final-main-bg: rgba(9, 14, 21, 0.96);
+  --rp-final-surface: rgba(15, 22, 32, 0.64);
+  --rp-final-surface-strong: rgba(17, 24, 35, 0.78);
+  --rp-final-surface-soft: rgba(255, 255, 255, 0.026);
+  --rp-final-line: rgba(202, 219, 238, 0.09);
+  --rp-final-line-soft: rgba(202, 219, 238, 0.055);
+  --rp-final-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+  --rp-final-shadow-soft: 0 8px 22px rgba(0, 0, 0, 0.16);
+}
+
+/* Quant trading terminal lock: keep this after the generic rail locks. */
+
+html[data-rportfolio-style="light"] {
+  --quant-glass-bg: rgba(246, 250, 254, 0.56);
+  --quant-glass-strong: rgba(252, 254, 255, 0.76);
+  --quant-glass-soft: rgba(255, 255, 255, 0.28);
+  --quant-terminal-bg: rgba(245, 249, 253, 0.5);
+  --quant-terminal-deep: rgba(223, 232, 242, 0.68);
+  --quant-line: rgba(65, 86, 111, 0.14);
+  --quant-line-soft: rgba(65, 86, 111, 0.08);
+  --quant-shadow: 0 18px 46px rgba(49, 72, 96, 0.11);
+}
+
+html[data-rportfolio-style="dark"] {
+  --quant-glass-bg: rgba(13, 19, 29, 0.54);
+  --quant-glass-strong: rgba(19, 27, 39, 0.72);
+  --quant-glass-soft: rgba(255, 255, 255, 0.035);
+  --quant-terminal-bg: rgba(6, 10, 16, 0.48);
+  --quant-terminal-deep: rgba(5, 9, 14, 0.72);
+  --quant-line: rgba(213, 228, 246, 0.11);
+  --quant-line-soft: rgba(213, 228, 246, 0.064);
+  --quant-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+}
+
+/* rPortfolio true EOF fix: side rails and analysis tabs must win over all older locks. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --rp-rail-card-radius: 13px;
+  --rp-rail-card-gap: 10px;
+  --rp-tab-height: 34px;
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-rail-card-bg: rgba(249, 252, 255, 0.58);
+  --rp-rail-card-soft: rgba(255, 255, 255, 0.28);
+  --rp-rail-meter-track: rgba(104, 124, 148, 0.13);
+  --rp-tab-bg: rgba(255, 255, 255, 0.24);
+  --rp-tab-active-bg: rgba(92, 112, 133, 0.92);
+  --rp-tab-active-text: #ffffff;
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-rail-card-bg: rgba(15, 22, 32, 0.72);
+  --rp-rail-card-soft: rgba(255, 255, 255, 0.032);
+  --rp-rail-meter-track: rgba(211, 225, 241, 0.09);
+  --rp-tab-bg: rgba(255, 255, 255, 0.034);
+  --rp-tab-active-bg: rgba(143, 184, 234, 0.9);
+  --rp-tab-active-text: #0b1018;
+}
+
+/* rPortfolio rail and tab flow lock: keep this after the broad style resets. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --rp-rail-card-radius: 13px;
+  --rp-rail-card-gap: 10px;
+  --rp-tab-height: 34px;
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-rail-card-bg: rgba(249, 252, 255, 0.58);
+  --rp-rail-card-soft: rgba(255, 255, 255, 0.28);
+  --rp-rail-meter-track: rgba(104, 124, 148, 0.13);
+  --rp-tab-bg: rgba(255, 255, 255, 0.24);
+  --rp-tab-active-bg: rgba(92, 112, 133, 0.92);
+  --rp-tab-active-text: #ffffff;
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-rail-card-bg: rgba(15, 22, 32, 0.72);
+  --rp-rail-card-soft: rgba(255, 255, 255, 0.032);
+  --rp-rail-meter-track: rgba(211, 225, 241, 0.09);
+  --rp-tab-bg: rgba(255, 255, 255, 0.034);
+  --rp-tab-active-bg: rgba(143, 184, 234, 0.9);
+  --rp-tab-active-text: #0b1018;
+}
+
+/* rPortfolio visual polish lock: one macOS panel system, theme changes color only. */
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --workspace-menu-width: 164px;
+  --rp-window-radius: 18px;
+  --rp-rail-width: clamp(318px, 21.5vw, 356px);
+  --rp-section-radius: 14px;
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-shell-bg: rgba(231, 238, 246, 0.96);
+  --rp-shell-top: rgba(240, 246, 252, 0.98);
+  --rp-pane-bg: rgba(229, 237, 245, 0.94);
+  --rp-pane-top: rgba(238, 244, 250, 0.96);
+  --rp-surface-bg: rgba(248, 251, 254, 0.72);
+  --rp-surface-strong: rgba(252, 254, 255, 0.9);
+  --rp-surface-soft: rgba(239, 245, 251, 0.58);
+  --rp-surface-line: rgba(71, 92, 116, 0.105);
+  --rp-surface-line-soft: rgba(71, 92, 116, 0.065);
+  --rp-rail-surface: rgba(247, 250, 253, 0.58);
+  --rp-rail-cell: rgba(255, 255, 255, 0.32);
+  --rp-polish-shadow: 0 12px 28px rgba(42, 64, 88, 0.075);
+  --rp-polish-shadow-soft: 0 8px 18px rgba(42, 64, 88, 0.045);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-shell-bg: rgba(10, 14, 20, 0.96);
+  --rp-shell-top: rgba(16, 21, 29, 0.96);
+  --rp-pane-bg: rgba(10, 15, 22, 0.94);
+  --rp-pane-top: rgba(15, 21, 30, 0.96);
+  --rp-surface-bg: rgba(15, 21, 30, 0.7);
+  --rp-surface-strong: rgba(17, 24, 34, 0.86);
+  --rp-surface-soft: rgba(12, 18, 27, 0.58);
+  --rp-surface-line: rgba(202, 219, 238, 0.09);
+  --rp-surface-line-soft: rgba(202, 219, 238, 0.055);
+  --rp-rail-surface: rgba(13, 19, 28, 0.58);
+  --rp-rail-cell: rgba(255, 255, 255, 0.026);
+  --rp-polish-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+  --rp-polish-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+@media (max-width: 980px) {
+  html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+    --workspace-menu-width: 132px;
+    --rp-rail-width: minmax(0, 1fr);
+  }
+}
+
+/* rPortfolio rail flow pass: prevent titlebar overlap and replace stacked cards with soft dividers. */
+
+html[data-rportfolio-style="light"] {
+  --rp-rail-divider: rgba(74, 94, 116, 0.12);
+  --rp-rail-inner-line: rgba(74, 94, 116, 0.09);
+  --rp-rail-field-bg: rgba(255, 255, 255, 0.34);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-rail-divider: rgba(198, 216, 236, 0.095);
+  --rp-rail-inner-line: rgba(198, 216, 236, 0.07);
+  --rp-rail-field-bg: rgba(255, 255, 255, 0.028);
+}
+
+/* rPortfolio seam cleanup: side panes are one continuous material, not stacked boxes. */
+
+html[data-rportfolio-style="light"] {
+  --rp-side-card-bg: rgba(248, 251, 254, 0.54);
+  --rp-side-nested-bg: rgba(255, 255, 255, 0.28);
+  --rp-side-card-border: rgba(74, 94, 116, 0.085);
+  --rp-side-seam: rgba(74, 94, 116, 0.095);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-side-card-bg: rgba(12, 18, 27, 0.56);
+  --rp-side-nested-bg: rgba(255, 255, 255, 0.026);
+  --rp-side-card-border: rgba(198, 216, 236, 0.07);
+  --rp-side-seam: rgba(198, 216, 236, 0.075);
+}
+
+/* rPortfolio EOF rail lock: this block must stay last. */
+
+html[data-rportfolio-style="light"] {
+  --rp-final-rail-bg: rgba(226, 234, 243, 0.84);
+  --rp-final-rail-top: rgba(239, 245, 251, 0.88);
+  --rp-final-rail-line: rgba(76, 97, 119, 0.105);
+  --rp-final-rail-line-soft: rgba(76, 97, 119, 0.075);
+  --rp-final-rail-cell: rgba(255, 255, 255, 0.3);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-final-rail-bg: rgba(12, 17, 25, 0.86);
+  --rp-final-rail-top: rgba(16, 22, 31, 0.9);
+  --rp-final-rail-line: rgba(198, 216, 236, 0.09);
+  --rp-final-rail-line-soft: rgba(198, 216, 236, 0.06);
+  --rp-final-rail-cell: rgba(255, 255, 255, 0.025);
+}
+
+/* rPortfolio absolute EOF lock: this rule-set intentionally stays after older rail locks. */
+
+html[data-rportfolio-style="light"] {
+  --rp-final-shell-bg: rgba(230, 238, 247, 0.96);
+  --rp-final-shell-top: rgba(239, 245, 252, 0.97);
+  --rp-final-pane-bg: rgba(224, 233, 242, 0.9);
+  --rp-final-pane-top: rgba(236, 243, 250, 0.94);
+  --rp-final-main-bg: rgba(237, 244, 251, 0.96);
+  --rp-final-surface: rgba(249, 252, 255, 0.7);
+  --rp-final-surface-soft: rgba(255, 255, 255, 0.28);
+  --rp-final-line: rgba(67, 89, 114, 0.11);
+  --rp-final-line-soft: rgba(67, 89, 114, 0.066);
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-final-shell-bg: rgba(10, 14, 21, 0.96);
+  --rp-final-shell-top: rgba(15, 20, 29, 0.96);
+  --rp-final-pane-bg: rgba(11, 16, 24, 0.9);
+  --rp-final-pane-top: rgba(16, 22, 31, 0.94);
+  --rp-final-main-bg: rgba(9, 14, 21, 0.96);
+  --rp-final-surface: rgba(15, 22, 32, 0.64);
+  --rp-final-surface-soft: rgba(255, 255, 255, 0.026);
+  --rp-final-line: rgba(202, 219, 238, 0.09);
+  --rp-final-line-soft: rgba(202, 219, 238, 0.055);
+}
+
+html[data-rportfolio-style="light"],
+html[data-rportfolio-style="dark"] {
+  --workspace-menu-width: 176px;
+  --rp-rail-width: clamp(330px, 22vw, 382px);
+  --rp-rail-card-radius: 13px;
+  --rp-rail-card-gap: 10px;
+}
+
+/* Light hierarchy pass: keep the frosted feel, but give trading and holdings modules a clearer edge. */
+
+html[data-rportfolio-style="light"] {
+  --rp-light-module-bg: rgba(252, 254, 255, 0.84);
+  --rp-light-module-bg-soft: rgba(246, 250, 254, 0.72);
+  --rp-light-module-row: rgba(255, 255, 255, 0.86);
+  --rp-light-module-row-soft: rgba(244, 249, 253, 0.78);
+  --rp-light-module-line: rgba(70, 92, 118, 0.17);
+  --rp-light-module-line-soft: rgba(70, 92, 118, 0.115);
+  --rp-light-module-shadow: 0 16px 34px rgba(50, 72, 98, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  --rp-light-row-shadow: 0 8px 18px rgba(54, 76, 100, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --rp-light-rail-bg: rgba(221, 232, 243, 0.9);
+  --rp-light-rail-top: rgba(237, 244, 250, 0.96);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Analysis final alignment: keep the report lane clear of the right rail. */
+
+:root {
+  --rp-analysis-rail-width: clamp(300px, 19vw, 336px);
+}
+
+/* Shared inspector rails: analysis is the reference for width, rhythm, and glass hierarchy. */
+
+:root {
+  --rp-inspector-rail-width: clamp(304px, 19.5vw, 340px);
+  --rp-analysis-rail-width: var(--rp-inspector-rail-width);
+  --rp-rail-width: var(--rp-inspector-rail-width);
+  --rp-inspector-gap: 8px;
+  --rp-inspector-radius: 12px;
+}
+
+html[data-rportfolio-style="light"] .workspace-inspector-rail,
+html[data-rportfolio-style="dark"] .workspace-inspector-rail {
+  width: var(--rp-inspector-rail-width) !important;
+  min-width: 0 !important;
+  max-width: var(--rp-inspector-rail-width) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  align-content: stretch !important;
+  justify-content: flex-start !important;
+  gap: var(--rp-inspector-gap) !important;
+  margin: 0 !important;
+  padding: 10px 12px 12px !important;
+  overflow: hidden auto !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(112, 134, 160, 0.11) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.035) !important;
+  scrollbar-gutter: stable !important;
+  overscroll-behavior: contain !important;
+}
+
+html[data-rportfolio-style="light"] .workspace-inspector-rail {
+  background:
+    linear-gradient(180deg, rgba(247, 251, 255, 0.72), rgba(235, 243, 250, 0.54)),
+    rgba(238, 246, 252, 0.58) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-rportfolio-style="dark"] .workspace-inspector-rail {
+  border-left-color: rgba(170, 188, 210, 0.08) !important;
+  background:
+    linear-gradient(180deg, rgba(18, 25, 35, 0.74), rgba(13, 18, 26, 0.66)),
+    rgba(13, 18, 26, 0.72) !important;
+}
+
+html[data-rportfolio-style="light"] .workspace-inspector-rail > .rail-card,
+html[data-rportfolio-style="dark"] .workspace-inspector-rail > .rail-card {
+  position: relative !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 11px !important;
+  gap: 9px !important;
+  overflow: hidden !important;
+  border-radius: var(--rp-inspector-radius) !important;
+  box-shadow: none !important;
+  isolation: isolate !important;
+}
+
+html[data-rportfolio-style="light"] .workspace-inspector-rail > .rail-card {
+  border: 1px solid rgba(70, 92, 118, 0.085) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(248, 252, 255, 0.38)),
+    rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 22px rgba(45, 64, 86, 0.035) !important;
+}
+
+html[data-rportfolio-style="dark"] .workspace-inspector-rail > .rail-card {
+  border: 1px solid rgba(170, 188, 210, 0.09) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.008)),
+    rgba(18, 24, 33, 0.62) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+}
+
+html[data-rportfolio-style="light"] .asset-metric {
+  background: rgba(255, 255, 255, 0.48) !important;
+}
+
+@media (max-width: 1120px) {
+  :root {
+    --rp-inspector-rail-width: 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --rp-inspector-rail-width: 286px;
+  }
+}

@@ -2,6 +2,40 @@
 
 Profiles are JSON configuration files for market risk monitoring. They keep the app explainable: every point in the final score must come from a visible rule.
 
+## Profile v2 and inheritance
+
+Profile v1 files remain valid. New or calibrated Profiles should declare `schemaVersion`, `profileVersion`, and `calibrationMeta`:
+
+```json
+{
+  "schemaVersion": 2,
+  "profileVersion": "2.1.0",
+  "extends": "us-core",
+  "key": "us-core-low-turnover",
+  "name": "美股核心低换手",
+  "calibrationMeta": {
+    "method": "walk-forward",
+    "calibratedAt": "2026-06-29",
+    "trainingStart": "2022-01-01",
+    "trainingEnd": "2024-12-31",
+    "validationStart": "2025-01-01",
+    "validationEnd": "2025-12-31",
+    "dataSignature": "sha256-or-provider-snapshot-id",
+    "objective": "净收益 - 回撤惩罚 - 换手成本 - 尾部亏损惩罚"
+  },
+  "calibration": {
+    "hotStateHeatMin": 68,
+    "divergenceTradingCap": 40
+  }
+}
+```
+
+`extends` accepts a built-in Profile key, a custom Profile key, or a JSON path. Objects are merged recursively and child values override parent values. Arrays such as `symbols` and `dimensions` replace the parent array as a whole; omit them to inherit the complete parent list. Inheritance cycles are rejected.
+
+`calibrationMeta` is audit metadata and does not change scoring by itself. `method`, non-overlapping training/validation windows, `dataSignature`, and an objective that includes drawdown, turnover, and tail risk are recommended before treating parameters as calibrated.
+
+`executionPolicy` controls quote freshness, ETF bid/ask spread and premium/discount gates, plus fund holdings-disclosure freshness. Omitted fields use conservative built-in defaults, and child Profiles may override individual thresholds through `extends`.
+
 ## Shape
 
 ```json

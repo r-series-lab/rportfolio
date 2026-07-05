@@ -12,6 +12,7 @@ use std::time::Duration as StdDuration;
 
 const HISTORY_RANGE: &str = "2y";
 const MIN_DAILY_BARS: usize = 220;
+const BACKTEST_SAMPLE_SPACING_DAYS: usize = 5;
 const DEFAULT_PROFILE_KEY: &str = "us-core";
 const DEFAULT_QBOT_PATH: &str = "/Users/ikiru/Documents/Qbot";
 const DEFAULT_VNPY_PATH: &str = "/Users/ikiru/Documents/vnpy";
@@ -20,10 +21,12 @@ const VNPY_ADAPTER_SCRIPT: &str = include_str!("../adapters/vnpy_adapter.py");
 const YAHOO_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
 const YAHOO_CHART_HOSTS: [&str; 2] = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 const FRED_GRAPH_CSV_URL: &str = "https://fred.stlouisfed.org/graph/fredgraph.csv";
+const EASTMONEY_KLINE_URL: &str = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
 const STOOQ_HISTORY_URL: &str = "https://stooq.com/q/d/";
 const STOOQ_ROWS_PER_PAGE: usize = 40;
 const STOOQ_MAX_PAGES: usize = 8;
 const AUTO_PROVIDER_TIMEOUT: StdDuration = StdDuration::from_secs(4);
+const CHINA_PROVIDER_TIMEOUT: StdDuration = StdDuration::from_secs(12);
 const HTTP_REQUEST_TIMEOUT: StdDuration = StdDuration::from_secs(4);
 const HTTP_CONNECT_TIMEOUT: StdDuration = StdDuration::from_secs(2);
 const SUPPORTED_RULE_TYPES: &[&str] = &[
@@ -88,7 +91,6 @@ pub struct ScoreMarketRequest {
     pub as_of: Option<String>,
     pub profile: Option<String>,
 }
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileSummary {
@@ -97,6 +99,9 @@ pub struct ProfileSummary {
     pub market: String,
     pub description: String,
     pub builtin: bool,
+    pub schema_version: u16,
+    pub profile_version: String,
+    pub parent_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -169,6 +174,30 @@ pub struct ProfileConfigBundle {
     pub json: String,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FundHoldingSeed {
+    pub symbol: String,
+    pub name: String,
+    pub weight: f64,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FundNavPoint {
+    pub date: String,
+    pub nav: f64,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FundRedemptionFeeTier {
+    pub label: String,
+    pub min_days: Option<u32>,
+    pub max_days_exclusive: Option<u32>,
+    pub rate: f64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FundProfileSeed {
@@ -193,11 +222,32 @@ pub struct FundProfileSeed {
     pub bond_weight: Option<f64>,
     pub cash_weight: Option<f64>,
     pub net_asset: Option<f64>,
+    pub purchase_status: String,
+    pub purchase_open: Option<bool>,
+    pub purchase_limit: Option<f64>,
+    pub redemption_open: Option<bool>,
+    pub holdings_as_of: Option<String>,
+    pub top_holdings: Vec<FundHoldingSeed>,
+    pub nav_history: Vec<FundNavPoint>,
+    pub redemption_fee_schedule: Vec<FundRedemptionFeeTier>,
     pub topic_labels: Vec<String>,
     pub source_name: String,
     pub source_url: String,
     pub fetched_at: String,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FundNavLookup {
+    pub code: String,
+    pub requested_date: String,
+    pub nav_date: String,
+    pub nav: f64,
+    pub exact: bool,
+    pub source_name: String,
+    pub source_url: String,
+    pub fetched_at: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
@@ -218,6 +268,28 @@ pub struct HoldingRecord {
     pub quantity: f64,
     pub cost_price: f64,
     pub current_price: f64,
+    #[serde(default)]
+    pub confirmed_nav: Option<f64>,
+    #[serde(default)]
+    pub confirmed_nav_as_of: Option<String>,
+    #[serde(default)]
+    pub fund_purchase_status: Option<String>,
+    #[serde(default)]
+    pub fund_purchase_open: Option<bool>,
+    #[serde(default)]
+    pub fund_purchase_limit: Option<f64>,
+    #[serde(default)]
+    pub fund_redemption_open: Option<bool>,
+    #[serde(default)]
+    pub fund_trade_status_as_of: Option<String>,
+    #[serde(default)]
+    pub fund_holdings_as_of: Option<String>,
+    #[serde(default)]
+    pub fund_top_holdings: Vec<FundHoldingSeed>,
+    #[serde(default)]
+    pub fund_nav_history: Vec<FundNavPoint>,
+    #[serde(default)]
+    pub fund_redemption_fee_schedule: Vec<FundRedemptionFeeTier>,
     #[serde(default)]
     pub target_min_weight: Option<f64>,
     pub target_weight: f64,
@@ -456,6 +528,54 @@ pub struct MarketQuoteSnapshot {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RealtimeAssetQuoteRequest {
+    pub symbol: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub market: String,
+    #[serde(default)]
+    pub reference_price: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RealtimeAssetQuotePoint {
+    pub time: String,
+    pub price: f64,
+    pub volume: f64,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RealtimeAssetQuoteSnapshot {
+    pub accepted: bool,
+    pub symbol: String,
+    pub name: String,
+    pub market: String,
+    pub source: String,
+    pub source_label: String,
+    pub status: String,
+    pub session: String,
+    pub last: Option<f64>,
+    pub previous_close: Option<f64>,
+    pub open: Option<f64>,
+    pub high: Option<f64>,
+    pub low: Option<f64>,
+    pub volume: Option<f64>,
+    pub change: Option<f64>,
+    pub change_pct: Option<f64>,
+    pub bid: Option<f64>,
+    pub ask: Option<f64>,
+    pub spread_bps: Option<f64>,
+    pub synced_at: String,
+    pub message: String,
+    pub warnings: Vec<String>,
+    pub points: Vec<RealtimeAssetQuotePoint>,
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderAuditExportRequest {
@@ -531,6 +651,9 @@ pub struct MarketAnalysisReport {
     pub source: String,
     pub source_label: String,
     pub provider_note: String,
+    pub profile_schema_version: u16,
+    pub profile_version: String,
+    pub parent_profile: Option<String>,
     pub profile_key: String,
     pub profile_name: String,
     pub profile_market: String,
@@ -559,6 +682,10 @@ pub struct MarketAnalysisReport {
     pub portfolio_profile: PortfolioProfile,
     pub profile_mandate: ProfileMandate,
     pub profile_fund: Option<ProfileFund>,
+    pub profile_calibration_status: ProfileCalibrationStatus,
+    pub recommendation_performance: RecommendationPerformanceSummary,
+    pub calibration_action: ProfileCalibrationAction,
+    pub execution_policy: ProfileExecutionPolicy,
     pub backtest: BacktestSummary,
     pub policy_note: String,
 }
@@ -982,6 +1109,9 @@ pub struct StateValidation {
     pub state_key: String,
     pub state_label: String,
     pub sample_count: usize,
+    pub raw_sample_count: usize,
+    pub effective_sample_count: usize,
+    pub sample_spacing_days: usize,
     pub exact_sample_count: usize,
     pub similar_sample_count: usize,
     pub match_mode: String,
@@ -1107,7 +1237,7 @@ impl AppError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Candle {
     date: NaiveDate,
     open: f64,
@@ -1118,7 +1248,7 @@ struct Candle {
     flow: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct LoadedMarketData {
     source: String,
     source_label: String,
@@ -1126,9 +1256,24 @@ struct LoadedMarketData {
     series: HashMap<String, Vec<Candle>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MarketDataCacheSnapshot {
+    version: u8,
+    saved_at: String,
+    profile_key: String,
+    data: LoadedMarketData,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnalysisProfile {
+    #[serde(default = "default_profile_schema_version")]
+    schema_version: u16,
+    #[serde(default = "default_profile_version")]
+    profile_version: String,
+    #[serde(default)]
+    extends: Option<String>,
     key: String,
     name: String,
     market: String,
@@ -1148,7 +1293,138 @@ struct AnalysisProfile {
     #[serde(default)]
     calibration: ProfileCalibration,
     #[serde(default)]
+    calibration_meta: ProfileCalibrationMeta,
+    #[serde(default)]
+    execution_policy: ProfileExecutionPolicy,
+    #[serde(default)]
     copy: ProfileCopyConfig,
+}
+
+fn default_profile_schema_version() -> u16 {
+    1
+}
+
+fn default_profile_version() -> String {
+    "1.0.0".to_string()
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct ProfileCalibrationMeta {
+    method: Option<String>,
+    calibrated_at: Option<String>,
+    training_start: Option<String>,
+    training_end: Option<String>,
+    validation_start: Option<String>,
+    validation_end: Option<String>,
+    data_signature: Option<String>,
+    objective: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProfileExecutionPolicy {
+    pub quote_warn_age_seconds: u64,
+    pub quote_block_age_seconds: u64,
+    pub etf_warn_spread_bps: f64,
+    pub etf_block_spread_bps: f64,
+    pub etf_warn_premium_discount_pct: f64,
+    pub etf_block_premium_discount_pct: f64,
+    pub fund_warn_holdings_age_days: i64,
+    pub fund_block_holdings_age_days: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileCalibrationStatus {
+    pub stage: String,
+    pub label: String,
+    pub tone: String,
+    pub execution_grade: bool,
+    pub method: String,
+    pub training_window: String,
+    pub validation_window: String,
+    pub data_signature: String,
+    pub objective: String,
+    pub effective_sample_count: usize,
+    pub summary: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecommendationPerformanceSummary {
+    pub profile_key: String,
+    pub label: String,
+    pub tone: String,
+    pub summary: String,
+    pub evaluated_records: usize,
+    pub raw_evaluated_outcomes: usize,
+    pub effective_evaluated_outcomes: usize,
+    pub pending_outcomes: usize,
+    pub insufficient_outcomes: usize,
+    pub horizons: Vec<RecommendationPerformanceSlice>,
+    pub directions: Vec<RecommendationPerformanceSlice>,
+    pub market_states: Vec<RecommendationPerformanceSlice>,
+    pub priorities: Vec<RecommendationPerformanceSlice>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecommendationPerformanceSlice {
+    pub key: String,
+    pub label: String,
+    pub sample_count: usize,
+    pub correct_count: usize,
+    pub hit_rate_pct: Option<f64>,
+    pub average_signed_return_pct: Option<f64>,
+    pub average_excess_return_pct: Option<f64>,
+    pub average_max_adverse_pct: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileCalibrationAction {
+    pub key: String,
+    pub label: String,
+    pub tone: String,
+    pub action: String,
+    pub rationale: String,
+    pub next_review: String,
+    pub minimum_sample_count: usize,
+    pub current_sample_count: usize,
+    pub proposals: Vec<ProfileParameterProposal>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileParameterProposal {
+    pub key: String,
+    pub label: String,
+    pub path: String,
+    pub current_value: String,
+    pub proposed_value: String,
+    pub expected_effect: String,
+    pub reason: String,
+    pub sample_count: usize,
+    pub confidence: String,
+    pub directly_applicable: bool,
+}
+
+impl Default for ProfileExecutionPolicy {
+    fn default() -> Self {
+        Self {
+            quote_warn_age_seconds: 30,
+            quote_block_age_seconds: 120,
+            etf_warn_spread_bps: 35.0,
+            etf_block_spread_bps: 100.0,
+            etf_warn_premium_discount_pct: 0.8,
+            etf_block_premium_discount_pct: 2.0,
+            fund_warn_holdings_age_days: 120,
+            fund_block_holdings_age_days: 180,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1535,13 +1811,7 @@ pub fn list_profiles() -> Result<Vec<ProfileSummary>, AppError> {
         .iter()
         .map(|(_, content)| {
             let profile = parse_profile(content, None)?;
-            Ok(ProfileSummary {
-                key: profile.key,
-                name: profile.name,
-                market: profile.market,
-                description: profile.description.unwrap_or_default(),
-                builtin: true,
-            })
+            Ok(profile_summary(profile, true))
         })
         .collect::<Result<_, AppError>>()?;
     let mut known_keys = profiles
@@ -1557,13 +1827,7 @@ pub fn list_profiles() -> Result<Vec<ProfileSummary>, AppError> {
             continue;
         }
         known_keys.push(profile.key.clone());
-        profiles.push(ProfileSummary {
-            key: profile.key,
-            name: profile.name,
-            market: profile.market,
-            description: profile.description.unwrap_or_default(),
-            builtin: false,
-        });
+        profiles.push(profile_summary(profile, false));
     }
 
     Ok(profiles)
@@ -1574,7 +1838,13 @@ pub fn list_data_sources() -> Vec<DataSourceSummary> {
         DataSourceSummary {
             key: "auto".to_string(),
             name: "自动".to_string(),
-            description: "优先使用 profile 配置的 CSV；否则尝试 Stooq 历史页，失败后使用免费混合源，最后使用示例数据。".to_string(),
+            description: "优先使用 profile 配置的 CSV；A 股随后使用东方财富并校验核心基准，其他情况按 Stooq、免费混合源、示例数据降级。".to_string(),
+            requires_config: false,
+        },
+        DataSourceSummary {
+            key: "china".to_string(),
+            name: "A股免费多源".to_string(),
+            description: "A股/ETF 使用东方财富前复权日线，离岸标的使用 Yahoo；核心基准执行第二来源交叉校验。".to_string(),
             requires_config: false,
         },
         DataSourceSummary {
@@ -1691,6 +1961,14 @@ pub async fn lookup_fund_profile_seed(code: String) -> Result<FundProfileSeed, A
     let mut bond_weight = None;
     let mut cash_weight = None;
     let mut net_asset = None;
+    let mut purchase_status = String::new();
+    let mut purchase_open = None;
+    let mut purchase_limit = None;
+    let mut redemption_open = None;
+    let mut holdings_as_of = None;
+    let mut top_holdings = Vec::new();
+    let mut nav_history = Vec::new();
+    let mut redemption_fee_schedule = Vec::new();
     let detail_url = format!("https://fund.eastmoney.com/pingzhongdata/{code}.js");
     match fetch_text(&client, &detail_url).await {
         Ok(text) => {
@@ -1711,6 +1989,10 @@ pub async fn lookup_fund_profile_seed(code: String) -> Result<FundProfileSeed, A
             latest_stock_position = js_value_var(&text, "Data_fundSharesPositions")
                 .and_then(|value| value.as_array().and_then(|items| items.last().cloned()))
                 .and_then(|row| row.as_array().and_then(|items| value_number(items.get(1))));
+            nav_history = js_value_var(&text, "Data_netWorthTrend")
+                .and_then(|value| value.as_array().cloned())
+                .map(|trend| fund_nav_history(&trend, 130))
+                .unwrap_or_default();
             if let Some(allocation) = js_value_var(&text, "Data_assetAllocation") {
                 asset_allocation_as_of = allocation
                     .get("categories")
@@ -1726,6 +2008,47 @@ pub async fn lookup_fund_profile_seed(code: String) -> Result<FundProfileSeed, A
             }
         }
         Err(error) => warnings.push(format!("详情数据读取失败：{}", error.message)),
+    }
+
+    let fund_page_url = format!("https://fund.eastmoney.com/{code}.html");
+    match fetch_text(&client, &fund_page_url).await {
+        Ok(text) => {
+            let status = parse_fund_transaction_status(&text);
+            purchase_status = status.label;
+            purchase_open = status.purchase_open;
+            purchase_limit = status.purchase_limit;
+            redemption_open = status.redemption_open;
+            if purchase_open.is_none() {
+                warnings.push("基金申购状态未识别，生成交易票前需要人工复核。".to_string());
+            }
+        }
+        Err(error) => warnings.push(format!("基金交易状态读取失败：{}", error.message)),
+    }
+
+    let holdings_url = format!(
+        "https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={code}&topline=10"
+    );
+    match fetch_text(&client, &holdings_url).await {
+        Ok(text) => {
+            let snapshot = parse_fund_top_holdings(&text);
+            holdings_as_of = snapshot.as_of;
+            top_holdings = snapshot.holdings;
+            if top_holdings.is_empty() {
+                warnings.push("基金最新季报未返回股票前十大持仓，重合度将使用规则型估计。".to_string());
+            }
+        }
+        Err(error) => warnings.push(format!("基金季报持仓读取失败：{}", error.message)),
+    }
+
+    let fee_url = format!("https://fundf10.eastmoney.com/jjfl_{code}.html");
+    match fetch_text(&client, &fee_url).await {
+        Ok(text) => {
+            redemption_fee_schedule = parse_fund_redemption_fees(&text);
+            if redemption_fee_schedule.is_empty() {
+                warnings.push("基金赎回费率表未识别，替换计划只能输出草案。".to_string());
+            }
+        }
+        Err(error) => warnings.push(format!("基金赎回费率读取失败：{}", error.message)),
     }
 
     Ok(FundProfileSeed {
@@ -1750,12 +2073,94 @@ pub async fn lookup_fund_profile_seed(code: String) -> Result<FundProfileSeed, A
         bond_weight: bond_weight.map(|value| round(value, 2)),
         cash_weight: cash_weight.map(|value| round(value, 2)),
         net_asset: net_asset.map(|value| round(value, 2)),
+        purchase_status,
+        purchase_open,
+        purchase_limit: purchase_limit.map(|value| round(value, 2)),
+        redemption_open,
+        holdings_as_of,
+        top_holdings,
+        nav_history,
+        redemption_fee_schedule,
         topic_labels,
         source_name: "东方财富公开基金资料".to_string(),
-        source_url: format!("https://fund.eastmoney.com/{code}.html"),
+        source_url: fund_page_url,
         fetched_at: Utc::now().to_rfc3339(),
         warnings,
     })
+}
+
+pub async fn lookup_fund_nav(code: String, date: String) -> Result<FundNavLookup, AppError> {
+    let code = code.trim();
+    if !code.chars().all(|char| char.is_ascii_digit()) || code.len() != 6 {
+        return Err(AppError::invalid("基金代码需要是 6 位数字"));
+    }
+    let requested = NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d")
+        .map_err(|_| AppError::invalid("净值日期需要使用 YYYY-MM-DD"))?;
+    let client = market_client_builder()
+        .default_headers(eastmoney_headers())
+        .build()
+        .map_err(|error| AppError::internal(format!("fund nav client build failed: {error}")))?;
+    let source_url = format!("https://fund.eastmoney.com/pingzhongdata/{code}.js");
+    let text = fetch_text(&client, &source_url).await?;
+    let trend = js_value_var(&text, "Data_netWorthTrend")
+        .and_then(|value| value.as_array().cloned())
+        .ok_or_else(|| AppError::fetch(format!("基金 {code} 的历史净值数据未识别")))?;
+    let point = fund_nav_point_for_date(&trend, requested);
+    let (nav_date, nav) = point.ok_or_else(|| {
+        AppError::fetch(format!("基金 {code} 未找到 {} 的确认净值", requested.format("%Y-%m-%d")))
+    })?;
+    Ok(FundNavLookup {
+        code: code.to_string(),
+        requested_date: requested.format("%Y-%m-%d").to_string(),
+        nav_date: nav_date.format("%Y-%m-%d").to_string(),
+        nav: round(nav, 4),
+        exact: true,
+        source_name: "东方财富公开基金历史净值".to_string(),
+        source_url,
+        fetched_at: Utc::now().to_rfc3339(),
+    })
+}
+
+fn fund_nav_point_for_date(trend: &[Value], requested: NaiveDate) -> Option<(NaiveDate, f64)> {
+    trend.iter().find_map(|item| {
+        let raw_timestamp = value_number(item.get("x"))?;
+        let timestamp = if raw_timestamp.abs() < 10_000_000_000.0 {
+            (raw_timestamp * 1000.0) as i64
+        } else {
+            raw_timestamp as i64
+        };
+        let nav_date = Utc.timestamp_millis_opt(timestamp).single()?.date_naive();
+        if nav_date != requested {
+            return None;
+        }
+        value_number(item.get("y")).map(|nav| (nav_date, nav))
+    })
+}
+
+fn fund_nav_history(trend: &[Value], limit: usize) -> Vec<FundNavPoint> {
+    let mut points = trend
+        .iter()
+        .filter_map(|item| {
+            let raw_timestamp = value_number(item.get("x"))?;
+            let timestamp = if raw_timestamp.abs() < 10_000_000_000.0 {
+                (raw_timestamp * 1000.0) as i64
+            } else {
+                raw_timestamp as i64
+            };
+            let date = Utc.timestamp_millis_opt(timestamp).single()?.date_naive();
+            let nav = value_number(item.get("y"))?;
+            (nav > 0.0).then_some(FundNavPoint {
+                date: date.format("%Y-%m-%d").to_string(),
+                nav: round(nav, 4),
+            })
+        })
+        .collect::<Vec<_>>();
+    points.sort_by(|left, right| left.date.cmp(&right.date));
+    points.dedup_by(|left, right| left.date == right.date);
+    if points.len() > limit {
+        points.drain(0..points.len() - limit);
+    }
+    points
 }
 
 pub fn export_profile_config(profile: &str) -> Result<ProfileConfigBundle, AppError> {
@@ -1800,36 +2205,39 @@ pub fn import_profile_config(content: &str) -> Result<ProfileSummary, AppError> 
     fs::write(&path, json)
         .map_err(|error| AppError::invalid(format!("profile import write failed: {error}")))?;
 
-    Ok(ProfileSummary {
+    Ok(profile_summary(profile, false))
+}
+
+fn profile_summary(profile: AnalysisProfile, builtin: bool) -> ProfileSummary {
+    ProfileSummary {
         key: profile.key,
         name: profile.name,
         market: profile.market,
         description: profile.description.unwrap_or_default(),
-        builtin: false,
-    })
+        builtin,
+        schema_version: profile.schema_version,
+        profile_version: profile.profile_version,
+        parent_profile: profile.extends,
+    }
 }
 
 pub fn validate_profile_config(content: &str) -> ProfileValidationReport {
     let mut report = ProfileValidationReport::new();
-    let value = match parse_profile_json_value(content) {
+    let source_value = match parse_profile_json_value(content) {
         Ok(value) => value,
         Err(error) => {
             report.error("json", "$", error.message);
             return report.finish();
         }
     };
-    let json = match serde_json::to_string(&value) {
-        Ok(json) => json,
+    let value = match resolve_profile_json_value(source_value, None) {
+        Ok(value) => value,
         Err(error) => {
-            report.error(
-                "json",
-                "$",
-                format!("profile json normalization failed: {error}"),
-            );
+            report.error("inheritance", "extends", error.message);
             return report.finish();
         }
     };
-    let mut profile: AnalysisProfile = match serde_json::from_str(&json) {
+    let mut profile: AnalysisProfile = match serde_json::from_value(value) {
         Ok(profile) => profile,
         Err(error) => {
             report.error("schema", "$", format!("profile parse failed: {error}"));
@@ -1933,6 +2341,22 @@ struct RiskPolicyStoreSnapshot {
     policy: Value,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PaperSimStoreSnapshot {
+    version: u16,
+    updated_at: String,
+    state: Value,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecommendationStoreSnapshot {
+    version: u16,
+    updated_at: String,
+    records: Vec<Value>,
+}
+
 pub fn load_orders_from_path(path: &Path) -> Result<Vec<Value>, AppError> {
     if !path.exists() {
         return Ok(Vec::new());
@@ -1964,6 +2388,799 @@ pub fn save_orders_to_path(path: &Path, orders: Vec<Value>) -> Result<Vec<Value>
     fs::rename(&temp_path, path)
         .map_err(|error| AppError::internal(format!("orders file replace failed: {error}")))?;
     Ok(orders)
+}
+
+pub fn load_recommendations_from_path(path: &Path) -> Result<Vec<Value>, AppError> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("recommendations file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("recommendations json parse failed: {error}")))?;
+    Ok(value
+        .get("records")
+        .and_then(Value::as_array)
+        .cloned()
+        .or_else(|| value.as_array().cloned())
+        .unwrap_or_default())
+}
+
+pub fn save_recommendations_to_path(
+    path: &Path,
+    records: Vec<Value>,
+) -> Result<Vec<Value>, AppError> {
+    let records = records
+        .into_iter()
+        .filter(|record| record.get("id").and_then(Value::as_str).is_some())
+        .rev()
+        .take(5_000)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("recommendations directory create failed: {error}"))
+        })?;
+    }
+    let snapshot = RecommendationStoreSnapshot {
+        version: 1,
+        updated_at: Utc::now().to_rfc3339(),
+        records: records.clone(),
+    };
+    let json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| AppError::internal(format!("recommendations serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json)
+        .map_err(|error| AppError::internal(format!("recommendations temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("recommendations file replace failed: {error}")))?;
+    Ok(records)
+}
+
+fn evaluate_recommendation_records(
+    path: &Path,
+    profile: &AnalysisProfile,
+    series: &HashMap<String, Vec<Candle>>,
+    requested_as_of: Option<&str>,
+) -> Result<(), AppError> {
+    let mut records = load_recommendations_from_path(path)?;
+    if records.is_empty() {
+        return Ok(());
+    }
+    let cutoff = requested_as_of
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .map_err(|_| AppError::invalid("asOf must use YYYY-MM-DD"))
+        })
+        .transpose()?;
+    let benchmark_series = series_for_symbol(series, &profile.benchmark);
+    let mut changed = false;
+
+    for record in &mut records {
+        let Some(object) = record.as_object_mut() else {
+            continue;
+        };
+        if object.get("schemaVersion").and_then(Value::as_u64) != Some(2)
+            || object.get("profileKey").and_then(Value::as_str) != Some(profile.key.as_str())
+        {
+            continue;
+        }
+        let Some(reference_price) = object
+            .get("referencePrice")
+            .and_then(Value::as_f64)
+            .filter(|value| value.is_finite() && *value > 0.0)
+        else {
+            continue;
+        };
+        let Some(symbol) = object.get("symbol").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(anchor_date) = object
+            .get("asOf")
+            .and_then(Value::as_str)
+            .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        else {
+            continue;
+        };
+        let Some(symbol_series) = series_for_symbol(series, symbol) else {
+            continue;
+        };
+        let Some(anchor_index) = candle_index_on_or_before(symbol_series, anchor_date) else {
+            continue;
+        };
+        let side = object
+            .get("side")
+            .and_then(Value::as_str)
+            .unwrap_or("BUY")
+            .trim()
+            .to_ascii_uppercase();
+        let decision_type = object
+            .get("decisionType")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase();
+        let inverse_outcome = side == "SELL"
+            || matches!(
+                decision_type.as_str(),
+                "reduce" | "wait" | "blocked" | "config"
+            );
+        let Some(outcomes) = object.get_mut("outcomes").and_then(Value::as_array_mut) else {
+            continue;
+        };
+
+        for outcome in outcomes {
+            let Some(outcome_object) = outcome.as_object_mut() else {
+                continue;
+            };
+            if outcome_object.get("status").and_then(Value::as_str) != Some("pending") {
+                continue;
+            }
+            let Some(horizon) = outcome_object
+                .get("horizonDays")
+                .and_then(Value::as_u64)
+                .map(|value| value as usize)
+                .filter(|value| *value > 0)
+            else {
+                continue;
+            };
+            let target_index = anchor_index.saturating_add(horizon);
+            let Some(target) = symbol_series.get(target_index) else {
+                continue;
+            };
+            if cutoff.is_some_and(|date| target.date > date) {
+                continue;
+            }
+
+            let raw_return = percent(target.close / reference_price - 1.0);
+            let signed_return = if inverse_outcome { -raw_return } else { raw_return };
+            let adverse_return = symbol_series[anchor_index + 1..=target_index]
+                .iter()
+                .map(|candle| percent(candle.close / reference_price - 1.0))
+                .map(|value| if inverse_outcome { -value } else { value })
+                .fold(0.0_f64, f64::min);
+            let benchmark_return = benchmark_series.and_then(|benchmark| {
+                let start = candle_index_on_or_before(benchmark, anchor_date)?;
+                let start_close = benchmark.get(start)?.close;
+                let end = candle_index_on_or_before(benchmark, target.date)?;
+                let end_close = benchmark.get(end)?.close;
+                (start_close > 0.0).then_some(percent(end_close / start_close - 1.0))
+            });
+            let signed_benchmark = benchmark_return
+                .map(|value| if inverse_outcome { -value } else { value });
+            let excess_return = signed_benchmark.map(|value| signed_return - value);
+            let avoided_loss = if inverse_outcome {
+                Some((-raw_return).max(0.0))
+            } else {
+                None
+            };
+
+            outcome_object.insert("status".to_string(), Value::String("evaluated".to_string()));
+            outcome_object.insert("evaluatedAt".to_string(), Value::String(Utc::now().to_rfc3339()));
+            outcome_object.insert("evaluationPrice".to_string(), json_number(target.close));
+            outcome_object.insert("returnPct".to_string(), json_number(round(raw_return, 4)));
+            outcome_object.insert("signedReturnPct".to_string(), json_number(round(signed_return, 4)));
+            outcome_object.insert(
+                "benchmarkReturnPct".to_string(),
+                optional_json_number(benchmark_return.map(|value| round(value, 4))),
+            );
+            outcome_object.insert(
+                "excessReturnPct".to_string(),
+                optional_json_number(excess_return.map(|value| round(value, 4))),
+            );
+            outcome_object.insert(
+                "maxDrawdownPct".to_string(),
+                json_number(round(adverse_return, 4)),
+            );
+            outcome_object.insert(
+                "avoidedLossPct".to_string(),
+                optional_json_number(avoided_loss.map(|value| round(value, 4))),
+            );
+            outcome_object.insert("wasCorrect".to_string(), Value::Bool(signed_return > 0.0));
+            outcome_object.insert(
+                "note".to_string(),
+                Value::String(format!("已按 {} 个交易日评估至 {}。", horizon, target.date)),
+            );
+            changed = true;
+        }
+    }
+
+    if changed {
+        save_recommendations_to_path(path, records)?;
+    }
+    Ok(())
+}
+
+fn series_for_symbol<'a>(
+    series: &'a HashMap<String, Vec<Candle>>,
+    symbol: &str,
+) -> Option<&'a Vec<Candle>> {
+    series.get(symbol).or_else(|| {
+        series
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(symbol))
+            .map(|(_, candles)| candles)
+    })
+}
+
+fn candle_index_on_or_before(series: &[Candle], date: NaiveDate) -> Option<usize> {
+    series.iter().rposition(|candle| candle.date <= date)
+}
+
+fn json_number(value: f64) -> Value {
+    serde_json::Number::from_f64(value)
+        .map(Value::Number)
+        .unwrap_or(Value::Null)
+}
+
+fn optional_json_number(value: Option<f64>) -> Value {
+    value.map(json_number).unwrap_or(Value::Null)
+}
+
+#[derive(Debug, Clone)]
+struct RecommendationPerformanceObservation {
+    horizon_days: usize,
+    side: String,
+    market_state: String,
+    priority: Option<String>,
+    correct: bool,
+    signed_return_pct: f64,
+    excess_return_pct: Option<f64>,
+    max_adverse_pct: Option<f64>,
+}
+
+fn recommendation_performance_for(
+    path: &Path,
+    profile_key: &str,
+) -> Result<RecommendationPerformanceSummary, AppError> {
+    let records = load_recommendations_from_path(path)?;
+    let mut deduplicated = BTreeMap::<String, RecommendationPerformanceObservation>::new();
+    let mut evaluated_records = BTreeMap::<String, bool>::new();
+    let mut raw_evaluated_outcomes = 0;
+    let mut pending_outcomes = 0;
+    let mut insufficient_outcomes = 0;
+
+    for record in records {
+        if record.get("profileKey").and_then(Value::as_str) != Some(profile_key) {
+            continue;
+        }
+        let record_id = record
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let as_of = record.get("asOf").and_then(Value::as_str).unwrap_or_default();
+        let symbol = record.get("symbol").and_then(Value::as_str).unwrap_or_default();
+        let side = record
+            .get("side")
+            .and_then(Value::as_str)
+            .unwrap_or("BUY")
+            .trim()
+            .to_ascii_uppercase();
+        let market_state = record
+            .get("marketState")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let priority = record
+            .get("priority")
+            .and_then(Value::as_str)
+            .map(|value| value.trim().to_ascii_uppercase())
+            .filter(|value| matches!(value.as_str(), "P1" | "P2" | "P3"));
+        let Some(outcomes) = record.get("outcomes").and_then(Value::as_array) else {
+            continue;
+        };
+        for outcome in outcomes {
+            match outcome.get("status").and_then(Value::as_str).unwrap_or("pending") {
+                "pending" => {
+                    pending_outcomes += 1;
+                    continue;
+                }
+                "insufficient" => {
+                    insufficient_outcomes += 1;
+                    continue;
+                }
+                "evaluated" => {}
+                _ => continue,
+            }
+            let Some(horizon_days) = outcome
+                .get("horizonDays")
+                .and_then(Value::as_u64)
+                .map(|value| value as usize)
+            else {
+                continue;
+            };
+            let Some(signed_return_pct) = outcome
+                .get("signedReturnPct")
+                .and_then(Value::as_f64)
+                .filter(|value| value.is_finite())
+            else {
+                continue;
+            };
+            raw_evaluated_outcomes += 1;
+            evaluated_records.insert(record_id.clone(), true);
+            let key = format!(
+                "{}|{}|{}|{}",
+                as_of,
+                symbol.trim().to_ascii_uppercase(),
+                side,
+                horizon_days
+            );
+            deduplicated.insert(
+                key,
+                RecommendationPerformanceObservation {
+                    horizon_days,
+                    side: side.clone(),
+                    market_state: market_state.clone(),
+                    priority: priority.clone(),
+                    correct: outcome
+                        .get("wasCorrect")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(signed_return_pct > 0.0),
+                    signed_return_pct,
+                    excess_return_pct: outcome
+                        .get("excessReturnPct")
+                        .and_then(Value::as_f64)
+                        .filter(|value| value.is_finite()),
+                    max_adverse_pct: outcome
+                        .get("maxDrawdownPct")
+                        .and_then(Value::as_f64)
+                        .filter(|value| value.is_finite()),
+                },
+            );
+        }
+    }
+
+    let observations = deduplicated.into_values().collect::<Vec<_>>();
+    let mut horizon_groups = BTreeMap::<usize, Vec<&RecommendationPerformanceObservation>>::new();
+    let mut direction_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
+    let mut state_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
+    let mut priority_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
+    for observation in &observations {
+        horizon_groups
+            .entry(observation.horizon_days)
+            .or_default()
+            .push(observation);
+        direction_groups
+            .entry(observation.side.clone())
+            .or_default()
+            .push(observation);
+        state_groups
+            .entry(observation.market_state.clone())
+            .or_default()
+            .push(observation);
+        if let Some(priority) = &observation.priority {
+            priority_groups.entry(priority.clone()).or_default().push(observation);
+        }
+    }
+
+    let horizons = horizon_groups
+        .into_iter()
+        .map(|(days, items)| performance_slice(
+            days.to_string(),
+            format!("{days} 日"),
+            &items,
+        ))
+        .collect::<Vec<_>>();
+    let directions = direction_groups
+        .into_iter()
+        .map(|(side, items)| {
+            let label = match side.as_str() {
+                "SELL" => "降低风险",
+                "HOLD" => "继续持有",
+                "WAIT" => "等待触发",
+                "BLOCKED" => "风险阻断",
+                "CONFIG" => "等待配置",
+                _ => "增加风险",
+            };
+            performance_slice(side, label.to_string(), &items)
+        })
+        .collect::<Vec<_>>();
+    let mut market_states = state_groups
+        .into_iter()
+        .map(|(state, items)| performance_slice(
+            state.clone(),
+            market_state_performance_label(&state),
+            &items,
+        ))
+        .collect::<Vec<_>>();
+    market_states.sort_by(|left, right| right.sample_count.cmp(&left.sample_count));
+    market_states.truncate(6);
+    let priorities = ["P1", "P2", "P3"]
+        .into_iter()
+        .filter_map(|priority| {
+            priority_groups.get(priority).map(|items| {
+                performance_slice(
+                    priority.to_string(),
+                    priority_performance_label(priority).to_string(),
+                    items,
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let reference = horizons
+        .iter()
+        .find(|slice| slice.key == "20")
+        .or_else(|| horizons.iter().max_by_key(|slice| slice.sample_count));
+    let (label, tone, summary) = recommendation_performance_label(reference);
+
+    Ok(RecommendationPerformanceSummary {
+        profile_key: profile_key.to_string(),
+        label,
+        tone,
+        summary,
+        evaluated_records: evaluated_records.len(),
+        raw_evaluated_outcomes,
+        effective_evaluated_outcomes: observations.len(),
+        pending_outcomes,
+        insufficient_outcomes,
+        horizons,
+        directions,
+        market_states,
+        priorities,
+    })
+}
+
+fn priority_performance_label(priority: &str) -> &'static str {
+    match priority {
+        "P1" => "P1 今日复核",
+        "P2" => "P2 计划执行",
+        "P3" => "P3 等待触发",
+        _ => "未分级",
+    }
+}
+
+fn empty_recommendation_performance(profile_key: &str) -> RecommendationPerformanceSummary {
+    RecommendationPerformanceSummary {
+        profile_key: profile_key.to_string(),
+        label: "等待真实结果".to_string(),
+        tone: "neutral".to_string(),
+        summary: "尚无到期的建议结果；不会用历史回测替代真实样本外记录。".to_string(),
+        ..RecommendationPerformanceSummary::default()
+    }
+}
+
+fn performance_slice(
+    key: String,
+    label: String,
+    observations: &[&RecommendationPerformanceObservation],
+) -> RecommendationPerformanceSlice {
+    let sample_count = observations.len();
+    let correct_count = observations.iter().filter(|item| item.correct).count();
+    RecommendationPerformanceSlice {
+        key,
+        label,
+        sample_count,
+        correct_count,
+        hit_rate_pct: (sample_count > 0).then_some(round(
+            correct_count as f64 / sample_count as f64 * 100.0,
+            1,
+        )),
+        average_signed_return_pct: average_numbers(
+            observations.iter().map(|item| Some(item.signed_return_pct)),
+        ),
+        average_excess_return_pct: average_numbers(
+            observations.iter().map(|item| item.excess_return_pct),
+        ),
+        average_max_adverse_pct: average_numbers(
+            observations.iter().map(|item| item.max_adverse_pct),
+        ),
+    }
+}
+
+fn average_numbers(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
+    let values = values.flatten().filter(|value| value.is_finite()).collect::<Vec<_>>();
+    (!values.is_empty()).then_some(round(
+        values.iter().sum::<f64>() / values.len() as f64,
+        3,
+    ))
+}
+
+fn recommendation_performance_label(
+    reference: Option<&RecommendationPerformanceSlice>,
+) -> (String, String, String) {
+    let Some(reference) = reference else {
+        return (
+            "等待真实结果".to_string(),
+            "neutral".to_string(),
+            "尚无到期的建议结果；不会用历史回测替代真实样本外记录。".to_string(),
+        );
+    };
+    let hit_rate = reference.hit_rate_pct.unwrap_or(0.0);
+    let average_return = reference.average_signed_return_pct.unwrap_or(0.0);
+    if reference.sample_count < 20 {
+        return (
+            "样本积累中".to_string(),
+            "caution".to_string(),
+            format!(
+                "{}结果有效 n={}，命中率和收益仅作观察，不用于自动调参。",
+                reference.label, reference.sample_count
+            ),
+        );
+    }
+    if hit_rate < 45.0 || average_return <= 0.0 {
+        return (
+            "需要再校准".to_string(),
+            "negative".to_string(),
+            format!(
+                "{}有效 n={}，命中率 {:.1}%，平均方向收益 {:.2}%。",
+                reference.label, reference.sample_count, hit_rate, average_return
+            ),
+        );
+    }
+    if hit_rate >= 55.0 && average_return > 0.0 {
+        return (
+            "初步有效".to_string(),
+            "positive".to_string(),
+            format!(
+                "{}有效 n={}，命中率 {:.1}%，平均方向收益 {:.2}%；仍需持续监测。",
+                reference.label, reference.sample_count, hit_rate, average_return
+            ),
+        );
+    }
+    (
+        "稳定性观察".to_string(),
+        "caution".to_string(),
+        format!(
+            "{}有效 n={}，命中率 {:.1}%，平均方向收益 {:.2}%。",
+            reference.label, reference.sample_count, hit_rate, average_return
+        ),
+    )
+}
+
+fn market_state_performance_label(key: &str) -> String {
+    match key {
+        "risk_diffusion_watch" => "风险扩散".to_string(),
+        "confirmed_pullback" => "回撤确认".to_string(),
+        "trend_breakdown" => "趋势破坏".to_string(),
+        "healthy_trend" => "健康趋势".to_string(),
+        "hot_trend" => "趋势过热".to_string(),
+        "panic" => "恐慌状态".to_string(),
+        "unknown" | "" => "状态未知".to_string(),
+        other => other.replace('_', " "),
+    }
+}
+
+fn calibration_action_for(
+    profile: &AnalysisProfile,
+    performance: &RecommendationPerformanceSummary,
+) -> ProfileCalibrationAction {
+    const MINIMUM_SAMPLE_COUNT: usize = 20;
+    const MINIMUM_SEGMENT_COUNT: usize = 12;
+
+    let horizon_5 = performance.horizons.iter().find(|item| item.key == "5");
+    let horizon_20 = performance.horizons.iter().find(|item| item.key == "20");
+    let horizon_60 = performance.horizons.iter().find(|item| item.key == "60");
+    let buy = performance.directions.iter().find(|item| item.key == "BUY");
+    let risk_diffusion = performance
+        .market_states
+        .iter()
+        .find(|item| item.key == "risk_diffusion_watch");
+    let current_sample_count = horizon_20
+        .map(|item| item.sample_count)
+        .or_else(|| performance.horizons.iter().map(|item| item.sample_count).max())
+        .unwrap_or(0);
+    let mut evidence = performance
+        .horizons
+        .iter()
+        .map(performance_evidence_line)
+        .collect::<Vec<_>>();
+    evidence.extend(performance.directions.iter().map(performance_evidence_line));
+
+    if current_sample_count < MINIMUM_SAMPLE_COUNT {
+        let missing = MINIMUM_SAMPLE_COUNT.saturating_sub(current_sample_count);
+        return ProfileCalibrationAction {
+            key: "collect".to_string(),
+            label: "保持参数".to_string(),
+            tone: "neutral".to_string(),
+            action: format!(
+                "保持当前 Profile，不调整参数；再积累 {missing} 个去重的 20 日结果后复核。"
+            ),
+            rationale: "样本不足时调参容易追随短期噪声，当前最实用的动作是继续记录而不是改变阈值。".to_string(),
+            next_review: format!("20 日有效样本达到 {MINIMUM_SAMPLE_COUNT} 个时"),
+            minimum_sample_count: MINIMUM_SAMPLE_COUNT,
+            current_sample_count,
+            proposals: Vec::new(),
+            evidence,
+        };
+    }
+
+    let mut proposals = Vec::new();
+    if slice_is_weak(buy, MINIMUM_SEGMENT_COUNT) {
+        let current = profile.calibration.expansion_structure_min;
+        let proposed = current.saturating_add(5).min(90);
+        if proposed > current {
+            proposals.push(ProfileParameterProposal {
+                key: "raise-expansion-confirmation".to_string(),
+                label: "提高新增仓位确认门槛".to_string(),
+                path: "calibration.expansionStructureMin".to_string(),
+                current_value: current.to_string(),
+                proposed_value: proposed.to_string(),
+                expected_effect: "减少结构证据不足时的买入，优先提高准确率，代价是降低出手频率。".to_string(),
+                reason: "增加风险方向的真实结果偏弱。".to_string(),
+                sample_count: buy.map(|item| item.sample_count).unwrap_or(0),
+                confidence: proposal_confidence(buy.map(|item| item.sample_count).unwrap_or(0)),
+                directly_applicable: true,
+            });
+        }
+    }
+
+    if slice_is_weak(risk_diffusion, MINIMUM_SEGMENT_COUNT) {
+        let current = profile.calibration.divergence_trading_cap;
+        let proposed = current.saturating_sub(5).max(20);
+        if proposed < current {
+            proposals.push(ProfileParameterProposal {
+                key: "tighten-divergence-cap".to_string(),
+                label: "下调风险扩散状态短线仓位上限".to_string(),
+                path: "calibration.divergenceTradingCap".to_string(),
+                current_value: format!("{current}%"),
+                proposed_value: format!("{proposed}%"),
+                expected_effect: "风险扩散时少承担短线暴露，降低错误加仓和尾部损失。".to_string(),
+                reason: "风险扩散状态的样本外方向收益或命中率偏弱。".to_string(),
+                sample_count: risk_diffusion.map(|item| item.sample_count).unwrap_or(0),
+                confidence: proposal_confidence(risk_diffusion.map(|item| item.sample_count).unwrap_or(0)),
+                directly_applicable: true,
+            });
+        }
+    }
+
+    if short_weak_medium_valid(horizon_5, horizon_20, MINIMUM_SEGMENT_COUNT) {
+        proposals.push(ProfileParameterProposal {
+            key: "stage-entry".to_string(),
+            label: "新增动作改为三批执行".to_string(),
+            path: "execution.staging".to_string(),
+            current_value: "一次生成计划金额".to_string(),
+            proposed_value: "首批 1/3，确认后再执行后两批".to_string(),
+            expected_effect: "保留中期方向，同时降低短线择时误差。".to_string(),
+            reason: "5 日表现弱、20 日表现仍有效，问题更像执行时点而不是方向。".to_string(),
+            sample_count: horizon_5.map(|item| item.sample_count).unwrap_or(0),
+            confidence: proposal_confidence(horizon_5.map(|item| item.sample_count).unwrap_or(0)),
+            directly_applicable: false,
+        });
+    }
+
+    if long_weak_medium_valid(horizon_60, horizon_20, MINIMUM_SEGMENT_COUNT) {
+        let current = profile.calibration.long_score_cap;
+        let proposed = current.saturating_sub(5).max(40);
+        if proposed < current {
+            proposals.push(ProfileParameterProposal {
+                key: "tighten-long-cap".to_string(),
+                label: "下调长期仓位评分上限".to_string(),
+                path: "calibration.longScoreCap".to_string(),
+                current_value: current.to_string(),
+                proposed_value: proposed.to_string(),
+                expected_effect: "避免把中期有效信号机械延长为长期重仓。".to_string(),
+                reason: "20 日方向有效，但 60 日方向收益转弱。".to_string(),
+                sample_count: horizon_60.map(|item| item.sample_count).unwrap_or(0),
+                confidence: proposal_confidence(horizon_60.map(|item| item.sample_count).unwrap_or(0)),
+                directly_applicable: true,
+            });
+        }
+    }
+
+    if !proposals.is_empty() {
+        let direct_count = proposals.iter().filter(|item| item.directly_applicable).count();
+        let action = if direct_count > 0 {
+            format!(
+                "先试运行 {} 项收紧方案，不直接覆盖当前 Profile；通过 walk-forward 对比后再人工确认。",
+                direct_count
+            )
+        } else {
+            "保持 Profile 参数；立即把新增计划改为三批执行，首批不超过计划金额 1/3。".to_string()
+        };
+        return ProfileCalibrationAction {
+            key: "candidate".to_string(),
+            label: "生成收紧候选".to_string(),
+            tone: "caution".to_string(),
+            action,
+            rationale: "真实样本已达到最低门槛，但任何参数变更仍需与当前版本做同窗口对比，不能直接上线。".to_string(),
+            next_review: "完成候选参数 walk-forward 对比后".to_string(),
+            minimum_sample_count: MINIMUM_SAMPLE_COUNT,
+            current_sample_count,
+            proposals,
+            evidence,
+        };
+    }
+
+    let horizon_20_good = slice_is_strong(horizon_20, MINIMUM_SAMPLE_COUNT);
+    ProfileCalibrationAction {
+        key: if horizon_20_good { "hold" } else { "review" }.to_string(),
+        label: if horizon_20_good { "保持参数" } else { "暂停扩张" }.to_string(),
+        tone: if horizon_20_good { "positive" } else { "caution" }.to_string(),
+        action: if horizon_20_good {
+            "保持当前参数，不提高仓位上限；每新增 10 个去重的 20 日结果复核一次。".to_string()
+        } else {
+            "保持当前参数，暂停提高仓位上限；先检查方向与市场状态分组，不做全局调参。".to_string()
+        },
+        rationale: if horizon_20_good {
+            "当前 20 日样本的命中率与平均方向收益同时为正，尚无收紧或放宽参数的必要。".to_string()
+        } else {
+            "总样本达到门槛，但没有单一分组提供足够证据支持具体参数修改。".to_string()
+        },
+        next_review: format!("20 日有效样本达到 {} 个时", current_sample_count + 10),
+        minimum_sample_count: MINIMUM_SAMPLE_COUNT,
+        current_sample_count,
+        proposals,
+        evidence,
+    }
+}
+
+fn slice_is_weak(
+    slice: Option<&RecommendationPerformanceSlice>,
+    minimum_count: usize,
+) -> bool {
+    slice.is_some_and(|item| {
+        item.sample_count >= minimum_count
+            && (item.hit_rate_pct.unwrap_or(0.0) < 45.0
+                || item.average_signed_return_pct.unwrap_or(0.0) <= 0.0)
+    })
+}
+
+fn slice_is_strong(
+    slice: Option<&RecommendationPerformanceSlice>,
+    minimum_count: usize,
+) -> bool {
+    slice.is_some_and(|item| {
+        item.sample_count >= minimum_count
+            && item.hit_rate_pct.unwrap_or(0.0) >= 55.0
+            && item.average_signed_return_pct.unwrap_or(0.0) > 0.0
+    })
+}
+
+fn short_weak_medium_valid(
+    short: Option<&RecommendationPerformanceSlice>,
+    medium: Option<&RecommendationPerformanceSlice>,
+    minimum_count: usize,
+) -> bool {
+    slice_is_weak(short, minimum_count)
+        && medium.is_some_and(|item| {
+            item.sample_count >= minimum_count
+                && item.hit_rate_pct.unwrap_or(0.0) >= 50.0
+                && item.average_signed_return_pct.unwrap_or(0.0) > 0.0
+        })
+}
+
+fn long_weak_medium_valid(
+    long: Option<&RecommendationPerformanceSlice>,
+    medium: Option<&RecommendationPerformanceSlice>,
+    minimum_count: usize,
+) -> bool {
+    slice_is_weak(long, minimum_count)
+        && medium.is_some_and(|item| {
+            item.sample_count >= minimum_count
+                && item.average_signed_return_pct.unwrap_or(0.0) > 0.0
+        })
+}
+
+fn performance_evidence_line(slice: &RecommendationPerformanceSlice) -> String {
+    format!(
+        "{}：n={}，命中率 {}，平均方向收益 {}。",
+        slice.label,
+        slice.sample_count,
+        slice
+            .hit_rate_pct
+            .map(|value| format!("{value:.1}%"))
+            .unwrap_or_else(|| "—".to_string()),
+        slice
+            .average_signed_return_pct
+            .map(|value| format!("{value:+.2}%"))
+            .unwrap_or_else(|| "—".to_string())
+    )
+}
+
+fn proposal_confidence(sample_count: usize) -> String {
+    if sample_count >= 40 {
+        "较高".to_string()
+    } else if sample_count >= 20 {
+        "中等".to_string()
+    } else {
+        "初步".to_string()
+    }
 }
 
 pub fn load_monitor_state_from_path(path: &Path) -> Result<Value, AppError> {
@@ -2034,6 +3251,39 @@ pub fn save_risk_policy_to_path(path: &Path, policy: Value) -> Result<Value, App
         .map_err(|error| AppError::internal(format!("risk policy temp write failed: {error}")))?;
     fs::rename(&temp_path, path)
         .map_err(|error| AppError::internal(format!("risk policy file replace failed: {error}")))?;
+    Ok(normalized)
+}
+
+pub fn load_paper_sim_from_path(path: &Path) -> Result<Value, AppError> {
+    if !path.exists() {
+        return Ok(default_paper_sim_state());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("paper sim file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("paper sim json parse failed: {error}")))?;
+    Ok(paper_sim_from_storage_value(value))
+}
+
+pub fn save_paper_sim_to_path(path: &Path, state: Value) -> Result<Value, AppError> {
+    let normalized = normalize_paper_sim_state_value(state);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("paper sim directory create failed: {error}"))
+        })?;
+    }
+    let snapshot = PaperSimStoreSnapshot {
+        version: 5,
+        updated_at: Utc::now().to_rfc3339(),
+        state: normalized.clone(),
+    };
+    let json = serde_json::to_string_pretty(&snapshot)
+        .map_err(|error| AppError::internal(format!("paper sim serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json)
+        .map_err(|error| AppError::internal(format!("paper sim temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("paper sim file replace failed: {error}")))?;
     Ok(normalized)
 }
 
@@ -2205,6 +3455,117 @@ fn normalize_risk_policy_value(value: Value) -> Value {
 
 fn default_risk_policy_value() -> Value {
     normalize_risk_policy_value(serde_json::json!({}))
+}
+
+fn paper_sim_from_storage_value(value: Value) -> Value {
+    match value {
+        Value::Object(mut object) => {
+            let state = object
+                .remove("state")
+                .filter(Value::is_object)
+                .unwrap_or(Value::Object(object));
+            normalize_paper_sim_state_value(state)
+        }
+        _ => default_paper_sim_state(),
+    }
+}
+
+fn normalize_paper_sim_state_value(value: Value) -> Value {
+    let mut object = match value {
+        Value::Object(object) => object,
+        _ => return default_paper_sim_state(),
+    };
+    object.insert("version".to_string(), serde_json::json!(5));
+    insert_default_bool(&mut object, "active", false);
+    insert_default_string(&mut object, "accountId", "paper-sim");
+    insert_default_string(&mut object, "experimentName", "自动模拟实验");
+    insert_default_string(&mut object, "profileKey", "");
+    insert_default_string(&mut object, "profileName", "");
+    insert_default_string(&mut object, "strategyKey", "");
+    insert_default_string(&mut object, "strategyName", "");
+    insert_default_string(&mut object, "presetKey", "");
+    insert_default_string(&mut object, "presetLabel", "");
+    insert_default_string(&mut object, "currency", "CNY");
+    insert_default_number(&mut object, "initialCapital", 0.0);
+    insert_default_number(&mut object, "cash", 0.0);
+    insert_default_string(&mut object, "startedAt", "");
+    insert_default_string(&mut object, "updatedAt", &Utc::now().to_rfc3339());
+    insert_default_string(&mut object, "lastRunDate", "");
+    insert_default_string(&mut object, "nextRunHint", "等待启动");
+    normalize_object_array_field(&mut object, "positions", 500);
+    normalize_object_array_field(&mut object, "pendingFundOrders", 200);
+    normalize_object_array_field(&mut object, "trades", 500);
+    normalize_object_array_field(&mut object, "snapshots", 260);
+    Value::Object(object)
+}
+
+fn default_paper_sim_state() -> Value {
+    normalize_paper_sim_state_value(serde_json::json!({
+        "version": 5,
+        "active": false,
+        "accountId": "paper-sim",
+        "experimentName": "自动模拟实验",
+        "profileKey": "",
+        "profileName": "",
+        "strategyKey": "",
+        "strategyName": "",
+        "presetKey": "",
+        "presetLabel": "",
+        "currency": "CNY",
+        "initialCapital": 0,
+        "cash": 0,
+        "positions": [],
+        "pendingFundOrders": [],
+        "trades": [],
+        "snapshots": [],
+        "startedAt": "",
+        "updatedAt": Utc::now().to_rfc3339(),
+        "lastRunDate": "",
+        "nextRunHint": "等待启动",
+    }))
+}
+
+fn normalize_object_array_field(
+    object: &mut serde_json::Map<String, Value>,
+    key: &str,
+    limit: usize,
+) {
+    let values = object
+        .remove(key)
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(Value::is_object)
+        .take(limit)
+        .collect();
+    object.insert(key.to_string(), Value::Array(values));
+}
+
+fn insert_default_string(object: &mut serde_json::Map<String, Value>, key: &str, fallback: &str) {
+    let valid = object
+        .get(key)
+        .and_then(Value::as_str)
+        .is_some();
+    if !valid {
+        object.insert(key.to_string(), Value::String(fallback.to_string()));
+    }
+}
+
+fn insert_default_bool(object: &mut serde_json::Map<String, Value>, key: &str, fallback: bool) {
+    if !object.get(key).and_then(Value::as_bool).is_some() {
+        object.insert(key.to_string(), Value::Bool(fallback));
+    }
+}
+
+fn insert_default_number(object: &mut serde_json::Map<String, Value>, key: &str, fallback: f64) {
+    let valid = object
+        .get(key)
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .is_some();
+    if !valid {
+        object.insert(key.to_string(), serde_json::json!(fallback));
+    }
 }
 
 fn risk_f64(value: Option<&Value>, fallback: f64, min: f64, max: f64) -> f64 {
@@ -2799,6 +4160,82 @@ pub fn sync_market_quote(request: MarketQuoteRequest) -> MarketQuoteSnapshot {
             }
         }
     }
+}
+
+pub async fn sync_realtime_asset_quote(
+    request: RealtimeAssetQuoteRequest,
+) -> RealtimeAssetQuoteSnapshot {
+    let symbol = request.symbol.trim().to_uppercase();
+    if symbol.is_empty() {
+        return fallback_realtime_asset_quote(request, "symbol is required");
+    }
+    let yahoo_symbol = realtime_yahoo_symbol(&symbol, &request.market);
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/json,text/plain,*/*"),
+    );
+    headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
+    headers.insert(
+        REFERER,
+        HeaderValue::from_static("https://finance.yahoo.com/"),
+    );
+    let client = match market_client_builder()
+        .user_agent(YAHOO_USER_AGENT)
+        .default_headers(headers)
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => return fallback_realtime_asset_quote(request, &error.to_string()),
+    };
+
+    let encoded_symbol = encode_url_path_segment(&yahoo_symbol);
+    let mut last_error = None;
+    for host in YAHOO_CHART_HOSTS {
+        let url = format!("https://{host}/v8/finance/chart/{encoded_symbol}");
+        let response = match client
+            .get(&url)
+            .query(&[
+                ("range", "1d"),
+                ("interval", "1m"),
+                ("includePrePost", "true"),
+            ])
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                last_error = Some(error.to_string());
+                continue;
+            }
+        };
+        let response = match response.error_for_status() {
+            Ok(response) => response,
+            Err(error) => {
+                last_error = Some(error.to_string());
+                continue;
+            }
+        };
+        let value: Value = match response.json().await {
+            Ok(value) => value,
+            Err(error) => {
+                last_error = Some(error.to_string());
+                continue;
+            }
+        };
+        match parse_yahoo_realtime_quote(&value, &request, &symbol, &yahoo_symbol) {
+            Ok(snapshot) => return snapshot,
+            Err(error) => {
+                last_error = Some(error.message);
+                continue;
+            }
+        }
+    }
+
+    fallback_realtime_asset_quote(
+        request,
+        &last_error.unwrap_or_else(|| "Yahoo realtime quote unavailable".to_string()),
+    )
 }
 
 fn broker_order_command(action: &str, request: OrderCommandRequest) -> OrderCommandResult {
@@ -3607,14 +5044,46 @@ fn round_price(value: f64) -> f64 {
 }
 
 pub async fn score_market(request: ScoreMarketRequest) -> Result<MarketAnalysisReport, AppError> {
+    let (profile, loaded) = load_analysis_inputs(&request).await?;
+    build_report(loaded, request.as_of, profile)
+}
+
+pub async fn score_market_and_evaluate_recommendations(
+    request: ScoreMarketRequest,
+    recommendations_path: &Path,
+) -> Result<MarketAnalysisReport, AppError> {
+    let (profile, loaded) = load_analysis_inputs(&request).await?;
+    if loaded.source != "sample" {
+        evaluate_recommendation_records(
+            recommendations_path,
+            &profile,
+            &loaded.series,
+            request.as_of.as_deref(),
+        )?;
+    }
+    let recommendation_performance = recommendation_performance_for(
+        recommendations_path,
+        &profile.key,
+    )?;
+    let calibration_action = calibration_action_for(&profile, &recommendation_performance);
+    let mut report = build_report(loaded, request.as_of, profile)?;
+    report.recommendation_performance = recommendation_performance;
+    report.calibration_action = calibration_action;
+    Ok(report)
+}
+
+async fn load_analysis_inputs(
+    request: &ScoreMarketRequest,
+) -> Result<(AnalysisProfile, LoadedMarketData), AppError> {
     let profile = load_profile(request.profile.as_deref())?;
     let source = request
         .source
+        .clone()
         .unwrap_or_else(|| "auto".to_string())
         .trim()
         .to_lowercase();
     let loaded = load_market_data(&source, &profile).await?;
-    build_report(loaded, request.as_of, profile)
+    Ok((profile, loaded))
 }
 
 fn load_profile(profile: Option<&str>) -> Result<AnalysisProfile, AppError> {
@@ -3690,6 +5159,117 @@ fn parse_profile_json_value(content: &str) -> Result<Value, AppError> {
         .map_err(|error| AppError::invalid(format!("profile json parse failed: {error}")))
 }
 
+fn resolve_profile_json_value(
+    value: Value,
+    base_dir: Option<&Path>,
+) -> Result<Value, AppError> {
+    let mut stack = Vec::new();
+    resolve_profile_json_value_inner(value, base_dir, &mut stack)
+}
+
+fn resolve_profile_json_value_inner(
+    child: Value,
+    base_dir: Option<&Path>,
+    stack: &mut Vec<String>,
+) -> Result<Value, AppError> {
+    let child_key = child
+        .get("key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("<anonymous>")
+        .to_string();
+    if stack.iter().any(|item| item == &child_key) {
+        return Err(AppError::invalid(format!(
+            "profile inheritance cycle detected: {} -> {child_key}",
+            stack.join(" -> ")
+        )));
+    }
+    stack.push(child_key);
+
+    let parent_ref = child
+        .get("extends")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let result = if let Some(parent_ref) = parent_ref {
+        let (parent_content, parent_base_dir) = raw_profile_source(&parent_ref, base_dir)?;
+        let parent_value = parse_profile_json_value(&parent_content)?;
+        let mut resolved_parent = resolve_profile_json_value_inner(
+            parent_value,
+            parent_base_dir.as_deref(),
+            stack,
+        )?;
+        merge_profile_value(&mut resolved_parent, &child);
+        Ok(resolved_parent)
+    } else {
+        Ok(child)
+    };
+
+    stack.pop();
+    result
+}
+
+fn raw_profile_source(
+    requested: &str,
+    base_dir: Option<&Path>,
+) -> Result<(String, Option<PathBuf>), AppError> {
+    if looks_like_path(requested) {
+        let requested_path = PathBuf::from(requested);
+        let path = if requested_path.is_absolute() {
+            requested_path
+        } else {
+            base_dir
+                .map(|dir| dir.join(&requested_path))
+                .unwrap_or(requested_path)
+        };
+        let content = fs::read_to_string(&path)
+            .map_err(|error| AppError::invalid(format!("parent profile read failed: {error}")))?;
+        return Ok((content, path.parent().map(Path::to_path_buf)));
+    }
+
+    if let Some(content) = BUILTIN_PROFILES
+        .iter()
+        .find(|(key, _)| *key == requested)
+        .map(|(_, content)| *content)
+    {
+        return Ok((content.to_string(), None));
+    }
+
+    for path in custom_profile_paths() {
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(value) = parse_profile_json_value(&content) else {
+            continue;
+        };
+        if value.get("key").and_then(Value::as_str) == Some(requested) {
+            return Ok((content, path.parent().map(Path::to_path_buf)));
+        }
+    }
+
+    Err(AppError::invalid(format!(
+        "unknown parent profile '{requested}'"
+    )))
+}
+
+fn merge_profile_value(base: &mut Value, overlay: &Value) {
+    match (base, overlay) {
+        (Value::Object(base_map), Value::Object(overlay_map)) => {
+            for (key, overlay_value) in overlay_map {
+                match base_map.get_mut(key) {
+                    Some(base_value) => merge_profile_value(base_value, overlay_value),
+                    None => {
+                        base_map.insert(key.clone(), overlay_value.clone());
+                    }
+                }
+            }
+        }
+        (base_value, overlay_value) => *base_value = overlay_value.clone(),
+    }
+}
+
 fn looks_like_path(value: &str) -> bool {
     value.ends_with(".json")
         || value.contains('/')
@@ -3698,7 +5278,9 @@ fn looks_like_path(value: &str) -> bool {
 }
 
 fn parse_profile(content: &str, base_dir: Option<PathBuf>) -> Result<AnalysisProfile, AppError> {
-    let mut profile: AnalysisProfile = serde_json::from_str(content)
+    let value = parse_profile_json_value(content)?;
+    let resolved = resolve_profile_json_value(value, base_dir.as_deref())?;
+    let mut profile: AnalysisProfile = serde_json::from_value(resolved)
         .map_err(|error| AppError::invalid(format!("profile parse failed: {error}")))?;
     profile.base_dir = base_dir;
     validate_profile(profile)
@@ -3804,6 +5386,30 @@ fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<Holding
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
+    holding.confirmed_nav_as_of = holding
+        .confirmed_nav_as_of
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    holding.fund_purchase_status = holding
+        .fund_purchase_status
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    holding.fund_trade_status_as_of = holding
+        .fund_trade_status_as_of
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    holding.fund_holdings_as_of = holding
+        .fund_holdings_as_of
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     holding.notes = holding.notes.trim().to_string();
 
     if holding.id.is_empty() {
@@ -3835,6 +5441,11 @@ fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<Holding
                 "holdings[{index}].{field} must be a non-negative finite number"
             )));
         }
+    }
+    if holding.confirmed_nav.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+        return Err(AppError::invalid(format!(
+            "holdings[{index}].confirmedNav must be a positive finite number"
+        )));
     }
     if holding.target_weight > 100.0 {
         return Err(AppError::invalid(format!(
@@ -4073,6 +5684,8 @@ fn validate_profile_semantics(profile: &AnalysisProfile, report: &mut ProfileVal
     let mut weighted_symbols = 0usize;
     let mut dimension_counts: HashMap<String, usize> = HashMap::new();
 
+    validate_profile_metadata(profile, report);
+
     for (index, symbol) in profile.symbols.iter().enumerate() {
         let path = format!("symbols[{index}]");
         if symbol.symbol.trim().is_empty() {
@@ -4186,6 +5799,130 @@ fn validate_profile_semantics(profile: &AnalysisProfile, report: &mut ProfileVal
     }
 
     validate_fund_config(&profile.fund, report);
+    validate_execution_policy(&profile.execution_policy, report);
+}
+
+fn validate_execution_policy(
+    policy: &ProfileExecutionPolicy,
+    report: &mut ProfileValidationReport,
+) {
+    if policy.quote_warn_age_seconds == 0
+        || policy.quote_warn_age_seconds >= policy.quote_block_age_seconds
+    {
+        report.error(
+            "executionPolicy",
+            "executionPolicy.quoteWarnAgeSeconds",
+            "quoteWarnAgeSeconds must be greater than 0 and lower than quoteBlockAgeSeconds",
+        );
+    }
+    if policy.etf_warn_spread_bps <= 0.0
+        || policy.etf_warn_spread_bps >= policy.etf_block_spread_bps
+    {
+        report.error(
+            "executionPolicy",
+            "executionPolicy.etfWarnSpreadBps",
+            "etfWarnSpreadBps must be greater than 0 and lower than etfBlockSpreadBps",
+        );
+    }
+    if policy.etf_warn_premium_discount_pct <= 0.0
+        || policy.etf_warn_premium_discount_pct >= policy.etf_block_premium_discount_pct
+    {
+        report.error(
+            "executionPolicy",
+            "executionPolicy.etfWarnPremiumDiscountPct",
+            "etfWarnPremiumDiscountPct must be greater than 0 and lower than etfBlockPremiumDiscountPct",
+        );
+    }
+    if policy.fund_warn_holdings_age_days <= 0
+        || policy.fund_warn_holdings_age_days >= policy.fund_block_holdings_age_days
+    {
+        report.error(
+            "executionPolicy",
+            "executionPolicy.fundWarnHoldingsAgeDays",
+            "fundWarnHoldingsAgeDays must be greater than 0 and lower than fundBlockHoldingsAgeDays",
+        );
+    }
+}
+
+fn validate_profile_metadata(profile: &AnalysisProfile, report: &mut ProfileValidationReport) {
+    if !matches!(profile.schema_version, 1 | 2) {
+        report.error(
+            "profile",
+            "schemaVersion",
+            format!("unsupported schemaVersion {}; expected 1 or 2", profile.schema_version),
+        );
+    } else if profile.schema_version == 1 {
+        report.warning(
+            "profile",
+            "schemaVersion",
+            "legacy Profile v1 is supported; migrate to v2 before automated calibration",
+        );
+    }
+
+    if profile.profile_version.trim().is_empty() {
+        report.error("profile", "profileVersion", "profileVersion cannot be empty");
+    }
+
+    if profile.schema_version < 2 {
+        return;
+    }
+
+    let meta = &profile.calibration_meta;
+    if meta.method.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+        report.warning(
+            "calibration",
+            "calibrationMeta.method",
+            "v2 Profile should declare whether calibration is manual, walk-forward, or imported",
+        );
+    }
+    if meta.data_signature.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+        report.warning(
+            "calibration",
+            "calibrationMeta.dataSignature",
+            "v2 Profile should record a data signature before comparing parameter performance",
+        );
+    }
+    validate_optional_date(meta.calibrated_at.as_deref(), "calibrationMeta.calibratedAt", report);
+    let training_start = validate_optional_date(meta.training_start.as_deref(), "calibrationMeta.trainingStart", report);
+    let training_end = validate_optional_date(meta.training_end.as_deref(), "calibrationMeta.trainingEnd", report);
+    let validation_start = validate_optional_date(meta.validation_start.as_deref(), "calibrationMeta.validationStart", report);
+    let validation_end = validate_optional_date(meta.validation_end.as_deref(), "calibrationMeta.validationEnd", report);
+
+    if training_start.zip(training_end).is_some_and(|(start, end)| start > end) {
+        report.error("calibration", "calibrationMeta.trainingEnd", "trainingEnd must not be earlier than trainingStart");
+    }
+    if validation_start.zip(validation_end).is_some_and(|(start, end)| start > end) {
+        report.error("calibration", "calibrationMeta.validationEnd", "validationEnd must not be earlier than validationStart");
+    }
+    if training_end.zip(validation_start).is_some_and(|(train_end, validate_start)| validate_start <= train_end) {
+        report.warning(
+            "calibration",
+            "calibrationMeta.validationStart",
+            "validation window overlaps the training window; keep an out-of-sample boundary",
+        );
+    }
+    if meta.objective.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+        report.warning(
+            "calibration",
+            "calibrationMeta.objective",
+            "v2 Profile should declare a calibration objective including return, drawdown, turnover, and tail risk",
+        );
+    }
+}
+
+fn validate_optional_date(
+    value: Option<&str>,
+    path: &str,
+    report: &mut ProfileValidationReport,
+) -> Option<NaiveDate> {
+    let value = value.map(str::trim).filter(|value| !value.is_empty())?;
+    match NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+        Ok(date) => Some(date),
+        Err(_) => {
+            report.error("calibration", path, "date must use YYYY-MM-DD");
+            None
+        }
+    }
 }
 
 fn validate_symbol_asset_kind(
@@ -4662,6 +6399,7 @@ async fn load_market_data(
         )),
         "csv" => load_csv_data(profile),
         "stooq" => fetch_stooq_data(profile).await,
+        "china" => fetch_china_data_with_cache(profile).await,
         "yahoo" => fetch_yahoo_data(profile).await,
         "hybrid" => fetch_hybrid_data(profile).await,
         "auto" | "" => {
@@ -4670,6 +6408,13 @@ async fn load_market_data(
                 match load_csv_data(profile) {
                     Ok(data) => return Ok(data),
                     Err(error) => errors.push(format!("CSV: {}", error.message)),
+                }
+            }
+            if profile.market.eq_ignore_ascii_case("cn") {
+                match tokio::time::timeout(CHINA_PROVIDER_TIMEOUT, fetch_china_data_with_cache(profile)).await {
+                    Ok(Ok(data)) => return Ok(data),
+                    Ok(Err(error)) => errors.push(format!("A股免费多源: {}", error.message)),
+                    Err(_) => errors.push("A股免费多源: 请求超时".to_string()),
                 }
             }
             match tokio::time::timeout(AUTO_PROVIDER_TIMEOUT, fetch_stooq_data(profile)).await {
@@ -4689,7 +6434,7 @@ async fn load_market_data(
             Ok(load_sample_data(profile, "示例数据（自动兜底）", &note))
         }
         other => Err(AppError::invalid(format!(
-            "unsupported source '{other}', use auto, stooq, hybrid, yahoo, csv, or sample"
+            "unsupported source '{other}', use auto, china, stooq, hybrid, yahoo, csv, or sample"
         ))),
     }
 }
@@ -5096,6 +6841,287 @@ async fn fetch_hybrid_data(profile: &AnalysisProfile) -> Result<LoadedMarketData
     Ok(data)
 }
 
+async fn fetch_china_data_with_cache(
+    profile: &AnalysisProfile,
+) -> Result<LoadedMarketData, AppError> {
+    match fetch_china_data(profile).await {
+        Ok(data) => {
+            let _ = save_market_data_cache(profile, &data);
+            Ok(data)
+        }
+        Err(fetch_error) => match load_market_data_cache(profile) {
+            Ok(mut cached) => {
+                cached.provider_note = format!(
+                    "{} 实时读取失败，已使用最近有效缓存兜底；原始错误：{}",
+                    cached.provider_note, fetch_error.message
+                );
+                Ok(cached)
+            }
+            Err(_) => Err(fetch_error),
+        },
+    }
+}
+
+fn save_market_data_cache(
+    profile: &AnalysisProfile,
+    data: &LoadedMarketData,
+) -> Result<(), AppError> {
+    let path = market_data_cache_path(&profile.key);
+    let snapshot = MarketDataCacheSnapshot {
+        version: 1,
+        saved_at: Utc::now().to_rfc3339(),
+        profile_key: profile.key.clone(),
+        data: data.clone(),
+    };
+    let content = serde_json::to_vec(&snapshot)
+        .map_err(|error| AppError::internal(format!("market cache serialize failed: {error}")))?;
+    atomic_write(&path, &content, "market cache")
+}
+
+fn load_market_data_cache(profile: &AnalysisProfile) -> Result<LoadedMarketData, AppError> {
+    let path = market_data_cache_path(&profile.key);
+    let content = fs::read(&path)
+        .map_err(|error| AppError::fetch(format!("market cache read failed: {error}")))?;
+    let snapshot: MarketDataCacheSnapshot = serde_json::from_slice(&content)
+        .map_err(|error| AppError::fetch(format!("market cache parse failed: {error}")))?;
+    if snapshot.version != 1 || snapshot.profile_key != profile.key || snapshot.data.source != "china" {
+        return Err(AppError::fetch("market cache identity mismatch"));
+    }
+    let latest = snapshot
+        .data
+        .series
+        .values()
+        .filter_map(|candles| candles.last().map(|candle| candle.date))
+        .max()
+        .ok_or_else(|| AppError::fetch("market cache has no daily rows"))?;
+    let age_days = Utc::now().date_naive().signed_duration_since(latest).num_days();
+    if age_days < -1 {
+        return Err(AppError::fetch(format!(
+            "market cache date is in the future: {latest}"
+        )));
+    }
+    if age_days > 7 {
+        return Err(AppError::fetch(format!(
+            "market cache is stale: latest {latest}"
+        )));
+    }
+    if profile.symbols.iter().any(|item| {
+        snapshot
+            .data
+            .series
+            .get(&item.symbol)
+            .is_none_or(|candles| candles.len() < MIN_DAILY_BARS)
+    }) {
+        return Err(AppError::fetch("market cache does not cover the full Profile"));
+    }
+    Ok(snapshot.data)
+}
+
+fn market_data_cache_path(profile_key: &str) -> PathBuf {
+    let base = std::env::var_os("RPORTFOLIO_CACHE_DIR")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from))
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .map(|home| home.join("Library").join("Caches"))
+        })
+        .unwrap_or_else(std::env::temp_dir)
+        .join("rportfolio");
+    let safe_key = profile_key
+        .chars()
+        .map(|char| if char.is_ascii_alphanumeric() || char == '-' { char } else { '_' })
+        .collect::<String>();
+    base.join(format!("market-{safe_key}-china.json"))
+}
+
+async fn fetch_china_data(profile: &AnalysisProfile) -> Result<LoadedMarketData, AppError> {
+    if !profile.market.eq_ignore_ascii_case("cn") {
+        return Err(AppError::invalid(
+            "A股免费多源仅适用于 market=cn 的 Profile",
+        ));
+    }
+    let eastmoney_client = market_client_builder()
+        .default_headers(eastmoney_headers())
+        .build()
+        .map_err(|error| AppError::internal(format!("Eastmoney client build failed: {error}")))?;
+    let mut yahoo_headers = HeaderMap::new();
+    yahoo_headers.insert(ACCEPT, HeaderValue::from_static("application/json,text/plain,*/*"));
+    yahoo_headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
+    yahoo_headers.insert(REFERER, HeaderValue::from_static("https://finance.yahoo.com/"));
+    let yahoo_client = market_client_builder()
+        .user_agent(YAHOO_USER_AGENT)
+        .default_headers(yahoo_headers)
+        .build()
+        .map_err(|error| AppError::internal(format!("Yahoo client build failed: {error}")))?;
+
+    let mut series = HashMap::new();
+    let mut domestic_count = 0usize;
+    for item in &profile.symbols {
+        if let Some(secid) = eastmoney_secid_for_item(item) {
+            let candles = fetch_eastmoney_daily_symbol(&eastmoney_client, &secid, &item.symbol).await?;
+            if candles.len() < MIN_DAILY_BARS {
+                return Err(AppError::fetch(format!(
+                    "{}={} returned only {} Eastmoney daily bars",
+                    item.symbol,
+                    secid,
+                    candles.len()
+                )));
+            }
+            domestic_count += 1;
+            series.insert(item.symbol.clone(), candles);
+        } else {
+            let yahoo_symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol);
+            let candles = fetch_yahoo_symbol(&yahoo_client, yahoo_symbol).await?;
+            if candles.len() < MIN_DAILY_BARS {
+                return Err(AppError::fetch(format!(
+                    "{} returned only {} Yahoo daily bars",
+                    item.symbol,
+                    candles.len()
+                )));
+            }
+            series.insert(item.symbol.clone(), candles);
+        }
+    }
+    if domestic_count == 0 {
+        return Err(AppError::invalid(
+            "A股免费多源没有找到 .SS/.SZ/.BJ 的境内标的映射",
+        ));
+    }
+
+    let cross_check = china_benchmark_cross_check(profile, &series, &yahoo_client).await;
+    Ok(LoadedMarketData {
+        source: "china".to_string(),
+        source_label: "东方财富 / Yahoo 校验".to_string(),
+        provider_note: format!(
+            "A股和境内 ETF 使用东方财富前复权日线，离岸标的使用 Yahoo。{cross_check}"
+        ),
+        series,
+    })
+}
+
+async fn fetch_eastmoney_daily_symbol(
+    client: &reqwest::Client,
+    secid: &str,
+    app_symbol: &str,
+) -> Result<Vec<Candle>, AppError> {
+    let response = client
+        .get(EASTMONEY_KLINE_URL)
+        .query(&[
+            ("secid", secid),
+            ("klt", "101"),
+            ("fqt", "1"),
+            ("lmt", "1000"),
+            ("end", "20500101"),
+            ("fields1", "f1,f2,f3,f4,f5,f6"),
+            ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"),
+        ])
+        .send()
+        .await
+        .map_err(|error| AppError::fetch(format!("Eastmoney request failed for {app_symbol}: {error}")))?
+        .error_for_status()
+        .map_err(|error| AppError::fetch(format!("Eastmoney status failed for {app_symbol}: {error}")))?;
+    let value: Value = response
+        .json()
+        .await
+        .map_err(|error| AppError::fetch(format!("Eastmoney JSON failed for {app_symbol}: {error}")))?;
+    parse_eastmoney_daily_klines(&value, app_symbol)
+}
+
+fn parse_eastmoney_daily_klines(value: &Value, app_symbol: &str) -> Result<Vec<Candle>, AppError> {
+    let rows = value
+        .pointer("/data/klines")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::fetch(format!("Eastmoney response missing klines for {app_symbol}")))?;
+    let mut by_date = BTreeMap::new();
+    for row in rows {
+        let Some(row) = row.as_str() else { continue };
+        let fields = row.split(',').collect::<Vec<_>>();
+        if fields.len() < 6 {
+            continue;
+        }
+        let Ok(date) = NaiveDate::parse_from_str(fields[0], "%Y-%m-%d") else { continue };
+        let Some(open) = parse_csv_number(Some(fields[1])) else { continue };
+        let Some(close) = parse_csv_number(Some(fields[2])) else { continue };
+        let Some(high) = parse_csv_number(Some(fields[3])) else { continue };
+        let Some(low) = parse_csv_number(Some(fields[4])) else { continue };
+        let Some(volume) = parse_csv_number(Some(fields[5])) else { continue };
+        if open <= 0.0 || close <= 0.0 || high < open.max(close) || low > open.min(close) {
+            continue;
+        }
+        by_date.insert(date, Candle { date, open, high, low, close, volume, flow: None });
+    }
+    if by_date.is_empty() {
+        return Err(AppError::fetch(format!(
+            "Eastmoney returned no usable daily rows for {app_symbol}"
+        )));
+    }
+    Ok(by_date.into_values().collect())
+}
+
+fn eastmoney_secid_for_item(item: &ProfileSymbol) -> Option<String> {
+    let symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol).trim();
+    let upper = symbol.to_ascii_uppercase();
+    for (suffix, market) in [(".SS", "1"), (".SZ", "0"), (".BJ", "0")] {
+        if upper.ends_with(suffix) {
+            let code = &symbol[..symbol.len().saturating_sub(suffix.len())];
+            if code.len() == 6 && code.chars().all(|char| char.is_ascii_digit()) {
+                return Some(format!("{market}.{code}"));
+            }
+        }
+    }
+    None
+}
+
+async fn china_benchmark_cross_check(
+    profile: &AnalysisProfile,
+    series: &HashMap<String, Vec<Candle>>,
+    yahoo_client: &reqwest::Client,
+) -> String {
+    let Some(item) = profile.symbols.iter().find(|item| item.symbol == profile.benchmark) else {
+        return "交叉校验未完成：Profile 未配置基准标的。".to_string();
+    };
+    if eastmoney_secid_for_item(item).is_none() {
+        return "交叉校验未完成：核心基准不是境内证券。".to_string();
+    }
+    let yahoo_symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol);
+    let secondary = match fetch_yahoo_symbol(yahoo_client, yahoo_symbol).await {
+        Ok(candles) => candles,
+        Err(error) => return format!("交叉校验未完成：Yahoo 基准数据不可用（{}）。", error.message),
+    };
+    let Some(primary) = series.get(&item.symbol) else {
+        return "一致性异常：东方财富基准序列缺失。".to_string();
+    };
+    let Some((date, primary_close, secondary_close)) = latest_common_close(primary, &secondary) else {
+        return "交叉校验未完成：两个来源没有共同交易日。".to_string();
+    };
+    let difference_pct = ((primary_close / secondary_close) - 1.0).abs() * 100.0;
+    if difference_pct > 2.0 {
+        format!(
+            "一致性异常：{} 在 {} 的东方财富/Yahoo 收盘价差 {:.2}%，已阻断风险加仓。",
+            item.symbol, date, difference_pct
+        )
+    } else {
+        format!(
+            "核心基准交叉校验通过：{} 在 {} 的双源收盘价差 {:.2}%。",
+            item.symbol, date, difference_pct
+        )
+    }
+}
+
+fn latest_common_close(primary: &[Candle], secondary: &[Candle]) -> Option<(NaiveDate, f64, f64)> {
+    let secondary_by_date = secondary
+        .iter()
+        .map(|candle| (candle.date, candle.close))
+        .collect::<HashMap<_, _>>();
+    primary.iter().rev().find_map(|candle| {
+        secondary_by_date
+            .get(&candle.date)
+            .copied()
+            .map(|secondary_close| (candle.date, candle.close, secondary_close))
+    })
+}
+
 #[derive(Debug, Clone)]
 struct StooqSymbolPlan {
     app_symbol: String,
@@ -5335,6 +7361,237 @@ fn clean_html_text(value: &str) -> String {
         .replace("&quot;", "\"")
         .replace("&#039;", "'");
     decoded.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct FundTransactionStatus {
+    label: String,
+    purchase_open: Option<bool>,
+    purchase_limit: Option<f64>,
+    redemption_open: Option<bool>,
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct FundHoldingsSnapshot {
+    as_of: Option<String>,
+    holdings: Vec<FundHoldingSeed>,
+}
+
+fn parse_fund_top_holdings(content: &str) -> FundHoldingsSnapshot {
+    let as_of = first_iso_date(content);
+    let Some(body_start) = content.find("<tbody>") else {
+        return FundHoldingsSnapshot { as_of, holdings: Vec::new() };
+    };
+    let after_start = &content[body_start + "<tbody>".len()..];
+    let body = after_start
+        .find("</tbody>")
+        .map(|end| &after_start[..end])
+        .unwrap_or(after_start);
+    let mut holdings = Vec::new();
+    let mut rest = body;
+    while let Some(row_start) = rest.find("<tr") {
+        let row_and_after = &rest[row_start..];
+        let Some(row_end) = row_and_after.find("</tr>") else {
+            break;
+        };
+        let row = &row_and_after[..row_end + "</tr>".len()];
+        let cells = extract_html_cells(row);
+        if cells.len() >= 7 {
+            let symbol = cells[1].trim().to_ascii_uppercase();
+            let name = cells[2].trim().to_string();
+            let weight = parse_percent_number(&cells[6]);
+            if !symbol.is_empty() && !name.is_empty() {
+                if let Some(weight) = weight.filter(|value| *value > 0.0) {
+                    holdings.push(FundHoldingSeed {
+                        symbol,
+                        name,
+                        weight: round(weight, 2),
+                    });
+                }
+            }
+        }
+        rest = &row_and_after[row_end + "</tr>".len()..];
+        if holdings.len() >= 10 {
+            break;
+        }
+    }
+    FundHoldingsSnapshot { as_of, holdings }
+}
+
+fn parse_fund_redemption_fees(content: &str) -> Vec<FundRedemptionFeeTier> {
+    let Some(marker) = content.find("name=\"shfl\"").or_else(|| content.find("赎回费率")) else {
+        return Vec::new();
+    };
+    let after_marker = &content[marker..];
+    let Some(body_start) = after_marker.find("<tbody>") else {
+        return Vec::new();
+    };
+    let after_start = &after_marker[body_start + "<tbody>".len()..];
+    let body = after_start
+        .find("</tbody>")
+        .map(|end| &after_start[..end])
+        .unwrap_or(after_start);
+    let mut tiers = Vec::new();
+    let mut rest = body;
+    while let Some(row_start) = rest.find("<tr") {
+        let row_and_after = &rest[row_start..];
+        let Some(row_end) = row_and_after.find("</tr>") else {
+            break;
+        };
+        let cells = extract_html_cells(&row_and_after[..row_end + "</tr>".len()]);
+        if cells.len() >= 2 {
+            let label = cells[0].trim().to_string();
+            if let Some(rate) = parse_percent_number(&cells[1]) {
+                let (min_days, max_days_exclusive) = parse_holding_day_range(&label);
+                tiers.push(FundRedemptionFeeTier {
+                    label,
+                    min_days,
+                    max_days_exclusive,
+                    rate: round(rate, 4),
+                });
+            }
+        }
+        rest = &row_and_after[row_end + "</tr>".len()..];
+    }
+    tiers
+}
+
+fn parse_holding_day_range(label: &str) -> (Option<u32>, Option<u32>) {
+    let numbers = unsigned_numbers(label);
+    if numbers.is_empty() {
+        return (None, None);
+    }
+    let has_lower = label.contains("大于等于") || label.contains('≥') || label.contains('≤');
+    let has_upper = label.contains("小于") || label.contains('＜') || label.contains('<');
+    if has_lower && has_upper && numbers.len() >= 2 {
+        return (Some(numbers[0]), Some(numbers[1]));
+    }
+    if has_upper || label.contains("以内") {
+        return (Some(0), Some(numbers[0]));
+    }
+    if has_lower || label.contains("以上") {
+        return (Some(numbers[0]), None);
+    }
+    (None, None)
+}
+
+fn unsigned_numbers(value: &str) -> Vec<u32> {
+    let mut numbers = Vec::new();
+    let mut current = String::new();
+    for character in value.chars() {
+        if character.is_ascii_digit() {
+            current.push(character);
+        } else if !current.is_empty() {
+            if let Ok(number) = current.parse::<u32>() {
+                numbers.push(number);
+            }
+            current.clear();
+        }
+    }
+    if !current.is_empty() {
+        if let Ok(number) = current.parse::<u32>() {
+            numbers.push(number);
+        }
+    }
+    numbers
+}
+
+fn first_iso_date(content: &str) -> Option<String> {
+    let bytes = content.as_bytes();
+    for start in 0..bytes.len().saturating_sub(9) {
+        let value = &bytes[start..start + 10];
+        if value[0..4].iter().all(u8::is_ascii_digit)
+            && value[4] == b'-'
+            && value[5..7].iter().all(u8::is_ascii_digit)
+            && value[7] == b'-'
+            && value[8..10].iter().all(u8::is_ascii_digit)
+        {
+            return String::from_utf8(value.to_vec()).ok();
+        }
+    }
+    None
+}
+
+fn parse_fund_transaction_status(content: &str) -> FundTransactionStatus {
+    let Some(start) = content.find("交易状态") else {
+        return FundTransactionStatus::default();
+    };
+    let excerpt = content[start..].chars().take(4_000).collect::<String>();
+    let mut plain = clean_html_text(&excerpt);
+    for marker in ["购买手续费", "申购费率", "赎回费率", "基金转换"] {
+        if let Some(index) = plain.find(marker) {
+            plain.truncate(index);
+        }
+    }
+
+    let purchase_open = if plain.contains("暂停申购")
+        || plain.contains("暂停购买")
+        || plain.contains("封闭期")
+    {
+        Some(false)
+    } else if plain.contains("开放申购") || plain.contains("开放购买") || plain.contains("限大额") {
+        Some(true)
+    } else {
+        None
+    };
+    let redemption_open = if plain.contains("暂停赎回") {
+        Some(false)
+    } else if plain.contains("开放赎回") {
+        Some(true)
+    } else {
+        None
+    };
+    let purchase_limit = ["单日累计购买上限", "单日申购上限", "单日累计申购上限"]
+        .iter()
+        .find_map(|marker| parse_chinese_money_after(&plain, marker));
+    let purchase_label = match (purchase_open, purchase_limit) {
+        (Some(false), _) => "暂停申购".to_string(),
+        (Some(true), Some(limit)) => format!("限购 {}", format_cny_amount(limit)),
+        (Some(true), None) => "开放申购".to_string(),
+        (None, _) => "申购待确认".to_string(),
+    };
+    let redemption_label = match redemption_open {
+        Some(true) => "开放赎回",
+        Some(false) => "暂停赎回",
+        None => "赎回待确认",
+    };
+
+    FundTransactionStatus {
+        label: format!("{purchase_label} · {redemption_label}"),
+        purchase_open,
+        purchase_limit,
+        redemption_open,
+    }
+}
+
+fn parse_chinese_money_after(content: &str, marker: &str) -> Option<f64> {
+    let after = content.split_once(marker)?.1;
+    let number_start = after.find(|ch: char| ch.is_ascii_digit())?;
+    let raw_numeric = after[number_start..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit() || *ch == '.' || *ch == ',')
+        .collect::<String>();
+    let numeric = raw_numeric.replace(',', "");
+    let value = numeric.parse::<f64>().ok()?;
+    let suffix = &after[number_start + raw_numeric.len()..];
+    let multiplier = if suffix.trim_start().starts_with("亿元") {
+        100_000_000.0
+    } else if suffix.trim_start().starts_with("万元") {
+        10_000.0
+    } else {
+        1.0
+    };
+    Some(value * multiplier)
+}
+
+fn format_cny_amount(value: f64) -> String {
+    if value >= 10_000.0 && value % 10_000.0 == 0.0 {
+        format!("¥{}万/日", value / 10_000.0)
+    } else if value.fract() == 0.0 {
+        format!("¥{value:.0}/日")
+    } else {
+        format!("¥{value:.2}/日")
+    }
 }
 
 fn stooq_candle_from_cells(cells: &[String]) -> Option<Candle> {
@@ -5905,6 +8162,240 @@ fn parse_yahoo_chart(value: &Value, yahoo_symbol: &str) -> Result<Vec<Candle>, A
     Ok(candles)
 }
 
+fn parse_yahoo_realtime_quote(
+    value: &Value,
+    request: &RealtimeAssetQuoteRequest,
+    symbol: &str,
+    yahoo_symbol: &str,
+) -> Result<RealtimeAssetQuoteSnapshot, AppError> {
+    if !value
+        .pointer("/chart/error")
+        .map(|error| error.is_null())
+        .unwrap_or(true)
+    {
+        return Err(AppError::fetch(format!(
+            "Yahoo returned an error for {yahoo_symbol}"
+        )));
+    }
+
+    let result = value.pointer("/chart/result/0").ok_or_else(|| {
+        AppError::fetch(format!("Yahoo response missing result for {yahoo_symbol}"))
+    })?;
+    let meta = result.get("meta").unwrap_or(&Value::Null);
+    let timestamps = result
+        .get("timestamp")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            AppError::fetch(format!(
+                "Yahoo response missing realtime timestamps for {yahoo_symbol}"
+            ))
+        })?;
+    let quote = result.pointer("/indicators/quote/0").ok_or_else(|| {
+        AppError::fetch(format!(
+            "Yahoo response missing realtime quote data for {yahoo_symbol}"
+        ))
+    })?;
+    let closes = quote
+        .get("close")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::fetch("Yahoo response missing realtime closes"))?;
+    let opens = quote.get("open").and_then(Value::as_array);
+    let highs = quote.get("high").and_then(Value::as_array);
+    let lows = quote.get("low").and_then(Value::as_array);
+    let volumes = quote.get("volume").and_then(Value::as_array);
+
+    let mut points = Vec::new();
+    let mut open = None;
+    let mut high = None;
+    let mut low = None;
+    let mut volume = 0.0;
+
+    for index in 0..timestamps.len().min(closes.len()) {
+        let Some(timestamp) = timestamps.get(index).and_then(Value::as_i64) else {
+            continue;
+        };
+        let Some(price) = number_at(closes, index) else {
+            continue;
+        };
+        let time = Utc
+            .timestamp_opt(timestamp, 0)
+            .single()
+            .ok_or_else(|| AppError::fetch("Yahoo returned an invalid realtime timestamp"))?
+            .to_rfc3339();
+        let open_value = number_at_optional(opens, index).unwrap_or(price);
+        let high_value = number_at_optional(highs, index).unwrap_or(price);
+        let low_value = number_at_optional(lows, index).unwrap_or(price);
+        let volume_value = number_at_optional(volumes, index).unwrap_or(0.0);
+        if open.is_none() {
+            open = Some(open_value);
+        }
+        high = Some(match high {
+            Some(current) if current > high_value => current,
+            _ => high_value,
+        });
+        low = Some(match low {
+            Some(current) if current < low_value => current,
+            _ => low_value,
+        });
+        volume += volume_value;
+        points.push(RealtimeAssetQuotePoint {
+            time,
+            price,
+            volume: volume_value,
+        });
+    }
+
+    let last = field_f64(meta, "regularMarketPrice").or_else(|| points.last().map(|point| point.price));
+    if points.is_empty() && last.is_none() {
+        return Err(AppError::fetch(format!(
+            "Yahoo returned no usable realtime prices for {yahoo_symbol}"
+        )));
+    }
+    let previous_close = field_f64(meta, "regularMarketPreviousClose")
+        .or_else(|| field_f64(meta, "chartPreviousClose"));
+    let change = match (last, previous_close) {
+        (Some(last), Some(previous)) => Some(last - previous),
+        _ => None,
+    };
+    let change_pct = match (change, previous_close) {
+        (Some(change), Some(previous)) if previous.abs() > f64::EPSILON => {
+            Some(change / previous * 100.0)
+        }
+        _ => None,
+    };
+    let (bid, ask, spread_bps) = realtime_spread(last, &request.market);
+    let session = meta
+        .get("marketState")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+        .to_lowercase();
+    let mut warnings = Vec::new();
+    if yahoo_symbol != symbol {
+        warnings.push(format!("Yahoo 映射：{symbol}={yahoo_symbol}。"));
+    }
+    warnings.push("Yahoo 图表接口不提供完整 Level-2 盘口；买一/卖一为最新价附近的保护性代理值。".to_string());
+
+    Ok(RealtimeAssetQuoteSnapshot {
+        accepted: true,
+        symbol: symbol.to_string(),
+        name: request.name.trim().to_string(),
+        market: request.market.trim().to_string(),
+        source: "yahoo-chart".to_string(),
+        source_label: "Yahoo 1m".to_string(),
+        status: "synced".to_string(),
+        session,
+        last,
+        previous_close,
+        open,
+        high,
+        low,
+        volume: if volume > 0.0 { Some(volume) } else { None },
+        change,
+        change_pct,
+        bid,
+        ask,
+        spread_bps,
+        synced_at: Utc::now().to_rfc3339(),
+        message: format!("Yahoo 1m quote synced for {symbol}"),
+        warnings,
+        points,
+    })
+}
+
+fn fallback_realtime_asset_quote(
+    request: RealtimeAssetQuoteRequest,
+    reason: &str,
+) -> RealtimeAssetQuoteSnapshot {
+    let symbol = request.symbol.trim().to_uppercase();
+    let reference = request
+        .reference_price
+        .filter(|value| value.is_finite() && *value > 0.0);
+    let (bid, ask, spread_bps) = realtime_spread(reference, &request.market);
+    RealtimeAssetQuoteSnapshot {
+        accepted: false,
+        symbol,
+        name: request.name.trim().to_string(),
+        market: request.market.trim().to_string(),
+        source: "reference".to_string(),
+        source_label: "本地参考价".to_string(),
+        status: "fallback".to_string(),
+        session: "unknown".to_string(),
+        last: reference,
+        previous_close: reference,
+        open: reference,
+        high: reference,
+        low: reference,
+        volume: None,
+        change: Some(0.0).filter(|_| reference.is_some()),
+        change_pct: Some(0.0).filter(|_| reference.is_some()),
+        bid,
+        ask,
+        spread_bps,
+        synced_at: Utc::now().to_rfc3339(),
+        message: "实时行情未就绪，已回退到本地参考价。".to_string(),
+        warnings: vec![reason.to_string()],
+        points: reference.map(fallback_realtime_points).unwrap_or_default(),
+    }
+}
+
+fn fallback_realtime_points(reference: f64) -> Vec<RealtimeAssetQuotePoint> {
+    let now = Utc::now();
+    (0..32)
+        .map(|index| {
+            let progress = index as f64 / 31.0;
+            let drift = (progress - 0.5) * reference * 0.003;
+            let wave = (progress * std::f64::consts::TAU * 1.4).sin() * reference * 0.0018;
+            RealtimeAssetQuotePoint {
+                time: (now - Duration::minutes((31 - index) as i64)).to_rfc3339(),
+                price: reference + drift + wave,
+                volume: 0.0,
+            }
+        })
+        .collect()
+}
+
+fn realtime_yahoo_symbol(symbol: &str, market: &str) -> String {
+    let symbol = symbol.trim().to_uppercase();
+    if symbol.contains('.') || symbol.contains('=') || symbol.starts_with('^') {
+        return symbol;
+    }
+    let market = market.trim().to_uppercase();
+    if market == "HK" && symbol.chars().all(|char| char.is_ascii_digit()) {
+        return format!("{symbol}.HK");
+    }
+    if market == "CN" && symbol.len() == 6 && symbol.chars().all(|char| char.is_ascii_digit()) {
+        let suffix = if symbol.starts_with('6') || symbol.starts_with('9') {
+            "SS"
+        } else {
+            "SZ"
+        };
+        return format!("{symbol}.{suffix}");
+    }
+    symbol
+}
+
+fn realtime_spread(last: Option<f64>, market: &str) -> (Option<f64>, Option<f64>, Option<f64>) {
+    let Some(last) = last.filter(|value| value.is_finite() && *value > 0.0) else {
+        return (None, None, None);
+    };
+    let spread_bps = match market.trim().to_uppercase().as_str() {
+        "US" => 2.0,
+        "HK" => 6.0,
+        "CN" => 8.0,
+        _ => 5.0,
+    };
+    let half_spread = last * spread_bps / 20_000.0;
+    (Some(last - half_spread), Some(last + half_spread), Some(spread_bps))
+}
+
+fn number_at_optional(values: Option<&Vec<Value>>, index: usize) -> Option<f64> {
+    values.and_then(|values| number_at(values, index))
+}
+
+fn field_f64(value: &Value, key: &str) -> Option<f64> {
+    value.get(key).and_then(Value::as_f64)
+}
+
 fn number_at(values: &[Value], index: usize) -> Option<f64> {
     values.get(index).and_then(Value::as_f64)
 }
@@ -6183,6 +8674,11 @@ fn build_report(
     let portfolio_profile = portfolio_profile_for(&profile, &snapshots, score);
     let profile_mandate = profile_mandate_for(&profile, &portfolio_profile);
     let profile_fund = profile_fund_for(&profile, as_of_date);
+    let profile_calibration_status = profile_calibration_status_for(
+        &profile,
+        &backtest.state_validation,
+        &loaded.source,
+    );
     let decision_frame = decision_frame_for(
         &market_state,
         &factor_scores,
@@ -6194,12 +8690,17 @@ fn build_report(
     );
     let decision_metric_contexts =
         decision_metric_contexts_for(benchmark_series, spy_index, &decision_frame);
+    let recommendation_performance = empty_recommendation_performance(&profile.key);
+    let calibration_action = calibration_action_for(&profile, &recommendation_performance);
 
     Ok(MarketAnalysisReport {
         generated_at: Utc::now().to_rfc3339(),
         source: loaded.source,
         source_label: loaded.source_label,
         provider_note: loaded.provider_note,
+        profile_schema_version: profile.schema_version,
+        profile_version: profile.profile_version.clone(),
+        parent_profile: profile.extends.clone(),
         profile_key: profile.key,
         profile_name: profile.name,
         profile_market: profile.market,
@@ -6228,6 +8729,10 @@ fn build_report(
         portfolio_profile,
         profile_mandate,
         profile_fund,
+        profile_calibration_status,
+        recommendation_performance,
+        calibration_action,
+        execution_policy: profile.execution_policy.clone(),
         backtest,
         policy_note:
             "风险评分和形态识别用于监控和执行参考，不输出自动买卖点；仓位区间按风险资产敞口理解。"
@@ -7283,6 +9788,125 @@ fn portfolio_profile_for(
     }
 }
 
+fn profile_calibration_status_for(
+    profile: &AnalysisProfile,
+    validation: &StateValidation,
+    source: &str,
+) -> ProfileCalibrationStatus {
+    let meta = &profile.calibration_meta;
+    let method = meta
+        .method
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("未声明")
+        .to_string();
+    let method_key = method.to_ascii_lowercase();
+    let has_validation_window = meta.validation_start.is_some() && meta.validation_end.is_some();
+    let has_training_window = meta.training_start.is_some() && meta.training_end.is_some();
+    let has_signature = meta
+        .data_signature
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let calibrated_method = method_key.contains("walk-forward")
+        || method_key.contains("walk_forward")
+        || method_key.contains("imported");
+    let sample_source = source.eq_ignore_ascii_case("sample");
+    let enough_samples = validation.effective_sample_count >= 30;
+    let execution_grade = profile.schema_version >= 2
+        && calibrated_method
+        && has_validation_window
+        && has_signature
+        && enough_samples
+        && !sample_source;
+
+    let mut warnings = Vec::new();
+    if profile.schema_version < 2 {
+        warnings.push("仍是 Profile v1，缺少可审计校准元数据。".to_string());
+    }
+    if !calibrated_method {
+        warnings.push("当前参数属于人工基线，尚未完成 walk-forward 样本外校准。".to_string());
+    }
+    if !has_training_window {
+        warnings.push("未声明训练窗口。".to_string());
+    }
+    if !has_validation_window {
+        warnings.push("未声明独立验证窗口。".to_string());
+    }
+    if !has_signature {
+        warnings.push("缺少数据签名，无法确认校准数据版本。".to_string());
+    }
+    if !enough_samples {
+        warnings.push(format!(
+            "有效独立样本仅 {} 个，暂不足以作为稳定胜率依据。",
+            validation.effective_sample_count
+        ));
+    }
+    if sample_source {
+        warnings.push("当前使用演示数据，不可升级为执行级证据。".to_string());
+    }
+
+    let (stage, label, tone) = if execution_grade {
+        ("validated", "样本外已验证", "positive")
+    } else if method_key.contains("manual") {
+        ("manual-baseline", "人工基线", "caution")
+    } else if profile.schema_version < 2 {
+        ("legacy", "旧版配置", "neutral")
+    } else {
+        ("evidence-gap", "校准证据不足", "caution")
+    };
+    let summary = if execution_grade {
+        format!(
+            "独立验证窗口与数据签名完整，当前状态样本有效 n={}。",
+            validation.effective_sample_count
+        )
+    } else {
+        warnings
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "校准证据尚未达到执行级。".to_string())
+    };
+
+    ProfileCalibrationStatus {
+        stage: stage.to_string(),
+        label: label.to_string(),
+        tone: tone.to_string(),
+        execution_grade,
+        method,
+        training_window: profile_window_label(
+            meta.training_start.as_deref(),
+            meta.training_end.as_deref(),
+        ),
+        validation_window: profile_window_label(
+            meta.validation_start.as_deref(),
+            meta.validation_end.as_deref(),
+        ),
+        data_signature: meta
+            .data_signature
+            .clone()
+            .unwrap_or_else(|| "未记录".to_string()),
+        objective: meta
+            .objective
+            .clone()
+            .unwrap_or_else(|| "未声明".to_string()),
+        effective_sample_count: validation.effective_sample_count,
+        summary,
+        warnings,
+    }
+}
+
+fn profile_window_label(start: Option<&str>, end: Option<&str>) -> String {
+    match (
+        start.map(str::trim).filter(|value| !value.is_empty()),
+        end.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(start), Some(end)) => format!("{start} → {end}"),
+        (Some(start), None) => format!("{start} → 未声明"),
+        (None, Some(end)) => format!("未声明 → {end}"),
+        (None, None) => "未声明".to_string(),
+    }
+}
+
 fn profile_mandate_for(profile: &AnalysisProfile, portfolio: &PortfolioProfile) -> ProfileMandate {
     let mandate = &profile.mandate;
     let objective = mandate.objective.clone().unwrap_or_else(|| {
@@ -7855,7 +10479,7 @@ fn state_validation_for(
     state: &MarketState,
     current_factors: &[FactorScore],
 ) -> StateValidation {
-    let samples = historical_state_samples(
+    let (samples, raw_sample_count) = historical_state_samples(
         profile,
         series,
         benchmark_series,
@@ -7877,6 +10501,13 @@ fn state_validation_for(
     };
     let (sample_quality_label, sample_quality_tone, sample_note) =
         sample_quality(samples.len(), exact_count, &match_mode);
+    let sample_note = format!(
+        "{} 原始匹配 {} 条，按 {} 个交易日间隔聚类后有效样本 {} 条。",
+        sample_note,
+        raw_sample_count,
+        BACKTEST_SAMPLE_SPACING_DAYS,
+        samples.len(),
+    );
     let horizon_stats = [5_u16, 10, 20, 60]
         .into_iter()
         .map(|days| backtest_horizon_stat(benchmark_series, &samples, days))
@@ -7894,6 +10525,9 @@ fn state_validation_for(
         state_key: state.key.clone(),
         state_label: state.label.clone(),
         sample_count: samples.len(),
+        raw_sample_count,
+        effective_sample_count: samples.len(),
+        sample_spacing_days: BACKTEST_SAMPLE_SPACING_DAYS,
         exact_sample_count: exact_count,
         similar_sample_count: similar_count,
         match_mode,
@@ -7971,6 +10605,12 @@ fn historical_protocol_samples(
     let mut by_protocol: HashMap<String, Vec<HistoricalStateSample>> = HashMap::new();
     for index in MIN_LOOKBACK..=last_index {
         let date = benchmark_series[index].date;
+        let Some(future) = benchmark_series.get(index + MAX_HORIZON) else {
+            continue;
+        };
+        if !profile_validation_sample_allowed(profile, date, future.date) {
+            continue;
+        }
         let Some((indexes, snapshots)) = context_at_date(profile, series, date) else {
             continue;
         };
@@ -8006,6 +10646,14 @@ fn historical_protocol_samples(
             });
     }
     by_protocol
+        .into_iter()
+        .map(|(protocol, samples)| {
+            (
+                protocol,
+                cluster_historical_samples(samples, BACKTEST_SAMPLE_SPACING_DAYS),
+            )
+        })
+        .collect()
 }
 
 fn protocol_validation_row(
@@ -8189,14 +10837,14 @@ fn historical_state_samples(
     benchmark_index: usize,
     state: &MarketState,
     current_factors: &[FactorScore],
-) -> Vec<HistoricalStateSample> {
+) -> (Vec<HistoricalStateSample>, usize) {
     const MIN_LOOKBACK: usize = 220;
     const MAX_HORIZON: usize = 60;
     let Some(last_index) = benchmark_index.checked_sub(MAX_HORIZON) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
     if last_index < MIN_LOOKBACK {
-        return Vec::new();
+        return (Vec::new(), 0);
     }
 
     let mut exact = Vec::new();
@@ -8204,6 +10852,12 @@ fn historical_state_samples(
 
     for index in MIN_LOOKBACK..=last_index {
         let date = benchmark_series[index].date;
+        let Some(future) = benchmark_series.get(index + MAX_HORIZON) else {
+            continue;
+        };
+        if !profile_validation_sample_allowed(profile, date, future.date) {
+            continue;
+        }
         let Some((indexes, snapshots)) = context_at_date(profile, series, date) else {
             continue;
         };
@@ -8237,12 +10891,53 @@ fn historical_state_samples(
         }
     }
 
-    if exact.len() >= 8 {
-        exact
+    let clustered_exact = cluster_historical_samples(exact.clone(), BACKTEST_SAMPLE_SPACING_DAYS);
+    if clustered_exact.len() >= 8 {
+        (clustered_exact, exact.len())
     } else {
+        let raw_sample_count = exact.len() + similar.len();
         exact.extend(similar);
-        exact
+        (
+            cluster_historical_samples(exact, BACKTEST_SAMPLE_SPACING_DAYS),
+            raw_sample_count,
+        )
     }
+}
+
+fn cluster_historical_samples(
+    samples: Vec<HistoricalStateSample>,
+    spacing_days: usize,
+) -> Vec<HistoricalStateSample> {
+    let mut sorted = samples;
+    sorted.sort_by_key(|sample| sample.index);
+    let mut clustered: Vec<HistoricalStateSample> = Vec::new();
+    for sample in sorted {
+        let keep = clustered
+            .last()
+            .is_none_or(|previous| sample.index.saturating_sub(previous.index) >= spacing_days);
+        if keep {
+            clustered.push(sample);
+        }
+    }
+    clustered
+}
+
+fn profile_validation_sample_allowed(
+    profile: &AnalysisProfile,
+    sample_date: NaiveDate,
+    horizon_end_date: NaiveDate,
+) -> bool {
+    let meta = &profile.calibration_meta;
+    let validation_start = meta
+        .validation_start
+        .as_deref()
+        .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
+    let validation_end = meta
+        .validation_end
+        .as_deref()
+        .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
+    validation_start.is_none_or(|start| sample_date >= start)
+        && validation_end.is_none_or(|end| horizon_end_date <= end)
 }
 
 fn context_at_date(
@@ -13555,6 +16250,114 @@ fn round(value: f64, digits: u32) -> f64 {
 mod tests {
     use super::*;
 
+    #[test]
+    fn parses_eastmoney_daily_klines_in_ohlcv_order() {
+        let value = serde_json::json!({
+            "data": {
+                "klines": [
+                    "2026-07-02,4.955,4.850,4.960,4.835,13691536,6704066004.000,2.50,-2.96,-0.148,7.39",
+                    "2026-07-03,4.830,4.876,4.927,4.828,19983308,9792434457.000,2.04,0.54,0.026,10.78"
+                ]
+            }
+        });
+        let candles = parse_eastmoney_daily_klines(&value, "CSI300").expect("daily klines");
+
+        assert_eq!(candles.len(), 2);
+        assert_eq!(candles[0].date.to_string(), "2026-07-02");
+        assert!((candles[0].open - 4.955).abs() < 0.0001);
+        assert!((candles[0].close - 4.850).abs() < 0.0001);
+        assert!((candles[0].volume - 13_691_536.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn maps_china_exchange_symbols_to_eastmoney_secid() {
+        let item = ProfileSymbol {
+            symbol: "CSI300".to_string(),
+            yahoo_symbol: Some("510300.SS".to_string()),
+            stooq_symbol: None,
+            fred_symbol: None,
+            csv_path: None,
+            label: "沪深300ETF".to_string(),
+            role: Some("benchmark".to_string()),
+            asset_kind: None,
+            weight: Some(100.0),
+            sector: None,
+            style: None,
+            exposure: None,
+        };
+
+        assert_eq!(eastmoney_secid_for_item(&item).as_deref(), Some("1.510300"));
+    }
+
+    #[test]
+    fn parses_fund_purchase_limit_and_redemption_status() {
+        let status = parse_fund_transaction_status(
+            r#"<div>交易状态：<span>限大额（单日累计购买上限10.00元）</span><span>开放赎回</span></div><div>购买手续费</div>"#,
+        );
+
+        assert_eq!(status.purchase_open, Some(true));
+        assert_eq!(status.purchase_limit, Some(10.0));
+        assert_eq!(status.redemption_open, Some(true));
+        assert_eq!(status.label, "限购 ¥10/日 · 开放赎回");
+    }
+
+    #[test]
+    fn parses_fund_purchase_limit_in_ten_thousands() {
+        let status = parse_fund_transaction_status(
+            "交易状态：限大额（单日累计购买上限5.00万元）开放赎回 购买手续费",
+        );
+
+        assert_eq!(status.purchase_limit, Some(50_000.0));
+        assert_eq!(status.label, "限购 ¥5万/日 · 开放赎回");
+    }
+
+    #[test]
+    fn parses_suspended_fund_purchase() {
+        let status = parse_fund_transaction_status(
+            "交易状态：暂停申购 开放赎回 购买手续费",
+        );
+
+        assert_eq!(status.purchase_open, Some(false));
+        assert_eq!(status.purchase_limit, None);
+        assert_eq!(status.label, "暂停申购 · 开放赎回");
+    }
+
+    #[test]
+    fn parses_fund_top_holdings_snapshot() {
+        let snapshot = parse_fund_top_holdings(
+            r#"var apidata={ content:"<div>截止至：<font>2026-03-31</font></div><table><tbody>
+              <tr><td>1</td><td><a>NVDA</a></td><td><a>英伟达</a></td><td>--</td><td>--</td><td>资讯</td><td>9.26%</td><td>26.50</td><td>31,983.16</td></tr>
+              <tr><td>2</td><td><a>GOOGL</a></td><td><a>谷歌-A</a></td><td>--</td><td>--</td><td>资讯</td><td>8.06%</td><td>14.00</td><td>27,861.97</td></tr>
+            </tbody></table>"};"#,
+        );
+
+        assert_eq!(snapshot.as_of.as_deref(), Some("2026-03-31"));
+        assert_eq!(snapshot.holdings.len(), 2);
+        assert_eq!(snapshot.holdings[0].symbol, "NVDA");
+        assert_eq!(snapshot.holdings[0].name, "英伟达");
+        assert_eq!(snapshot.holdings[0].weight, 9.26);
+    }
+
+    #[test]
+    fn parses_fund_redemption_fee_schedule() {
+        let tiers = parse_fund_redemption_fees(
+            r#"<h4><label>赎回费率<a name="shfl"></a></label></h4><table><tbody>
+              <tr><td>小于7天</td><td>1.50%</td></tr>
+              <tr><td>大于等于7天，小于30天</td><td>0.50%</td></tr>
+              <tr><td>大于等于30天</td><td>0.00%</td></tr>
+            </tbody></table>"#,
+        );
+
+        assert_eq!(tiers.len(), 3);
+        assert_eq!(tiers[0].min_days, Some(0));
+        assert_eq!(tiers[0].max_days_exclusive, Some(7));
+        assert_eq!(tiers[0].rate, 1.5);
+        assert_eq!(tiers[1].min_days, Some(7));
+        assert_eq!(tiers[1].max_days_exclusive, Some(30));
+        assert_eq!(tiers[2].min_days, Some(30));
+        assert_eq!(tiers[2].max_days_exclusive, None);
+    }
+
     fn test_order_command_request(bridge: &str) -> OrderCommandRequest {
         OrderCommandRequest {
             bridge: bridge.to_string(),
@@ -13584,6 +16387,120 @@ mod tests {
         assert!(report.valid, "{:?}", report.errors);
         assert!(report.stats.symbols > 0);
         assert!(report.stats.rules > 0);
+    }
+
+    #[test]
+    fn profile_v2_inherits_builtin_and_overrides_nested_calibration() {
+        let profile = parse_profile(
+            r#"{
+              "schemaVersion": 2,
+              "profileVersion": "2.0.1",
+              "extends": "us-core",
+              "key": "us-core-low-turnover",
+              "name": "美股核心低换手",
+              "calibration": {
+                "hotStateHeatMin": 68,
+                "divergenceTradingCap": 40
+              },
+              "calibrationMeta": {
+                "method": "manual-baseline",
+                "dataSignature": "test-fixture",
+                "objective": "net return minus drawdown and turnover"
+              }
+            }"#,
+            None,
+        )
+        .expect("profile inheritance");
+
+        assert_eq!(profile.schema_version, 2);
+        assert_eq!(profile.profile_version, "2.0.1");
+        assert_eq!(profile.extends.as_deref(), Some("us-core"));
+        assert_eq!(profile.market, "us");
+        assert_eq!(profile.benchmark, "SPY");
+        assert_eq!(profile.symbols.len(), 6);
+        assert_eq!(profile.calibration.hot_state_heat_min, 68);
+        assert_eq!(profile.calibration.divergence_trading_cap, 40);
+        assert_eq!(profile.calibration.pullback_structure_min, 55);
+        assert_eq!(profile.execution_policy.quote_warn_age_seconds, 30);
+        assert_eq!(profile.execution_policy.etf_block_spread_bps, 100.0);
+    }
+
+    #[test]
+    fn profile_v2_rejects_invalid_execution_threshold_order() {
+        let report = validate_profile_config(
+            r#"{
+              "schemaVersion": 2,
+              "profileVersion": "2.0.1",
+              "extends": "us-core",
+              "key": "invalid-execution-policy",
+              "name": "Invalid execution policy",
+              "executionPolicy": {
+                "quoteWarnAgeSeconds": 180,
+                "quoteBlockAgeSeconds": 120,
+                "etfWarnSpreadBps": 120,
+                "etfBlockSpreadBps": 100
+              }
+            }"#,
+        );
+
+        assert!(!report.valid);
+        assert!(report.errors.iter().any(|issue| issue.path == "executionPolicy.quoteWarnAgeSeconds"));
+        assert!(report.errors.iter().any(|issue| issue.path == "executionPolicy.etfWarnSpreadBps"));
+    }
+
+    #[test]
+    fn profile_v2_rejects_unknown_parent() {
+        let error = parse_profile(
+            r#"{
+              "schemaVersion": 2,
+              "profileVersion": "2.0.0",
+              "extends": "missing-parent",
+              "key": "broken-child",
+              "name": "Broken child"
+            }"#,
+            None,
+        )
+        .expect_err("unknown parent must fail");
+
+        assert!(error.message.contains("unknown parent profile"));
+    }
+
+    #[test]
+    fn historical_samples_are_clustered_by_event_spacing() {
+        let samples = vec![0, 1, 4, 5, 6, 10]
+            .into_iter()
+            .map(|index| HistoricalStateSample {
+                index,
+                exact_state_match: true,
+            })
+            .collect();
+
+        let clustered = cluster_historical_samples(samples, 5);
+
+        assert_eq!(clustered.iter().map(|sample| sample.index).collect::<Vec<_>>(), vec![0, 5, 10]);
+    }
+
+    #[test]
+    fn profile_validation_window_keeps_forward_horizon_out_of_training_period() {
+        let mut profile = test_profile("validation-window");
+        profile.calibration_meta.validation_start = Some("2025-01-01".to_string());
+        profile.calibration_meta.validation_end = Some("2025-12-31".to_string());
+
+        assert!(!profile_validation_sample_allowed(
+            &profile,
+            NaiveDate::from_ymd_opt(2024, 12, 31).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 3, 1).unwrap(),
+        ));
+        assert!(profile_validation_sample_allowed(
+            &profile,
+            NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 4, 1).unwrap(),
+        ));
+        assert!(!profile_validation_sample_allowed(
+            &profile,
+            NaiveDate::from_ymd_opt(2025, 11, 15).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        ));
     }
 
     #[test]
@@ -13710,6 +16627,187 @@ mod tests {
     }
 
     #[test]
+    fn recommendation_storage_roundtrips_auditable_records() {
+        let path = temp_order_store_path("recommendation-roundtrip");
+        let records = vec![
+            serde_json::json!({
+                "id": "rec-1",
+                "schemaVersion": 1,
+                "profileKey": "us-core",
+                "profileVersion": "2.0.0-manual-baseline",
+                "symbol": "SPY",
+                "side": "BUY",
+                "outcome": { "status": "pending" }
+            }),
+            serde_json::json!("ignore-me"),
+        ];
+
+        let saved = save_recommendations_to_path(&path, records).expect("save recommendations");
+        let loaded = load_recommendations_from_path(&path).expect("load recommendations");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved.len(), 1);
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0]["id"], "rec-1");
+        assert_eq!(loaded[0]["outcome"]["status"], "pending");
+    }
+
+    #[test]
+    fn recommendation_outcomes_are_evaluated_at_trading_day_horizons() {
+        let path = temp_order_store_path("recommendation-evaluation");
+        let profile = test_profile("evaluation-profile");
+        let candles = sample_equity_series(100.0, 0.2, 0.01, 0.0, 1_000_000.0, 4.0);
+        let anchor_index = candles.len() - 61;
+        let anchor_date = candles[anchor_index].date;
+        let anchor_close = candles[anchor_index].close;
+        let mut series = HashMap::new();
+        series.insert("SPY".to_string(), candles);
+        let pending_outcomes = || {
+            [5, 20, 60]
+                .into_iter()
+                .map(|horizon| serde_json::json!({
+                    "status": "pending",
+                    "horizonDays": horizon
+                }))
+                .collect::<Vec<_>>()
+        };
+        save_recommendations_to_path(
+            &path,
+            vec![
+                serde_json::json!({
+                    "id": "rec-evaluate-1",
+                    "schemaVersion": 2,
+                    "profileKey": "evaluation-profile",
+                    "symbol": "SPY",
+                    "side": "BUY",
+                    "priority": "P1",
+                    "marketState": "healthy_trend",
+                    "asOf": anchor_date.to_string(),
+                    "referencePrice": anchor_close,
+                    "outcomes": pending_outcomes()
+                }),
+                serde_json::json!({
+                    "id": "rec-evaluate-2",
+                    "schemaVersion": 2,
+                    "profileKey": "evaluation-profile",
+                    "symbol": "SPY",
+                    "side": "BUY",
+                    "priority": "P1",
+                    "marketState": "healthy_trend",
+                    "asOf": anchor_date.to_string(),
+                    "referencePrice": anchor_close,
+                    "outcomes": pending_outcomes()
+                }),
+            ],
+        )
+        .expect("save pending recommendation");
+
+        evaluate_recommendation_records(&path, &profile, &series, None)
+            .expect("evaluate recommendations");
+        let loaded = load_recommendations_from_path(&path).expect("load evaluated recommendations");
+        let evaluated = loaded[0]["outcomes"].as_array().expect("outcomes array");
+        assert_eq!(evaluated.len(), 3);
+        assert!(evaluated.iter().all(|outcome| outcome["status"] == "evaluated"));
+        assert_eq!(evaluated[2]["horizonDays"], 60);
+        assert!(evaluated[2]["evaluationPrice"].as_f64().is_some());
+        assert!(evaluated[2]["signedReturnPct"].as_f64().is_some());
+
+        let performance = recommendation_performance_for(&path, "evaluation-profile")
+            .expect("aggregate recommendation performance");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(performance.evaluated_records, 2);
+        assert_eq!(performance.raw_evaluated_outcomes, 6);
+        assert_eq!(performance.effective_evaluated_outcomes, 3);
+        assert_eq!(performance.horizons.len(), 3);
+        assert_eq!(performance.market_states[0].label, "健康趋势");
+        assert_eq!(performance.priorities[0].key, "P1");
+        assert_eq!(performance.priorities[0].sample_count, 3);
+    }
+
+    #[test]
+    fn waiting_decision_counts_rising_price_as_opportunity_cost() {
+        let path = temp_order_store_path("recommendation-wait-evaluation");
+        let profile = test_profile("wait-evaluation-profile");
+        let candles = sample_equity_series(100.0, 0.35, 0.01, 0.0, 1_000_000.0, 4.0);
+        let anchor_index = candles.len() - 21;
+        let anchor_date = candles[anchor_index].date;
+        let anchor_close = candles[anchor_index].close;
+        let mut series = HashMap::new();
+        series.insert("SPY".to_string(), candles);
+        save_recommendations_to_path(
+            &path,
+            vec![serde_json::json!({
+                "id": "rec-wait-1",
+                "schemaVersion": 2,
+                "profileKey": "wait-evaluation-profile",
+                "symbol": "SPY",
+                "side": "WAIT",
+                "decisionType": "wait",
+                "marketState": "healthy_trend",
+                "asOf": anchor_date.to_string(),
+                "referencePrice": anchor_close,
+                "outcomes": [{
+                    "status": "pending",
+                    "horizonDays": 20
+                }]
+            })],
+        )
+        .expect("save waiting recommendation");
+
+        evaluate_recommendation_records(&path, &profile, &series, None)
+            .expect("evaluate waiting recommendation");
+        let loaded = load_recommendations_from_path(&path).expect("load waiting recommendation");
+        let outcome = &loaded[0]["outcomes"][0];
+        let _ = fs::remove_file(&path);
+
+        assert!(outcome["returnPct"].as_f64().unwrap_or_default() > 0.0);
+        assert!(outcome["signedReturnPct"].as_f64().unwrap_or_default() < 0.0);
+        assert_eq!(outcome["wasCorrect"], false);
+    }
+
+    #[test]
+    fn calibration_action_keeps_parameters_when_real_sample_is_small() {
+        let profile = test_profile("calibration-action-small-sample");
+        let performance = RecommendationPerformanceSummary {
+            profile_key: profile.key.clone(),
+            horizons: vec![test_performance_slice("20", "20 日", 8, 50.0, 0.4)],
+            ..RecommendationPerformanceSummary::default()
+        };
+
+        let action = calibration_action_for(&profile, &performance);
+
+        assert_eq!(action.key, "collect");
+        assert!(action.proposals.is_empty());
+        assert!(action.action.contains("再积累 12 个"));
+    }
+
+    #[test]
+    fn calibration_action_proposes_specific_tightening_for_weak_buy_samples() {
+        let profile = test_profile("calibration-action-weak-buy");
+        let performance = RecommendationPerformanceSummary {
+            profile_key: profile.key.clone(),
+            horizons: vec![test_performance_slice("20", "20 日", 24, 41.0, -0.8)],
+            directions: vec![test_performance_slice("BUY", "增加风险", 20, 40.0, -1.1)],
+            market_states: vec![test_performance_slice(
+                "risk_diffusion_watch",
+                "风险扩散",
+                14,
+                35.0,
+                -1.5,
+            )],
+            ..RecommendationPerformanceSummary::default()
+        };
+
+        let action = calibration_action_for(&profile, &performance);
+
+        assert_eq!(action.key, "candidate");
+        assert!(action.proposals.iter().any(|item| item.path == "calibration.expansionStructureMin"));
+        assert!(action.proposals.iter().any(|item| item.path == "calibration.divergenceTradingCap"));
+        assert!(action.action.contains("walk-forward"));
+    }
+
+    #[test]
     fn monitor_storage_roundtrips_state() {
         let path = temp_order_store_path("monitor-roundtrip");
         let state = serde_json::json!({
@@ -13749,6 +16847,45 @@ mod tests {
 
         assert_eq!(loaded["snapshot"]["key"], "legacy-monitor");
         assert_eq!(loaded["records"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn paper_sim_storage_roundtrips_state() {
+        let path = temp_order_store_path("paper-sim-roundtrip");
+        let state = serde_json::json!({
+            "active": true,
+            "accountId": "paper-us-core",
+            "experimentName": "美股核心风险 · 趋势",
+            "profileKey": "us-core",
+            "profileName": "美股核心风险",
+            "currency": "USD",
+            "initialCapital": 100000.0,
+            "cash": 25000.0,
+            "positions": [
+                {"symbol": "SPY", "quantity": 10, "lastPrice": 500},
+                "ignore-me"
+            ],
+            "pendingFundOrders": [
+                {"id": "pfund-1", "symbol": "016702", "side": "BUY", "confirmDate": "2026-06-23"}
+            ],
+            "trades": [
+                {"id": "ptrade-1", "symbol": "SPY", "side": "BUY"}
+            ],
+            "snapshots": [
+                {"id": "psnap-1", "runDate": "2026-06-22", "equity": 100500}
+            ]
+        });
+
+        let saved = save_paper_sim_to_path(&path, state).expect("save paper sim");
+        let loaded = load_paper_sim_from_path(&path).expect("load paper sim");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved["active"], true);
+        assert_eq!(saved["positions"].as_array().unwrap().len(), 1);
+        assert_eq!(loaded["accountId"], "paper-us-core");
+        assert_eq!(loaded["pendingFundOrders"][0]["id"], "pfund-1");
+        assert_eq!(loaded["trades"][0]["id"], "ptrade-1");
+        assert_eq!(loaded["snapshots"][0]["runDate"], "2026-06-22");
     }
 
     #[test]
@@ -13925,6 +17062,69 @@ mod tests {
         assert_eq!(quote.ask, Some(500.2));
         assert_eq!(quote.indicative_nav, Some(499.9));
         assert_eq!(quote.session, "open");
+    }
+
+    #[test]
+    fn parses_yahoo_realtime_quote_snapshot() {
+        let value: Value = serde_json::from_str(
+            r#"{
+              "chart": {
+                "result": [{
+                  "meta": {
+                    "regularMarketPrice": 101.2,
+                    "regularMarketPreviousClose": 100.0,
+                    "marketState": "REGULAR"
+                  },
+                  "timestamp": [1719000000, 1719000060, 1719000120],
+                  "indicators": {
+                    "quote": [{
+                      "open": [100.4, 100.8, 101.0],
+                      "high": [100.9, 101.1, 101.3],
+                      "low": [100.1, 100.7, 100.9],
+                      "close": [100.7, 101.0, 101.2],
+                      "volume": [1200, 1500, 1800]
+                    }]
+                  }
+                }],
+                "error": null
+              }
+            }"#,
+        )
+        .expect("json");
+        let request = RealtimeAssetQuoteRequest {
+            symbol: "QQQ".to_string(),
+            name: "Nasdaq 100".to_string(),
+            market: "US".to_string(),
+            reference_price: Some(100.0),
+        };
+        let quote = parse_yahoo_realtime_quote(&value, &request, "QQQ", "QQQ").expect("quote");
+
+        assert!(quote.accepted);
+        assert_eq!(quote.source, "yahoo-chart");
+        assert_eq!(quote.last, Some(101.2));
+        assert!((quote.change_pct.unwrap_or_default() - 1.2).abs() < 0.0001);
+        assert_eq!(quote.volume, Some(4500.0));
+        assert_eq!(quote.points.len(), 3);
+        assert!(quote.bid.is_some());
+        assert!(quote.ask.is_some());
+    }
+
+    #[test]
+    fn realtime_quote_falls_back_to_reference_price() {
+        let quote = fallback_realtime_asset_quote(
+            RealtimeAssetQuoteRequest {
+                symbol: "019305".to_string(),
+                name: "标普500基金".to_string(),
+                market: "CN".to_string(),
+                reference_price: Some(3.33),
+            },
+            "offline",
+        );
+
+        assert!(!quote.accepted);
+        assert_eq!(quote.status, "fallback");
+        assert_eq!(quote.last, Some(3.33));
+        assert!(!quote.points.is_empty());
     }
 
     #[test]
@@ -14375,6 +17575,17 @@ mod tests {
             quantity: 12.0,
             cost_price: 180.0,
             current_price: 195.0,
+            confirmed_nav: Some(194.5),
+            confirmed_nav_as_of: Some(" 2026-07-01 ".to_string()),
+            fund_purchase_status: None,
+            fund_purchase_open: None,
+            fund_purchase_limit: None,
+            fund_redemption_open: None,
+            fund_trade_status_as_of: None,
+            fund_holdings_as_of: None,
+            fund_top_holdings: Vec::new(),
+            fund_nav_history: Vec::new(),
+            fund_redemption_fee_schedule: Vec::new(),
             target_min_weight: Some(25.0),
             target_weight: 35.0,
             target_max_weight: Some(42.0),
@@ -14393,9 +17604,53 @@ mod tests {
         assert_eq!(loaded[0].asset_type.as_deref(), Some("etf"));
         assert_eq!(loaded[0].quote_source.as_deref(), Some("yahoo"));
         assert_eq!(loaded[0].profile_key.as_deref(), Some("local-smh-profile"));
+        assert_eq!(loaded[0].confirmed_nav, Some(194.5));
+        assert_eq!(loaded[0].confirmed_nav_as_of.as_deref(), Some("2026-07-01"));
         assert_eq!(loaded[0].target_min_weight, Some(25.0));
         assert_eq!(loaded[0].target_max_weight, Some(42.0));
         assert_eq!(loaded[0].notes, "核心仓位");
+    }
+
+    #[test]
+    fn fund_nav_history_requires_exact_date() {
+        let timestamp = Utc
+            .with_ymd_and_hms(2026, 6, 30, 0, 0, 0)
+            .single()
+            .expect("valid timestamp")
+            .timestamp_millis();
+        let trend = vec![serde_json::json!({"x": timestamp, "y": 2.3456})];
+        let exact = fund_nav_point_for_date(
+            &trend,
+            NaiveDate::from_ymd_opt(2026, 6, 30).expect("valid date"),
+        );
+        let missing = fund_nav_point_for_date(
+            &trend,
+            NaiveDate::from_ymd_opt(2026, 7, 1).expect("valid date"),
+        );
+
+        assert_eq!(exact.map(|(_, nav)| nav), Some(2.3456));
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn fund_nav_history_keeps_latest_sorted_points() {
+        let timestamp = |day| {
+            Utc.with_ymd_and_hms(2026, 6, day, 0, 0, 0)
+                .single()
+                .expect("valid timestamp")
+                .timestamp_millis()
+        };
+        let trend = vec![
+            serde_json::json!({"x": timestamp(2), "y": 1.02}),
+            serde_json::json!({"x": timestamp(1), "y": 1.01}),
+            serde_json::json!({"x": timestamp(3), "y": 1.03}),
+        ];
+        let points = fund_nav_history(&trend, 2);
+
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0].date, "2026-06-02");
+        assert_eq!(points[1].date, "2026-06-03");
+        assert_eq!(points[1].nav, 1.03);
     }
 
     #[test]
@@ -14416,6 +17671,17 @@ mod tests {
                 quantity: 1.0,
                 cost_price: 1.0,
                 current_price: 1.0,
+                confirmed_nav: None,
+                confirmed_nav_as_of: None,
+                fund_purchase_status: None,
+                fund_purchase_open: None,
+                fund_purchase_limit: None,
+                fund_redemption_open: None,
+                fund_trade_status_as_of: None,
+                fund_holdings_as_of: None,
+                fund_top_holdings: Vec::new(),
+                fund_nav_history: Vec::new(),
+                fund_redemption_fee_schedule: Vec::new(),
                 target_min_weight: None,
                 target_weight: 0.0,
                 target_max_weight: None,
@@ -14830,6 +18096,25 @@ mod tests {
             relative_weakness_ratio: Some(60.0),
             high_beta_order: "SMH < QQQ < SPY".to_string(),
             signals,
+        }
+    }
+
+    fn test_performance_slice(
+        key: &str,
+        label: &str,
+        sample_count: usize,
+        hit_rate_pct: f64,
+        average_signed_return_pct: f64,
+    ) -> RecommendationPerformanceSlice {
+        RecommendationPerformanceSlice {
+            key: key.to_string(),
+            label: label.to_string(),
+            sample_count,
+            correct_count: ((sample_count as f64 * hit_rate_pct / 100.0).round()) as usize,
+            hit_rate_pct: Some(hit_rate_pct),
+            average_signed_return_pct: Some(average_signed_return_pct),
+            average_excess_return_pct: None,
+            average_max_adverse_pct: Some(-1.0),
         }
     }
 

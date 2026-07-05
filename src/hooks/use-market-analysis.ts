@@ -129,7 +129,7 @@ export function useMarketAnalysis(defaults: MarketAnalysisDefaults = {}) {
 }
 
 function shouldFallbackToAuto(source: DataSource) {
-  return source === "stooq" || source === "hybrid" || source === "yahoo";
+  return source === "china" || source === "stooq" || source === "hybrid" || source === "yahoo";
 }
 
 function formatMarketAnalysisError(

@@ -1,7 +1,6 @@
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
-import ReportProblemRoundedIcon from "@mui/icons-material/ReportProblemRounded";
 import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
 import type { ActionLine, MarketInternalSignal, MarketAnalysisReport, PositionAdvice, RiskVectorItem, SignalQuality, StateTransitionMatrix, StateTransitionOutcome, StatusMetric } from "../lib/types";
 import { DetailTooltip } from "./detail-tooltip";
@@ -58,11 +57,6 @@ export function DecisionRail({ report }: DecisionRailProps) {
   return (
     <aside className={`decision-rail workspace-inspector-rail is-protocol-${protocolState}`}>
       <section className="rail-card rail-risk-card">
-        <div className="rail-section-head">
-          <ReportProblemRoundedIcon fontSize="inherit" />
-          <span>风险窗口</span>
-        </div>
-
         <div className="rail-risk-grid">
           {riskVector.length
             ? riskVector.slice(0, 4).map((item) => <RiskVectorMetric key={item.key} item={item} />)

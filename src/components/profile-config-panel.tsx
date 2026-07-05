@@ -11,7 +11,7 @@ import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import { Button } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { exportProfileConfig, importProfileConfig, lookupFundProfileSeed, validateProfileConfig } from "../lib/analysis";
-import type { FundProfileSeed, MandateConstraint, MarketAnalysisReport, ProfileFund, ProfileSummary, ProfileValidationReport } from "../lib/types";
+import type { FundProfileSeed, MandateConstraint, MarketAnalysisReport, ProfileCalibrationAction, ProfileCalibrationStatus, ProfileFund, ProfileSummary, ProfileValidationReport, RecommendationPerformanceSummary } from "../lib/types";
 
 type ProfileConfigPanelProps = {
   profile: string;
@@ -163,6 +163,7 @@ export function ProfileConfigPanel({
   const profileList = profiles.length ? profiles : current ? [current] : [];
   const mandate = report.profileMandate;
   const fund = report.profileFund;
+  const calibrationStatus = report.profileCalibrationStatus;
   const [draft, setDraft] = useState<ProfileDraft>(() => buildDraft(current, report, profile));
   const [baseProfile, setBaseProfile] = useState<JsonObject | null>(null);
   const [builderStatus, setBuilderStatus] = useState("从当前模板派生一个自定义 Profile，不覆盖内置模板。");
@@ -184,7 +185,7 @@ export function ProfileConfigPanel({
   const savedDraftProfile = profiles.find((item) => item.key === draftKey);
   const activeLibraryKey = savedDraftProfile ? savedDraftProfile.key : draftKey === profile ? profile : "";
   const draftSourceLabel = current
-    ? `${current.builtin ? "内置模板" : "自定义模板"} · ${current.key}`
+    ? `${current.builtin ? "内置模板" : "自定义模板"} · ${current.key} · v${current.profileVersion || "1.0.0"}`
     : `当前分析 · ${profile}`;
   const draftMarketLabel = (draft.market.trim() || current?.market || report.profileMarket).toUpperCase();
   const generateHasDraft = Boolean(draft.fundCode.trim() || fundSeed || pendingImport || pendingRecipe);
@@ -647,7 +648,7 @@ export function ProfileConfigPanel({
                     onClick={() => onProfileChange(item.key)}
                     aria-current={item.key === activeLibraryKey ? "true" : undefined}
                   >
-                    <small>{item.key}</small>
+                    <small>{item.key} · v{item.profileVersion || "1.0.0"}{item.parentProfile ? ` ← ${item.parentProfile}` : ""}</small>
                     <strong>{item.name}</strong>
                     <em>
                       {item.key === activeLibraryKey
@@ -700,6 +701,16 @@ export function ProfileConfigPanel({
                   <dt>再平衡</dt>
                   <dd>{mandate.rebalanceCadence}</dd>
                 </div>
+                <div>
+                  <dt>参数证据</dt>
+                  <dd className={calibrationStatus ? `is-${calibrationStatus.tone}` : undefined}>
+                    {calibrationStatus?.label ?? "未评估"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>有效样本</dt>
+                  <dd>n={calibrationStatus?.effectiveSampleCount ?? report.backtest.stateValidation.effectiveSampleCount ?? report.backtest.stateValidation.sampleCount}</dd>
+                </div>
               </dl>
               <div className="mandate-constraints">
                 {mandate.constraints.slice(0, 4).map((item) => (
@@ -711,6 +722,12 @@ export function ProfileConfigPanel({
                 ))}
               </div>
             </article>
+
+            <CalibrationPerformanceCard
+              status={calibrationStatus}
+              performance={report.recommendationPerformance}
+              action={report.calibrationAction}
+            />
 
             <FundInfoCard fund={fund} portfolioWeight={report.portfolioProfile.totalWeight} />
 
@@ -1398,6 +1415,79 @@ function FundInfoCard({ fund, portfolioWeight }: { fund: ProfileFund | null; por
       {fund?.notes.length ? <small>{fund.notes[0]}</small> : null}
     </article>
   );
+}
+
+function CalibrationPerformanceCard({
+  status,
+  performance,
+  action,
+}: {
+  status: ProfileCalibrationStatus | undefined;
+  performance: RecommendationPerformanceSummary | undefined;
+  action: ProfileCalibrationAction | undefined;
+}) {
+  const tone = performance?.tone ?? status?.tone ?? "neutral";
+  const horizons = performance?.horizons ?? [];
+
+  return (
+    <article className={`profile-config-performance is-${tone}`}>
+      <div className="profile-performance-head">
+        <div>
+          <span>样本外表现</span>
+          <strong>{performance?.label ?? "等待真实结果"}</strong>
+        </div>
+        <em className={`is-${tone}`}>{status?.label ?? "未评估"}</em>
+      </div>
+      <p>{performance?.summary ?? "建议到期后会按 5/20/60 个交易日自动回填，不使用回测结果冒充真实命中率。"}</p>
+      <div className="profile-performance-horizons">
+        {[5, 20, 60].map((days) => {
+          const item = horizons.find((slice) => slice.key === String(days));
+          return (
+            <article key={days}>
+              <span>{days} 日</span>
+              <strong>{item?.hitRatePct == null ? "—" : `${item.hitRatePct.toFixed(1)}%`}</strong>
+              <small>
+                n={item?.sampleCount ?? 0} · 方向收益 {signedMetric(item?.averageSignedReturnPct)}
+              </small>
+            </article>
+          );
+        })}
+      </div>
+      <div className="profile-performance-foot">
+        <span>有效结果 {performance?.effectiveEvaluatedOutcomes ?? 0}</span>
+        <span>去重前 {performance?.rawEvaluatedOutcomes ?? 0}</span>
+        <span>等待 {performance?.pendingOutcomes ?? 0}</span>
+        <span>证据不足 {performance?.insufficientOutcomes ?? 0}</span>
+      </div>
+      <div className={`profile-calibration-action is-${action?.tone ?? "neutral"}`}>
+        <div>
+          <span>{action?.label ?? "保持参数"}</span>
+          <strong>{action?.action ?? "保持当前 Profile；累计到 20 个去重的 20 日结果后复核。"}</strong>
+        </div>
+        <p>{action?.rationale ?? "样本不足时不调整参数，避免追随短期噪声。"}</p>
+        {action?.proposals.length ? (
+          <div className="profile-calibration-proposals">
+            {action.proposals.slice(0, 3).map((proposal) => (
+              <article key={proposal.key}>
+                <div>
+                  <span>{proposal.label}</span>
+                  <em>{proposal.confidence}证据 · n={proposal.sampleCount}</em>
+                </div>
+                <strong>{proposal.currentValue} <b>→</b> {proposal.proposedValue}</strong>
+                <small>{proposal.expectedEffect}</small>
+              </article>
+            ))}
+          </div>
+        ) : null}
+        <small>下次复核：{action?.nextReview ?? "20 日有效样本达到 20 个时"}</small>
+      </div>
+    </article>
+  );
+}
+
+function signedMetric(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
 function AiRecipePreviewCard({

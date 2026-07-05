@@ -1,6 +1,6 @@
 import type { HoldingRecord } from "./holdings";
 import type { OrderIntent } from "./strategy-engine";
-import type { MarketAnalysisReport, TechnicalRow } from "./types";
+import type { MarketAnalysisReport, ProfileExecutionPolicy, TechnicalRow } from "./types";
 import { formatNumber, formatPercent } from "./utils";
 
 export type ExecutionInstrumentKind = "fund" | "etf" | "leveraged-etf" | "stock" | "cash" | "other";
@@ -17,6 +17,7 @@ export type ExecutionQuote = {
   premiumDiscountPct?: number | null;
   session?: ExecutionSessionStatus;
   source?: string;
+  syncedAt?: string;
   tradableVolume?: number | null;
 };
 
@@ -48,12 +49,19 @@ export type ExecutionQualityInput = {
   now?: Date;
 };
 
-const ETF_WARN_SPREAD_BPS = 35;
-const ETF_BLOCK_SPREAD_BPS = 100;
-const ETF_WARN_PREMIUM_PCT = 0.8;
-const ETF_BLOCK_PREMIUM_PCT = 2;
 const ETF_WARN_VOLUME_RATIO = 0.65;
 const ETF_BLOCK_VOLUME_RATIO = 0.35;
+
+const DEFAULT_EXECUTION_POLICY: ProfileExecutionPolicy = {
+  quoteWarnAgeSeconds: 30,
+  quoteBlockAgeSeconds: 120,
+  etfWarnSpreadBps: 35,
+  etfBlockSpreadBps: 100,
+  etfWarnPremiumDiscountPct: 0.8,
+  etfBlockPremiumDiscountPct: 2,
+  fundWarnHoldingsAgeDays: 120,
+  fundBlockHoldingsAgeDays: 180,
+};
 
 export function evaluateExecutionQuality({
   holding,
@@ -65,6 +73,7 @@ export function evaluateExecutionQuality({
   technical,
   now = new Date(),
 }: ExecutionQualityInput): ExecutionQualityAssessment {
+  const policy = executionPolicyFor(report);
   const market = normalizeMarket(holding?.market || report.profileMarket);
   const session = quote?.session
     ? { status: quote.session, label: quote.session === "open" ? "broker 回报开盘" : quote.session === "closed" ? "broker 回报休市" : "broker 时段未知" }
@@ -72,7 +81,7 @@ export function evaluateExecutionQuality({
   const checks: ExecutionQualityCheck[] = [];
 
   if (instrumentKind === "fund") {
-    checks.push(...fundExecutionChecks(report));
+    checks.push(...fundExecutionChecks(report, policy));
     return {
       checks,
       limitHint: "下一净值",
@@ -85,13 +94,14 @@ export function evaluateExecutionQuality({
 
   if (instrumentKind === "etf" || instrumentKind === "leveraged-etf") {
     checks.push(sessionCheck(session, market, true));
-    checks.push(...etfQuoteChecks({ instrumentKind, orderIntent, quote, side, technical }));
+    checks.push(quoteFreshnessCheck(quote, side, policy, now));
+    checks.push(...etfQuoteChecks({ instrumentKind, orderIntent, policy, quote, side, technical }));
     checks.push(protectedLimitCheck(instrumentKind, quote));
     return {
       checks,
       limitHint: "限价保护",
       quantityHint: "按限价折算",
-      quoteReady: Boolean(quote?.bid && quote?.ask),
+      quoteReady: Boolean(quote?.bid && quote?.ask) && !checks.some((check) => check.severity === "block"),
       sessionLabel: session.label,
       summary: firstNonPass(checks)?.detail ?? "ETF 执行质量通过。",
     };
@@ -130,11 +140,14 @@ export function evaluateExecutionQuality({
   };
 }
 
-function fundExecutionChecks(report: MarketAnalysisReport): ExecutionQualityCheck[] {
+function fundExecutionChecks(
+  report: MarketAnalysisReport,
+  policy: ProfileExecutionPolicy,
+): ExecutionQualityCheck[] {
   const checks: ExecutionQualityCheck[] = [];
   const fund = report.profileFund;
   const ageDays = fund?.holdingsAgeDays;
-  if (typeof ageDays === "number" && ageDays > 180) {
+  if (typeof ageDays === "number" && ageDays > policy.fundBlockHoldingsAgeDays) {
     checks.push({
       key: "fund.freshness.block",
       label: "基金披露",
@@ -142,7 +155,7 @@ function fundExecutionChecks(report: MarketAnalysisReport): ExecutionQualityChec
       detail: `基金持仓披露已 ${ageDays} 天，先更新资料再交易。`,
       overridable: true,
     });
-  } else if (typeof ageDays === "number" && ageDays > 120) {
+  } else if (typeof ageDays === "number" && ageDays > policy.fundWarnHoldingsAgeDays) {
     checks.push({
       key: "fund.freshness.warn",
       label: "基金披露",
@@ -169,12 +182,14 @@ function fundExecutionChecks(report: MarketAnalysisReport): ExecutionQualityChec
 function etfQuoteChecks({
   instrumentKind,
   orderIntent,
+  policy,
   quote,
   side,
   technical,
 }: {
   instrumentKind: ExecutionInstrumentKind;
   orderIntent: OrderIntent;
+  policy: ProfileExecutionPolicy;
   quote?: ExecutionQuote | null;
   side: string;
   technical?: TechnicalRow;
@@ -196,14 +211,14 @@ function etfQuoteChecks({
       detail: "盘口 bid/ask 异常，暂停提交。",
       overridable: false,
     });
-  } else if (spreadBps > ETF_BLOCK_SPREAD_BPS) {
+  } else if (spreadBps > policy.etfBlockSpreadBps) {
     checks.push({
       key: "etf.spread.block",
       label: "ETF 价差",
       severity: "block",
       detail: `买卖价差 ${formatNumber(spreadBps, 0)} bps 过宽，暂停提交。`,
     });
-  } else if (spreadBps > ETF_WARN_SPREAD_BPS) {
+  } else if (spreadBps > policy.etfWarnSpreadBps) {
     checks.push({
       key: "etf.spread.warn",
       label: "ETF 价差",
@@ -227,14 +242,14 @@ function etfQuoteChecks({
       severity: "warn",
       detail: "缺少 NAV/iNAV，暂按价格保护执行。",
     });
-  } else if (Math.abs(premium) > ETF_BLOCK_PREMIUM_PCT && isBuy(side)) {
+  } else if (Math.abs(premium) > policy.etfBlockPremiumDiscountPct && isBuy(side)) {
     checks.push({
       key: "etf.nav.block",
       label: "ETF 折溢价",
       severity: "block",
       detail: `折溢价 ${formatPercent(premium)} 过大，买入暂停。`,
     });
-  } else if (Math.abs(premium) > ETF_WARN_PREMIUM_PCT) {
+  } else if (Math.abs(premium) > policy.etfWarnPremiumDiscountPct) {
     checks.push({
       key: "etf.nav.warn",
       label: "ETF 折溢价",
@@ -290,6 +305,71 @@ function etfQuoteChecks({
     });
   }
   return checks;
+}
+
+function quoteFreshnessCheck(
+  quote: ExecutionQuote | null | undefined,
+  side: string,
+  policy: ProfileExecutionPolicy,
+  now: Date,
+): ExecutionQualityCheck {
+  const timestamp = quote?.syncedAt || quote?.asOf;
+  if (!timestamp) {
+    return {
+      key: "quote.freshness.missing",
+      label: "行情时效",
+      severity: "warn",
+      detail: "缺少报价时间，真实提交前必须重新同步行情。",
+    };
+  }
+  const quoteTime = Date.parse(timestamp);
+  if (!Number.isFinite(quoteTime)) {
+    return {
+      key: "quote.freshness.invalid",
+      label: "行情时效",
+      severity: "warn",
+      detail: "报价时间无法识别，真实提交前必须重新同步行情。",
+    };
+  }
+  const ageSeconds = (now.getTime() - quoteTime) / 1000;
+  if (ageSeconds < -60) {
+    return {
+      key: "quote.freshness.future",
+      label: "行情时效",
+      severity: "warn",
+      detail: "报价时间晚于本机时间，请检查时钟或行情源。",
+    };
+  }
+  const normalizedAge = Math.max(0, ageSeconds);
+  if (normalizedAge > policy.quoteBlockAgeSeconds) {
+    return {
+      key: "quote.freshness.block",
+      label: "行情时效",
+      severity: isBuy(side) ? "block" : "warn",
+      detail: `报价已 ${formatNumber(normalizedAge, 0)} 秒未更新，${isBuy(side) ? "暂停新增" : "减仓前重新确认限价"}。`,
+    };
+  }
+  if (normalizedAge > policy.quoteWarnAgeSeconds) {
+    return {
+      key: "quote.freshness.warn",
+      label: "行情时效",
+      severity: "warn",
+      detail: `报价已 ${formatNumber(normalizedAge, 0)} 秒未更新，提交前建议刷新。`,
+    };
+  }
+  return {
+    key: "quote.freshness.pass",
+    label: "行情时效",
+    severity: "pass",
+    detail: `报价更新于 ${formatNumber(normalizedAge, 0)} 秒前。`,
+  };
+}
+
+function executionPolicyFor(report: MarketAnalysisReport): ProfileExecutionPolicy {
+  return {
+    ...DEFAULT_EXECUTION_POLICY,
+    ...(report.executionPolicy ?? {}),
+  };
 }
 
 function protectedLimitCheck(kind: ExecutionInstrumentKind, quote?: ExecutionQuote | null): ExecutionQualityCheck {

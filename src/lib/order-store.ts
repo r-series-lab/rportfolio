@@ -560,6 +560,8 @@ export function orderSourceLabel(order: OrderRecord) {
 }
 
 export function brokerRouteLabel(mode: string, preset: QbotPreset) {
+  if (mode === "manual-ticket") return "手动交易";
+  if (mode === "paper-simulation") return "自动模拟";
   if (mode === "qbot-bridge") return `${preset.platform} / Qbot`;
   if (mode === "live-gateway") return `${preset.platform} / vn.py`;
   return "本地模拟";
@@ -567,6 +569,8 @@ export function brokerRouteLabel(mode: string, preset: QbotPreset) {
 
 export function friendlyRouteLabel(route: string) {
   if (route === "Local Paper" || route === "local-paper") return "本地模拟";
+  if (route === "manual-ticket" || route === "Manual Ticket") return "手动交易";
+  if (route === "paper-simulation" || route === "Paper Simulation") return "自动模拟";
   if (route === "qbot") return "Qbot";
   if (route === "vnpy") return "vn.py";
   return route;
@@ -627,7 +631,7 @@ function commandEventType(
   return "queued";
 }
 
-function createOrderEvent({
+export function createOrderEvent({
   detail,
   label,
   status,

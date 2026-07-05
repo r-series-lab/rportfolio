@@ -1,0 +1,268 @@
+/* Quant: execution-first cockpit, with isolated scroll regions and no overlap. */
+html[data-rportfolio-style] .workspace-area > .quant-lab-page {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: var(--rp-section-gap) !important;
+  padding: var(--rp-page-gutter) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+html[data-rportfolio-style] .quant-lab-page > .quant-trading-header {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0;
+  min-height: 54px;
+  display: grid !important;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.8fr) auto !important;
+  grid-template-rows: minmax(0, auto) !important;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 4px;
+}
+
+html[data-rportfolio-style] .quant-terminal-status {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  overflow: hidden !important;
+}
+
+html[data-rportfolio-style] .quant-run-controls {
+  min-width: 0;
+  width: auto !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+}
+
+html[data-rportfolio-style] .quant-run-controls button {
+  min-height: 31px;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-control-radius);
+  color: var(--rp-ink-secondary);
+  background: var(--rp-control-glass);
+}
+
+html[data-rportfolio-style] .quant-run-controls button:hover,
+html[data-rportfolio-style] .quant-run-controls button.is-active {
+  border-color: var(--rp-hairline-strong);
+  color: var(--rp-ink);
+  background: var(--rp-control-hover);
+}
+
+html[data-rportfolio-style] .quant-run-controls button.is-primary {
+  color: var(--rp-canvas-deep);
+  background: var(--rp-accent);
+}
+
+html[data-rportfolio-style="light"] .quant-run-controls button.is-primary {
+  color: #f7fafc;
+  background: linear-gradient(180deg, #566b82, #3f5268);
+}
+
+html[data-rportfolio-style] .quant-lab-page > .quant-trading-grid {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: 218px minmax(0, 1fr) var(--rp-inspector-width) !important;
+  gap: var(--rp-section-gap) !important;
+  overflow: hidden !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+html[data-rportfolio-style] .quant-lab-page > .quant-trading-grid.is-execution-collapsed {
+  grid-template-columns: 218px minmax(0, 1fr) !important;
+}
+
+html[data-rportfolio-style] .quant-trading-grid > .quant-control-panel,
+html[data-rportfolio-style] .quant-trading-grid > .quant-market-stage,
+html[data-rportfolio-style] .quant-trading-grid > .quant-execution-rail.workspace-inspector-rail {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    var(--rp-panel-glass);
+  box-shadow: var(--rp-panel-shadow);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+html[data-rportfolio-style] .quant-control-panel {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 10px;
+  overflow: hidden auto;
+  width: auto !important;
+  height: auto !important;
+}
+
+html[data-rportfolio-style] .quant-watchlist-card {
+  min-height: 190px;
+  display: grid;
+  grid-template-rows: auto auto minmax(120px, 1fr);
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .quant-watchlist-table {
+  min-height: 0;
+  max-height: min(38vh, 360px);
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+}
+
+html[data-rportfolio-style] .quant-market-stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px;
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+  width: auto !important;
+  height: auto !important;
+}
+
+html[data-rportfolio-style] .quant-action-desk,
+html[data-rportfolio-style] .quant-execution-footer,
+html[data-rportfolio-style] .quant-execution-source-card,
+html[data-rportfolio-style] .quant-watchlist-card,
+html[data-rportfolio-style] .quant-execution-rail .rail-card {
+  border-color: var(--rp-hairline);
+  border-radius: var(--rp-panel-radius);
+  background: var(--rp-panel-quiet);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent);
+}
+
+html[data-rportfolio-style] .quant-suggestion-list {
+  min-height: 0;
+  max-height: min(42vh, 430px);
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+}
+
+html[data-rportfolio-style] .quant-trading-grid > .quant-execution-rail.workspace-inspector-rail {
+  display: grid !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: max-content !important;
+  align-content: start !important;
+  gap: 9px !important;
+  padding: 10px !important;
+  overflow: hidden auto !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+html[data-rportfolio-style] .quant-dialog {
+  max-width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 64px);
+  border-color: var(--rp-hairline);
+  border-radius: 14px;
+  color: var(--rp-ink);
+  background: var(--rp-panel-strong);
+  box-shadow: var(--rp-floating-shadow);
+  backdrop-filter: var(--rp-blur);
+  -webkit-backdrop-filter: var(--rp-blur);
+}
+
+@media (max-width: 1320px) {
+  html[data-rportfolio-style] .quant-trading-grid,
+  html[data-rportfolio-style] .quant-trading-grid.is-execution-collapsed {
+    grid-template-columns: 200px minmax(0, 1fr) 270px;
+  }
+
+  html[data-rportfolio-style] .quant-trading-grid.is-execution-collapsed {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1120px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-area > .quant-lab-page {
+    height: 100% !important;
+    min-height: 0 !important;
+    grid-template-rows: auto auto !important;
+    overflow: auto !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-lab-page > .quant-trading-header {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 82px !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    align-items: center !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-terminal-status {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-terminal-title {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-run-controls {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-lab-page > .quant-trading-grid,
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-lab-page > .quant-trading-grid.is-execution-collapsed {
+    grid-template-columns: 200px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(560px, auto) auto !important;
+    overflow: visible !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-control-panel,
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-market-stage {
+    min-height: 560px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .quant-trading-grid > .quant-execution-rail.workspace-inspector-rail {
+    position: static !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    grid-column: 1 / -1 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    min-height: 320px !important;
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 860px) {
+  html[data-rportfolio-style] .quant-trading-header,
+  html[data-rportfolio-style] .quant-trading-grid,
+  html[data-rportfolio-style] .quant-trading-grid.is-execution-collapsed,
+  html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-rportfolio-style] .quant-run-controls {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  html[data-rportfolio-style] .quant-control-panel,
+  html[data-rportfolio-style] .quant-market-stage {
+    min-height: auto;
+  }
+}

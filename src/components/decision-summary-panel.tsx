@@ -1,4 +1,18 @@
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
+import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
+import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
+import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
+import ScatterPlotRoundedIcon from "@mui/icons-material/ScatterPlotRounded";
+import SecurityRoundedIcon from "@mui/icons-material/SecurityRounded";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
+import UndoRoundedIcon from "@mui/icons-material/UndoRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import WorkOutlineRoundedIcon from "@mui/icons-material/WorkOutlineRounded";
 import type {
   DecisionAxis,
   DecisionMetricContext,
@@ -15,13 +29,13 @@ type DecisionSummaryPanelProps = {
 };
 
 const DECISION_PROTOCOL_STEPS = [
-  { key: "allow", label: "允许分批", shortLabel: "分批", tone: "positive" },
-  { key: "probe", label: "小仓试探", shortLabel: "试探", tone: "positive" },
-  { key: "hold", label: "持有观察", shortLabel: "持有", tone: "neutral" },
-  { key: "wait", label: "等待确认", shortLabel: "等待", tone: "caution" },
-  { key: "noChase", label: "禁止追高", shortLabel: "禁追", tone: "caution" },
-  { key: "reduce", label: "停止加仓", shortLabel: "停加", tone: "negative" },
-  { key: "defend", label: "主动降风险", shortLabel: "降险", tone: "negative" },
+  { key: "allow", label: "允许分批", shortLabel: "分批", tone: "positive", icon: ScatterPlotRoundedIcon },
+  { key: "probe", label: "小仓试探", shortLabel: "试探", tone: "positive", icon: MonitorHeartRoundedIcon },
+  { key: "hold", label: "持有观察", shortLabel: "持有", tone: "neutral", icon: WorkOutlineRoundedIcon },
+  { key: "wait", label: "等待确认", shortLabel: "等待", tone: "caution", icon: HourglassTopRoundedIcon },
+  { key: "noChase", label: "禁止追高", shortLabel: "禁追", tone: "caution", icon: UndoRoundedIcon },
+  { key: "reduce", label: "停止加仓", shortLabel: "停加", tone: "negative", icon: RemoveCircleOutlineRoundedIcon },
+  { key: "defend", label: "主动降风险", shortLabel: "降险", tone: "negative", icon: ShieldOutlinedIcon },
 ] as const;
 
 export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPanelProps) {
@@ -62,20 +76,29 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
       </div>
       <div className="decision-heading" aria-label="当前情况">
         <div className="decision-title-row">
-          <div>
-            <h1>{report.decisionFrame.permission}</h1>
-          </div>
-          <span className={`decision-status-badge is-${report.decisionFrame.permissionTone}`}>
-            {report.decisionFrame.badgeLabel ?? decisionBadge(report)}
+          <span className={`decision-identity-mark is-${report.decisionFrame.permissionTone}`} aria-hidden="true">
+            <HourglassTopRoundedIcon fontSize="inherit" />
           </span>
+          <div className="decision-title-copy">
+            <h1>{report.decisionFrame.permission}</h1>
+            <span className={`decision-status-badge is-${report.decisionFrame.permissionTone}`}>
+              {report.decisionFrame.badgeLabel ?? decisionBadge(report)}
+            </span>
+          </div>
         </div>
         <div className="decision-context-grid" aria-label="状态与确认条件">
           <article className="decision-context-card">
-            <span>状态</span>
+            <span>
+              <TrendingUpRoundedIcon fontSize="inherit" aria-hidden="true" />
+              状态
+            </span>
             <strong>{report.decisionFrame.stateLabel}</strong>
           </article>
           <article className="decision-context-card is-condition">
-            <span>{report.decisionFrame.conditionLabel}</span>
+            <span>
+              <FactCheckRoundedIcon fontSize="inherit" aria-hidden="true" />
+              {report.decisionFrame.conditionLabel}
+            </span>
             <strong>{conditionCopy}</strong>
           </article>
         </div>
@@ -84,7 +107,10 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
             {signalQuality ? (
               <DetailTooltip title={signalQuality.summary}>
                 <article className={`decision-intelligence-chip is-signal is-${signalQuality.tone}`}>
-                  <span>信号质量</span>
+                  <span>
+                    <InsightsRoundedIcon fontSize="inherit" aria-hidden="true" />
+                    信号质量
+                  </span>
                   <strong>{signalQuality.score}/100</strong>
                   <em>{signalQuality.label}</em>
                 </article>
@@ -93,7 +119,10 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
             {stateConfidence ? (
               <DetailTooltip title={stateConfidence.summary}>
                 <article className={`decision-intelligence-chip is-${stateConfidence.tone}`}>
-                  <span>状态置信</span>
+                  <span>
+                    <SecurityRoundedIcon fontSize="inherit" aria-hidden="true" />
+                    状态置信
+                  </span>
                   <strong>{stateConfidence.score}/100</strong>
                   <em>{stateConfidence.label}</em>
                 </article>
@@ -102,7 +131,10 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
             {damageScore ? (
               <DetailTooltip title={damageScore.summary}>
                 <article className={`decision-intelligence-chip is-${damageScore.tone}`}>
-                  <span>内部损伤</span>
+                  <span>
+                    <MonitorHeartRoundedIcon fontSize="inherit" aria-hidden="true" />
+                    内部损伤
+                  </span>
                   <strong>{damageScore.score}/100</strong>
                   <em>{damageScore.label}</em>
                 </article>
@@ -113,19 +145,17 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
       </div>
 
       <div className="decision-protocol-panel" aria-label={`分析分歧轨道，当前为${activeProtocolLabel}`}>
-        <div className="decision-section-label">
-          <span>分析分歧轨道</span>
-          <b>{activeProtocolLabel}</b>
-        </div>
         <ol className="decision-protocol-track">
           {DECISION_PROTOCOL_STEPS.map((step) => {
             const active = step.label === activeProtocolLabel;
+            const StepIcon = step.icon;
             return (
               <li
                 key={step.key}
                 aria-current={active ? "step" : undefined}
                 className={`decision-protocol-step is-${step.tone} ${active ? "is-active" : ""}`}
               >
+                <StepIcon className="decision-protocol-icon" fontSize="inherit" aria-hidden="true" />
                 <span title={step.label}>{step.shortLabel}</span>
               </li>
             );
@@ -140,11 +170,17 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
         </div>
         <div className="decision-copy-stack">
           <article className="decision-copy-card">
-            <span>判断</span>
+            <span>
+              <QueryStatsRoundedIcon fontSize="inherit" aria-hidden="true" />
+              判断
+            </span>
             <strong>{summaryCopy}</strong>
           </article>
           <article className="decision-copy-card">
-            <span>动作</span>
+            <span>
+              <BoltRoundedIcon fontSize="inherit" aria-hidden="true" />
+              动作
+            </span>
             <strong>{actionCopy}</strong>
           </article>
           <article className="decision-copy-card is-note">
@@ -158,13 +194,21 @@ export function DecisionSummaryPanel({ positionPlan, report }: DecisionSummaryPa
       </div>
 
       <div className="decision-position-panel" aria-label="Profile 风险仓位上限">
-        <div className="decision-section-label">
-          <span>Profile 风险仓位上限</span>
-          <b>{primaryAdvice ? positionRangeDisplay(primaryAdvice) : report.decisionFrame.actionLabel}</b>
+        <div className="decision-position-summary">
+          <div className="decision-section-label">
+            <span>
+              <ShieldOutlinedIcon fontSize="inherit" aria-hidden="true" />
+              Profile 风险仓位上限
+            </span>
+          </div>
+          <strong className="decision-position-range">
+            {primaryAdvice ? positionRangeDisplay(primaryAdvice) : report.decisionFrame.actionLabel}
+          </strong>
+          <span className={`decision-position-rule is-${primaryAdvice?.tone ?? "neutral"}`} aria-hidden="true" />
+          <p className="decision-position-note">
+            {localPositionCopy ?? primaryAdvice?.rangeMeaning ?? "Profile 风险仓位上限，不是单只资产目标带"}
+          </p>
         </div>
-        <p className="decision-position-note">
-          {localPositionCopy ?? primaryAdvice?.rangeMeaning ?? "Profile 风险仓位上限，不是单只资产目标带"}
-        </p>
         <div className="decision-position-strip">
           {report.positionAdvice.map((item) => (
             <AdvicePill key={item.horizonKey} advice={item} />
@@ -375,7 +419,10 @@ function AxisMetric({
   return (
     <DetailTooltip title={title}>
       <article className={`axis-${axis.key} ${strong ? "is-strong" : ""} is-${axis.tone} has-detail`}>
-        <span>{axisTitle(axis.key)}</span>
+        <span>
+          <AxisIcon axisKey={axis.key} />
+          {axisTitle(axis.key)}
+        </span>
         <strong>{axis.score}</strong>
         <em>{axis.status}</em>
         {context ? (
@@ -387,6 +434,13 @@ function AxisMetric({
       </article>
     </DetailTooltip>
   );
+}
+
+function AxisIcon({ axisKey }: { axisKey: string }) {
+  if (axisKey === "trend") return <TrendingUpRoundedIcon fontSize="inherit" aria-hidden="true" />;
+  if (axisKey === "risk") return <SecurityRoundedIcon fontSize="inherit" aria-hidden="true" />;
+  if (axisKey === "edge") return <TrackChangesRoundedIcon fontSize="inherit" aria-hidden="true" />;
+  return <QueryStatsRoundedIcon fontSize="inherit" aria-hidden="true" />;
 }
 
 function axisTitle(key: string) {

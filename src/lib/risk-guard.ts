@@ -15,6 +15,9 @@ import {
 import type { LabTone, OrderIntent, QbotPreset, StrategyScore } from "./strategy-engine";
 import type { MarketAnalysisReport, TechnicalRow } from "./types";
 import { formatMoney, formatNumber, formatPercent } from "./utils";
+import { assessDataQuality } from "./data-quality";
+import { overlapClusterForHolding, overlapPairForHolding } from "./portfolio-overlap";
+import { substitutionForHolding } from "./fund-substitution";
 
 export type RiskInstrumentKind = "fund" | "etf" | "leveraged-etf" | "stock" | "cash" | "other";
 export type RiskGuardSeverity = "pass" | "warn" | "block";
@@ -103,12 +106,29 @@ export function guardOrderIntent({
     addCheck("instrument.kind", "标的类型", "pass", `${instrumentLabel} · ${orderIntent.symbol}`);
   }
 
+  const dataQuality = assessDataQuality(report, true);
+  dataQuality.checks.forEach((check) => {
+    addCheck(
+      `data.${check.key}`,
+      check.label,
+      check.severity,
+      check.detail,
+      check.severity !== "block",
+    );
+  });
+
   if (!positionPlan.decision.profileHealth.valid) {
     addCheck("profile.invalid", "配置完整性", "block", positionPlan.decision.profileHealth.message || "Profile 目标带配置不可执行。", false);
   }
 
   const dailyLimitCheck = dailyOrderLimitCheck({ orderIntent, policy: activePolicy, queuedOrders });
   addCheck(dailyLimitCheck.key, "单日委托", dailyLimitCheck.severity, dailyLimitCheck.detail, dailyLimitCheck.overridable);
+
+  if (instrumentKind === "fund") {
+    fundTradeChecks({ holding, notional: effectiveNotional, report, side }).forEach((check) => {
+      addCheck(check.key, check.label, check.severity, check.detail, false);
+    });
+  }
 
   if (isBuy(side)) {
     const cashCheck = cashCapacityCheck({ notional: effectiveNotional, positionPlan, totalValue });
@@ -119,7 +139,7 @@ export function guardOrderIntent({
   }
 
   const activeDuplicate = queuedOrders.find((order) =>
-    ACTIVE_ORDER_STATUSES.has(order.status)
+    isActiveOrderForGuard(order)
     && sameSymbol(order.symbol, orderIntent.symbol)
     && normalizeSide(order.side) === side
   );
@@ -161,6 +181,37 @@ export function guardOrderIntent({
       capped = true;
     }
     addCheck(targetCheck.key, "目标带", targetCheck.severity, targetCheck.detail, targetCheck.overridable);
+
+    if (instrumentKind === "fund" || instrumentKind === "etf") {
+      const pair = overlapPairForHolding(holdings, orderIntent.symbol, totalValue);
+      const overlap = overlapClusterForHolding(holdings, orderIntent.symbol, totalValue);
+      if (pair) {
+        const peer = sameSymbol(pair.left, orderIntent.symbol) ? pair.right : pair.left;
+        const substitution = substitutionForHolding(holdings, pair, orderIntent.symbol);
+        const evidence = [
+          pair.overlapWeight >= 5
+            ? `前十大重合 ${formatPercent(pair.overlapWeight)}${pair.commonSymbols.length ? `（${pair.commonSymbols.join(" / ")}）` : ""}`
+            : "",
+          pair.correlation60 != null ? `60日相关 ${formatNumber(pair.correlation60, 2)}` : "",
+          pair.correlation120 != null ? `120日相关 ${formatNumber(pair.correlation120, 2)}` : "",
+        ].filter(Boolean).join(" · ");
+        addCheck(
+          "portfolio.lookthrough-overlap",
+          "分散校验",
+          substitution?.isSecondary && substitution.action === "replace-candidate" ? "block" : "warn",
+          `与 ${peer}：${evidence}${pair.overlapWeight >= 5 ? `，持仓截至 ${pair.asOf}` : ""}；${substitution?.isSecondary ? `${orderIntent.symbol} 为替换候选，暂停新增。` : substitution?.isPreferred ? `${orderIntent.symbol} 质量更优，优先保留但不重复叠加。` : "保持现状，不为小差异换仓。"}`,
+          true,
+        );
+      } else if (overlap) {
+        addCheck(
+          "portfolio.overlap",
+          "主题重叠",
+          "warn",
+          `${overlap.label}已占 ${formatPercent(overlap.weight)}，覆盖 ${overlap.symbols.join(" / ")}；新增前优先比较替代，不直接叠加。`,
+          false,
+        );
+      }
+    }
   }
 
   const executionQuality = evaluateExecutionQuality({
@@ -220,6 +271,109 @@ export function guardOrderIntent({
     tone,
     warnings,
   };
+}
+
+function fundTradeChecks({
+  holding,
+  notional,
+  report,
+  side,
+}: {
+  holding: HoldingRecord | undefined;
+  notional: number;
+  report: MarketAnalysisReport;
+  side: string;
+}): RiskGuardCheck[] {
+  if (!holding) {
+    return [{
+      key: "fund.holding.missing",
+      label: "基金资料",
+      severity: "block",
+      detail: "基金未进入持仓资料，无法校验净值与申购规则。",
+    }];
+  }
+
+  const checks: RiskGuardCheck[] = [];
+  const navAge = businessDayAge(holding.confirmedNavAsOf, report.asOf);
+  if (!holding.confirmedNav || !holding.confirmedNavAsOf) {
+    checks.push({
+      key: "fund.nav.missing",
+      label: "确认净值",
+      severity: "block",
+      detail: "尚未同步基金确认净值和日期，不能生成交易票。",
+    });
+  } else if (navAge === null || navAge > 3) {
+    checks.push({
+      key: "fund.nav.stale",
+      label: "确认净值",
+      severity: "block",
+      detail: `最新确认净值日期 ${holding.confirmedNavAsOf}，已超过可执行时效。`,
+    });
+  } else {
+    checks.push({
+      key: "fund.nav.ready",
+      label: "确认净值",
+      severity: "pass",
+      detail: `确认净值 ${formatNumber(holding.confirmedNav, 4)} · ${holding.confirmedNavAsOf}。`,
+    });
+  }
+
+  if (isBuy(side)) {
+    const tradeStatusAge = businessDayAge(holding.fundTradeStatusAsOf, report.asOf);
+    if (!holding.fundTradeStatusAsOf || tradeStatusAge === null || tradeStatusAge > 1) {
+      checks.push({
+        key: "fund.purchase.stale",
+        label: "申购状态",
+        severity: "block",
+        detail: "基金申购状态不是当期数据，先刷新基金资料。",
+      });
+    } else if (holding.fundPurchaseOpen === false) {
+      checks.push({
+        key: "fund.purchase.closed",
+        label: "申购状态",
+        severity: "block",
+        detail: holding.fundPurchaseStatus || "基金当前暂停申购。",
+      });
+    } else if (holding.fundPurchaseOpen !== true) {
+      checks.push({
+        key: "fund.purchase.unknown",
+        label: "申购状态",
+        severity: "block",
+        detail: "尚未同步基金申购状态，先刷新基金资料。",
+      });
+    } else if (holding.fundPurchaseLimit && notional > holding.fundPurchaseLimit + 0.01) {
+      checks.push({
+        key: "fund.purchase.limit",
+        label: "申购限额",
+        severity: "block",
+        detail: `单日申购上限 ${formatMoney(holding.fundPurchaseLimit, holding.currency)}，当前建议 ${formatMoney(notional, holding.currency)} 不可执行。`,
+      });
+    } else {
+      checks.push({
+        key: "fund.purchase.ready",
+        label: "申购状态",
+        severity: "pass",
+        detail: holding.fundPurchaseStatus || "申购状态可用。",
+      });
+    }
+  } else if (holding.fundRedemptionOpen === false) {
+    checks.push({
+      key: "fund.redemption.closed",
+      label: "赎回状态",
+      severity: "block",
+      detail: holding.fundPurchaseStatus || "基金当前暂停赎回。",
+    });
+  }
+
+  return checks;
+}
+
+function isActiveOrderForGuard(order: OrderRecord) {
+  if (!ACTIVE_ORDER_STATUSES.has(order.status)) return false;
+  if (order.status === "submitted" || order.status === "partially_filled") return true;
+  const time = timeFromOrder(order);
+  if (!time) return true;
+  return Date.now() - time <= 24 * 60 * 60 * 1000;
 }
 
 export function summarizeRiskGuardResults(results: RiskGuardResult[]) {
@@ -371,8 +525,11 @@ function targetBandCheck({
   positionPlan: PositionPlan;
   totalValue: number;
 }) {
-  if (!holding || totalValue <= 0 || holding.targetWeight <= 0) {
-    return { key: "target.missing", severity: "warn" as const, detail: "未找到目标带，按小额委托处理。", overridable: true };
+  if (!holding) {
+    return { key: "target.not-held", severity: "block" as const, detail: "非持仓代理标的不能直接下单，先加入持仓并配置目标带。", overridable: false };
+  }
+  if (totalValue <= 0 || holding.targetWeight <= 0) {
+    return { key: "target.missing", severity: "block" as const, detail: "该持仓缺少目标带，先在持仓管理里补齐。", overridable: false };
   }
   const band = targetBandForHolding(holding, positionPlan.policy);
   const currentValue = marketValueOf(holding);
@@ -471,6 +628,28 @@ function isSameLocalDay(value: string, date: Date) {
 function timeFromOrder(order: OrderRecord) {
   const parsed = new Date(order.createdIso || order.updatedIso || order.createdAt || order.updatedAt || "");
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function businessDayAge(fromValue: string | undefined, toValue: string) {
+  if (!fromValue) return null;
+  const from = parseDateOnly(fromValue);
+  const to = parseDateOnly(toValue);
+  if (!from || !to || from.getTime() > to.getTime()) return null;
+  let age = 0;
+  const cursor = new Date(from);
+  for (let index = 0; cursor.getTime() < to.getTime() && index < 370; index += 1) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) age += 1;
+  }
+  return age;
+}
+
+function parseDateOnly(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function isLeveragedEtfText(text: string) {

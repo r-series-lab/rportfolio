@@ -52,6 +52,18 @@ export type OrderIntent = {
   amount: string;
   weight: string;
   detail: string;
+  replacementLink?: ReplacementOrderLink;
+};
+
+export type ReplacementOrderLink = {
+  id: string;
+  stage: "redeem" | "subscribe";
+  sourceSymbol: string;
+  targetSymbol: string;
+  targetName: string;
+  remainingBuyAmount: number;
+  batchAmount: number;
+  sellFeeRatePct: number;
 };
 
 export type StrategyEngineInput = {

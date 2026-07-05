@@ -4,9 +4,11 @@ pub mod core;
 #[cfg(feature = "desktop")]
 #[tauri::command]
 async fn score_market(
+    app: tauri::AppHandle,
     request: core::ScoreMarketRequest,
 ) -> Result<core::MarketAnalysisReport, String> {
-    core::score_market(request)
+    let recommendations = recommendations_path(&app)?;
+    core::score_market_and_evaluate_recommendations(request, &recommendations)
         .await
         .map_err(|error| error.message)
 }
@@ -45,6 +47,14 @@ fn validate_profile_config(content: String) -> core::ProfileValidationReport {
 #[tauri::command]
 async fn lookup_fund_profile_seed(code: String) -> Result<core::FundProfileSeed, String> {
     core::lookup_fund_profile_seed(code)
+        .await
+        .map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+async fn lookup_fund_nav(code: String, date: String) -> Result<core::FundNavLookup, String> {
+    core::lookup_fund_nav(code, date)
         .await
         .map_err(|error| error.message)
 }
@@ -102,6 +112,23 @@ fn save_orders(
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
+fn load_recommendations(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let path = recommendations_path(&app)?;
+    core::load_recommendations_from_path(&path).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn save_recommendations(
+    app: tauri::AppHandle,
+    records: Vec<serde_json::Value>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let path = recommendations_path(&app)?;
+    core::save_recommendations_to_path(&path, records).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
 fn load_monitor_state(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let path = monitor_path(&app)?;
     core::load_monitor_state_from_path(&path).map_err(|error| error.message)
@@ -136,6 +163,23 @@ fn save_risk_policy(
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
+fn load_paper_sim(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let path = paper_sim_path(&app)?;
+    core::load_paper_sim_from_path(&path).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn save_paper_sim(
+    app: tauri::AppHandle,
+    state: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let path = paper_sim_path(&app)?;
+    core::save_paper_sim_to_path(&path, state).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
 fn export_order_audit(
     app: tauri::AppHandle,
     request: core::OrderAuditExportRequest,
@@ -149,14 +193,12 @@ fn export_order_audit(
         &export_dir,
         request,
     )
-        .map_err(|error| error.message)
+    .map_err(|error| error.message)
 }
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
-fn probe_broker_bridge(
-    request: core::BrokerBridgeProbeRequest,
-) -> Vec<core::BrokerBridgeStatus> {
+fn probe_broker_bridge(request: core::BrokerBridgeProbeRequest) -> Vec<core::BrokerBridgeStatus> {
     core::probe_broker_bridge(request)
 }
 
@@ -203,6 +245,14 @@ fn sync_market_quote(request: core::MarketQuoteRequest) -> core::MarketQuoteSnap
 }
 
 #[cfg(feature = "desktop")]
+#[tauri::command]
+async fn sync_realtime_asset_quote(
+    request: core::RealtimeAssetQuoteRequest,
+) -> core::RealtimeAssetQuoteSnapshot {
+    core::sync_realtime_asset_quote(request).await
+}
+
+#[cfg(feature = "desktop")]
 fn holdings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
 
@@ -236,6 +286,17 @@ fn orders_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 }
 
 #[cfg(feature = "desktop")]
+fn recommendations_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("cannot resolve app data directory: {error}"))?;
+    Ok(dir.join("recommendations.json"))
+}
+
+#[cfg(feature = "desktop")]
 fn monitor_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
 
@@ -255,6 +316,17 @@ fn risk_policy_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String
         .app_data_dir()
         .map_err(|error| format!("cannot resolve app data directory: {error}"))?;
     Ok(dir.join("risk-policy.json"))
+}
+
+#[cfg(feature = "desktop")]
+fn paper_sim_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("cannot resolve app data directory: {error}"))?;
+    Ok(dir.join("paper-sim.json"))
 }
 
 #[cfg(feature = "desktop")]
@@ -281,16 +353,21 @@ pub fn run() {
             import_profile_config,
             validate_profile_config,
             lookup_fund_profile_seed,
+            lookup_fund_nav,
             load_holdings,
             save_holdings,
             load_trades,
             save_trades,
             load_orders,
             save_orders,
+            load_recommendations,
+            save_recommendations,
             load_monitor_state,
             save_monitor_state,
             load_risk_policy,
             save_risk_policy,
+            load_paper_sim,
+            save_paper_sim,
             export_order_audit,
             probe_broker_bridge,
             route_quant_order,
@@ -299,7 +376,8 @@ pub fn run() {
             cancel_order,
             sync_order_status,
             sync_account,
-            sync_market_quote
+            sync_market_quote,
+            sync_realtime_asset_quote
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

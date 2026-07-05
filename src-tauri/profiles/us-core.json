@@ -1,9 +1,27 @@
 {
+  "schemaVersion": 2,
+  "profileVersion": "2.0.0-manual-baseline",
   "key": "us-core",
   "name": "美股核心风险",
   "market": "us",
   "benchmark": "SPY",
   "description": "SPY / QQQ / SMH / NVDA / IWM / VIX 的核心风险分析。",
+  "calibrationMeta": {
+    "method": "manual-baseline",
+    "calibratedAt": "2026-06-29",
+    "dataSignature": "us-core-manual-baseline-2026-06-29",
+    "objective": "在控制最大回撤、换手和尾部亏损的前提下，提高分批建议的样本外稳定性。"
+  },
+  "executionPolicy": {
+    "quoteWarnAgeSeconds": 30,
+    "quoteBlockAgeSeconds": 120,
+    "etfWarnSpreadBps": 35,
+    "etfBlockSpreadBps": 100,
+    "etfWarnPremiumDiscountPct": 0.8,
+    "etfBlockPremiumDiscountPct": 2,
+    "fundWarnHoldingsAgeDays": 120,
+    "fundBlockHoldingsAgeDays": 180
+  },
   "mandate": {
     "mandateType": "美股成长核心卫星",
     "baseCurrency": "USD",

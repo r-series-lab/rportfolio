@@ -10,8 +10,6 @@ import {
   Tooltip,
 } from "@mui/material";
 import type {
-  DataSource,
-  DataSourceSummary,
   ProfileSummary,
 } from "../lib/types";
 import { MarketDatePicker } from "./market-date-picker";
@@ -21,21 +19,18 @@ type AppTopbarProps = {
   loading: boolean;
   profile: string;
   profiles: ProfileSummary[];
-  dataSources: DataSourceSummary[];
-  source: DataSource;
   onAsOfChange: (value: string) => void;
   onProfileChange: (value: string) => void;
-  onSourceChange: (value: DataSource) => void;
   onRefresh: () => void;
 };
 
 type AppTitlebarActionsProps = {
   onOpenProfileConfig: () => void;
   onToggleSidebar: () => void;
-  onToggleRightRail: () => void;
   sidebarCollapsed: boolean;
-  rightRailCollapsed: boolean;
-  rightRailLabel: string;
+  sourceDetail: string;
+  sourceLabel: string;
+  sourceQuality: "pass" | "warn" | "block";
 };
 
 export function AppTopbar({
@@ -43,22 +38,11 @@ export function AppTopbar({
   loading,
   profile,
   profiles,
-  dataSources,
-  source,
   onAsOfChange,
   onProfileChange,
-  onSourceChange,
   onRefresh,
 }: AppTopbarProps) {
   const profileOptions = profiles.length ? profiles : [{ key: profile, name: profile, market: "", description: "", builtin: false }];
-  const sourceOptions = dataSources.length
-    ? dataSources
-    : [
-        { key: "auto", name: "自动" },
-        { key: "yahoo", name: "Yahoo" },
-        { key: "csv", name: "CSV" },
-        { key: "sample", name: "示例" },
-      ];
 
   return (
     <div className="topbar-layout">
@@ -69,7 +53,10 @@ export function AppTopbar({
             onChange={(event) => onProfileChange(event.target.value)}
             inputProps={{ "aria-label": "Profile" }}
             renderValue={(value) => (
-              <span className="select-value-with-icon profile-select-value">
+              <span
+                className="select-value-with-icon profile-select-value"
+                title={profileNameFor(profileOptions, String(value))}
+              >
                 <QueryStatsRoundedIcon fontSize="inherit" />
                 <span>{profileNameFor(profileOptions, String(value))}</span>
               </span>
@@ -84,25 +71,6 @@ export function AppTopbar({
           </Select>
         </FormControl>
         <MarketDatePicker value={asOf} onChange={onAsOfChange} />
-        <FormControl size="small" className="source-select topbar-field">
-          <Select
-            value={source}
-            onChange={(event) => onSourceChange(event.target.value as DataSource)}
-            inputProps={{ "aria-label": "数据源" }}
-            renderValue={(value) => (
-              <span className="select-value-with-icon">
-                <DataUsageRoundedIcon fontSize="inherit" />
-                {sourceNameFor(sourceOptions, value as DataSource)}
-              </span>
-            )}
-          >
-            {sourceOptions.map((item) => (
-              <MenuItem key={item.key} value={item.key}>
-                {item.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
         <Tooltip title="刷新评分">
           <span>
             <IconButton
@@ -123,10 +91,10 @@ export function AppTopbar({
 export function AppTitlebarActions({
   onOpenProfileConfig,
   onToggleSidebar,
-  onToggleRightRail,
   sidebarCollapsed,
-  rightRailCollapsed,
-  rightRailLabel,
+  sourceDetail,
+  sourceLabel,
+  sourceQuality,
 }: AppTitlebarActionsProps) {
   return (
     <>
@@ -137,7 +105,11 @@ export function AppTitlebarActions({
               className={`titlebar-icon-button rail-collapse-titlebar-button left-rail-toggle-button ${sidebarCollapsed ? "is-collapsed" : ""}`}
               aria-label={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}
               aria-pressed={sidebarCollapsed}
-              onClick={onToggleSidebar}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleSidebar();
+              }}
             >
               <RailCollapseIcon direction="left" />
             </IconButton>
@@ -145,17 +117,12 @@ export function AppTitlebarActions({
         </Tooltip>
       </div>
       <div className="window-titlebar-actions" aria-label="窗口工具">
-        <Tooltip title={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}>
-          <span>
-            <IconButton
-              className={`titlebar-icon-button rail-collapse-titlebar-button right-rail-toggle-button ${rightRailCollapsed ? "is-collapsed" : ""}`}
-              aria-label={`${rightRailCollapsed ? "展开" : "收起"}${rightRailLabel}`}
-              aria-pressed={rightRailCollapsed}
-              onClick={onToggleRightRail}
-            >
-              <RailCollapseIcon direction="right" />
-            </IconButton>
-          </span>
+        <Tooltip title={`当前数据源：${sourceLabel}。${sourceDetail} 点击进入全局设置`}>
+          <button type="button" className={`global-source-status is-${sourceQuality}`} onClick={onOpenProfileConfig}>
+            <DataUsageRoundedIcon fontSize="inherit" />
+            <span>{sourceLabel}</span>
+            <i aria-label={sourceQuality === "pass" ? "数据可信" : sourceQuality === "warn" ? "数据待确认" : "数据阻断"} />
+          </button>
         </Tooltip>
         <Tooltip title="Profile 配置">
           <span>
@@ -183,8 +150,4 @@ function RailCollapseIcon({ direction }: { direction: "left" | "right" }) {
 
 function profileNameFor(profiles: Array<{ key: string; name: string }>, key: string) {
   return profiles.find((item) => item.key === key)?.name ?? key;
-}
-
-function sourceNameFor(sources: Array<{ key: DataSource | string; name: string }>, key: DataSource) {
-  return sources.find((item) => item.key === key)?.name ?? key;
 }

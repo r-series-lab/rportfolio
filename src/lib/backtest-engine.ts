@@ -44,8 +44,10 @@ export type BacktestSimulatedOrder = {
   netPnlPct: number;
 };
 
-export type BacktestRunResult = {
+export type ScenarioProjectionResult = {
   key: string;
+  evidenceType: "scenario_projection";
+  methodology: string;
   createdAt: string;
   equity: BacktestEquityCurve;
   events: BacktestEvent[];
@@ -65,7 +67,7 @@ export type BacktestRunResult = {
   winRatePct: number;
 };
 
-export type BacktestEngineInput = {
+export type ScenarioProjectionInput = {
   budgetWeight: number;
   feeBps?: number;
   orderIntents: OrderIntent[];
@@ -81,7 +83,7 @@ export type BacktestEngineInput = {
 const DEFAULT_FEE_BPS = 10;
 const DEFAULT_SLIPPAGE_BPS = 20;
 
-export function runBacktestEngine({
+export function runScenarioProjection({
   budgetWeight,
   feeBps = DEFAULT_FEE_BPS,
   orderIntents,
@@ -92,7 +94,7 @@ export function runBacktestEngine({
   slippageBps = DEFAULT_SLIPPAGE_BPS,
   strategy,
   tradeHabit,
-}: BacktestEngineInput): BacktestRunResult {
+}: ScenarioProjectionInput): ScenarioProjectionResult {
   const horizon = primaryHorizon(report.backtest.stateValidation.horizonStats);
   const technicalBySymbol = new Map(report.technicalRows.map((row) => [row.symbol, row]));
   const simulatedOrders = orderIntents.map((intent, index) => simulateOrder({
@@ -134,6 +136,8 @@ export function runBacktestEngine({
 
   return {
     key: `run-${Date.now()}`,
+    evidenceType: "scenario_projection",
+    methodology: "使用当前建议、同状态历史统计和成本假设进行情景投影；不是逐日历史委托回放。",
     createdAt: shortTimeLabel(),
     equity: equityCurveFromReturns(curveReturns),
     events,
@@ -146,7 +150,7 @@ export function runBacktestEngine({
     sharpe,
     simulatedOrders,
     strategyLabel: strategy.label,
-    summary: `${strategy.label} / ${preset.strategy} · ${formatPercent(pnlPct)} · 回撤 ${formatPercent(maxDrawdownPct)} · ${executableOrders.length} 单`,
+    summary: `情景试算 · ${strategy.label} / ${preset.strategy} · ${formatPercent(pnlPct)} · 回撤 ${formatPercent(maxDrawdownPct)} · ${executableOrders.length} 单`,
     tone,
     trades,
     turnoverPct,

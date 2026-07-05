@@ -40,6 +40,7 @@ cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- capabilities --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- profiles --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- sources --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile us-core --source auto --json
+cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile a-share-risk --source china --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile ai-semiconductor --source sample --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile korea-ai-risk --source auto --json
 cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile ./my-profile.json --source csv --json
@@ -48,7 +49,10 @@ cargo run --quiet --manifest-path ./src-tauri/Cargo.toml -- score --profile ./my
 
 Supported sources:
 
-- `auto`: use profile CSV if configured; otherwise try Yahoo Finance, then fall back to sample data
+- `auto`: use profile CSV if configured; A-share profiles then use the China multi-source path, followed by Stooq/Yahoo and sample fallback
+- `china`: Eastmoney forward-adjusted A-share/ETF daily data, Yahoo for offshore symbols, and a same-day benchmark cross-check
+- `stooq`: public Stooq daily history pages
+- `hybrid`: Yahoo equities/ETFs with FRED macro overlays
 - `yahoo`: strict Yahoo Finance chart fetch
 - `csv`: read local daily OHLCV files from `profile.dataDir` or each symbol's `csvPath`
 - `sample`: deterministic offline demo data
@@ -104,7 +108,9 @@ Each report includes triggered rules, action-map price lines, period opportunity
 
 ## Data Notes
 
-The default local mode uses Yahoo Finance's unofficial chart endpoint for convenience. `csv` mode is the recommended bridge for AkShare, TuShare, exchange downloads, or paid Hong Kong/global vendors: export daily files with `date/open/high/low/close/volume` columns, optionally add flow fields such as `foreign_flow`, then point the profile at those files.
+The A-share path uses Eastmoney forward-adjusted daily data and checks the core benchmark against Yahoo on the latest shared trading day. A difference above 2% is marked as a consistency failure and blocks risk-increasing recommendations. Successful China-source snapshots are cached for up to seven calendar days and are only used as an explicit degraded fallback.
+
+`csv` mode remains the recommended bridge for AkShare, TuShare, exchange downloads, or licensed vendors: export daily files with `date/open/high/low/close/volume` columns, optionally add flow fields such as `foreign_flow`, then point the profile at those files.
 
 For production-grade long-term usage, add a formal provider such as Alpha Vantage, Polygon, Twelve Data, or a licensed Hong Kong data feed behind the same Rust data boundary.
 
