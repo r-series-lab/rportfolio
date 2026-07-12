@@ -28,6 +28,7 @@ import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
 import { Textarea } from "./ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { ProgressiveDisclosure } from "./progressive-disclosure";
 import {
   HOLDING_ASSET_TYPE_OPTIONS,
   HOLDING_CURRENCY_OPTIONS,
@@ -713,11 +714,11 @@ export function HoldingsWorkspace({
                                 <strong>{holding.costValue > 0 ? formatCurrency(holding.pnl, holding.currency) : "—"}</strong>
                                 <small>{formatPercent(holding.pnlPct) || "等待成本"}</small>
                               </td>
-                              <td className={`holding-amount-cell is-${advice.amountTone}`} title={`${advice.action} · ${advice.delta}`}>
+                              <td className={`holding-amount-cell is-${advice.amountTone}`}>
                                 <strong>{advice.amount}</strong>
                                 <small>{advice.action}</small>
                               </td>
-                              <td className={`holding-horizon-cell is-${advice.long.tone}`} title={advice.long.detail}>
+                              <td className={`holding-horizon-cell is-${advice.long.tone}`}>
                                 <strong>{advice.state}</strong>
                                 <small>{advice.reason}</small>
                               </td>
@@ -1353,15 +1354,33 @@ function HoldingDetailPanel({
             {holding.market} · {holdingAssetTypeLabel(holding.assetType)} · {holdingQuoteSourceLabel(holding.quoteSource)}
             {holding.assetType === "fund" ? ` · 确认净值 ${holding.confirmedNavAsOf || "待同步"}` : ""}
           </span>
-          {holding.assetType === "fund" ? (
-            <span>{holding.fundPurchaseStatus || "申购状态待同步"}</span>
-          ) : null}
-          {holding.assetType === "fund" ? (
-            <span>持仓穿透 {holding.fundHoldingsAsOf || "待同步"} · 前 {holding.fundTopHoldings?.length ?? 0} 项 · 净值 {holding.fundNavHistory?.length ?? 0} 日 · 赎回费 {holding.fundRedemptionFeeSchedule?.length ?? 0} 档</span>
-          ) : null}
-          <strong>{action?.detail ?? action?.reason ?? "按当前仓位规则"}</strong>
         </div>
       </div>
+
+      <ProgressiveDisclosure
+        className="holding-detail-disclosure"
+        label="资产资料与策略依据"
+        badge={holding.assetType === "fund" ? "基金资料" : "查看"}
+      >
+        <div className="holding-detail-evidence">
+          {holding.assetType === "fund" ? (
+            <span>
+              <strong>交易状态</strong>
+              <em>{holding.fundPurchaseStatus || "待同步"}</em>
+            </span>
+          ) : null}
+          {holding.assetType === "fund" ? (
+            <span>
+              <strong>持仓穿透</strong>
+              <em>{holding.fundHoldingsAsOf || "待同步"} · 前 {holding.fundTopHoldings?.length ?? 0} 项</em>
+            </span>
+          ) : null}
+          <span>
+            <strong>建议依据</strong>
+            <em>{action?.detail ?? action?.reason ?? "按当前仓位规则"}</em>
+          </span>
+        </div>
+      </ProgressiveDisclosure>
 
       {canUpgrade ? (
         <div className="holding-upgrade-strip">
@@ -1404,11 +1423,13 @@ function HoldingDetailPanel({
         <p>{advice.reason}</p>
       </div>
 
-      <div className="holding-horizon-grid" aria-label="短中长期建议">
-        <HoldingHorizonCard label="短期" horizon={advice.short} />
-        <HoldingHorizonCard label="中期" horizon={advice.medium} />
-        <HoldingHorizonCard label="长期" horizon={advice.long} />
-      </div>
+      <ProgressiveDisclosure className="holding-horizon-disclosure" label="分周期建议" badge="短 / 中 / 长">
+        <div className="holding-horizon-grid" aria-label="短中长期建议">
+          <HoldingHorizonCard label="短期" horizon={advice.short} />
+          <HoldingHorizonCard label="中期" horizon={advice.medium} />
+          <HoldingHorizonCard label="长期" horizon={advice.long} />
+        </div>
+      </ProgressiveDisclosure>
 
     </Card>
   );

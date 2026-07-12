@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNod
 import { isCashHolding, type PositionPlan } from "../lib/position-plan";
 import type { HoldingRecord } from "../lib/holdings";
 import { syncRealtimeAssetQuote, type RealtimeAssetQuoteSnapshot } from "../lib/realtime-quote";
-import type { AssetStatus, MarketAnalysisReport, TechnicalRow } from "../lib/types";
+import type { AssetStatus, MarketAnalysisReport, PriceActionSnapshot, TechnicalRow } from "../lib/types";
 import { formatMoney, formatNumber, formatPercent } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -48,6 +48,7 @@ type AssetAnalysisRow = {
   holding: HoldingRecord | null;
   asset: AssetStatus | null;
   technical: TechnicalRow | null;
+  priceAction: PriceActionSnapshot | null;
 };
 
 type AssetResearchTone = "positive" | "neutral" | "caution" | "negative";
@@ -302,6 +303,7 @@ export function AssetAnalysisWorkspace({
                       <Metric label="日涨跌" value={formatPercent(activeRow.change1d)} tone={moveTone(activeRow.change1d)} />
                       <Metric label="RSI" value={formatNullable(activeRow.technical?.rsi14, 1)} tone={rsiTone(activeRow.technical?.rsi14)} />
                       <Metric label="20日" value={formatPercent(activeRow.technical?.return20d)} tone={moveTone(activeRow.technical?.return20d)} />
+                      <Metric label="结构" value={activeRow.priceAction?.phaseLabel ?? "—"} tone={activeRow.priceAction?.tone as AssetResearchTone ?? "neutral"} />
                     </div>
                   </section>
 
@@ -433,6 +435,7 @@ function buildAssetRows({ holdings, report }: { holdings: HoldingRecord[]; repor
   const holdingsBySymbol = new Map(holdings.map((holding) => [symbolKey(holding.symbol), holding]));
   const assetsBySymbol = new Map(report.assetStatuses.map((asset) => [symbolKey(asset.symbol), asset]));
   const technicalBySymbol = new Map(report.technicalRows.map((row) => [symbolKey(row.symbol), row]));
+  const priceActionBySymbol = new Map((report.priceAction?.snapshots ?? []).map((snapshot) => [symbolKey(snapshot.symbol), snapshot]));
   const symbols = new Set<string>([
     ...report.assetStatuses.map((asset) => symbolKey(asset.symbol)),
     ...report.technicalRows.map((row) => symbolKey(row.symbol)),
@@ -442,7 +445,8 @@ function buildAssetRows({ holdings, report }: { holdings: HoldingRecord[]; repor
     const holding = holdingsBySymbol.get(symbol) ?? null;
     const asset = assetsBySymbol.get(symbol) ?? null;
     const technical = technicalBySymbol.get(symbol) ?? null;
-    return assetRowFromSources(symbol, holding, asset, technical, report);
+    const priceAction = priceActionBySymbol.get(symbol) ?? null;
+    return assetRowFromSources(symbol, holding, asset, technical, priceAction, report);
   }).sort(compareAssetRows);
 }
 
@@ -451,6 +455,7 @@ function assetRowFromSources(
   holding: HoldingRecord | null,
   asset: AssetStatus | null,
   technical: TechnicalRow | null,
+  priceAction: PriceActionSnapshot | null,
   report: MarketAnalysisReport,
 ): AssetAnalysisRow {
   const cash = holding ? isCashHolding(holding) : false;
@@ -481,6 +486,7 @@ function assetRowFromSources(
     holding,
     asset,
     technical,
+    priceAction,
   };
 }
 
@@ -500,13 +506,15 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
   const weak = row.tone === "negative" || (row.technical?.return20d ?? 0) < -6 || (row.technical?.rsi14 ?? 50) < 35;
   const overheated = (row.technical?.rsi14 ?? 0) >= 75 || (row.technical?.return20d ?? 0) > 12;
   const aboveTrend = row.technical?.ma20 && row.close > row.technical.ma20;
+  const priceBroken = row.priceAction?.tone === "negative" || row.priceAction?.phase === "breakdown";
+  const priceConfirmed = row.priceAction?.tone === "positive" && row.priceAction.score >= 68;
   const cashPressure = positionPlan.cashWeight < positionPlan.policy.minCashWeight;
-  if (row.tradable && weak) {
+  if (row.tradable && (weak || priceBroken)) {
     return {
       actionLabel: "减仓观察",
       tone: "negative" as const,
-      summary: "该标的处在弱势或风险灯号下，适合先控制仓位。",
-      detail: "真实持仓可以进入量化交易，但应先通过风控和目标带复核。",
+      summary: priceBroken ? "价格行为已经转弱，优先控制仓位。" : "该标的处在弱势或风险灯号下，适合先控制仓位。",
+      detail: priceBroken ? row.priceAction?.summary ?? "结构破位，先等待修复。" : "真实持仓可以进入量化交易，但应先通过风控和目标带复核。",
     };
   }
   if (row.tradable && overheated) {
@@ -517,12 +525,12 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
       detail: "可交易，但下单前需要关注 RSI、短期涨幅和仓位上限。",
     };
   }
-  if (row.tradable && aboveTrend && !cashPressure) {
+  if (row.tradable && aboveTrend && priceConfirmed && !cashPressure) {
     return {
       actionLabel: "可交易",
       tone: "positive" as const,
-      summary: "趋势结构尚可，若目标带有空间可进入交易页执行。",
-      detail: "建议先在量化交易页走风控，再选择手动、模拟或通道执行。",
+      summary: "趋势与价格行为同向，若目标带有空间可进入交易页执行。",
+      detail: row.priceAction?.entryTrigger ?? "建议先在量化交易页走风控，再选择手动、模拟或通道执行。",
     };
   }
   if (row.tradable) {
@@ -551,7 +559,7 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
 
 function technicalChecks(row: AssetAnalysisRow) {
   const technical = row.technical;
-  return [
+  const checks = [
     {
       key: "trend",
       label: "趋势",
@@ -581,6 +589,23 @@ function technicalChecks(row: AssetAnalysisRow) {
       detail: "用于判断短期强弱和是否追高。",
     },
   ];
+  if (row.priceAction) {
+    checks.unshift({
+      key: "price-action",
+      label: "价格行为",
+      value: `${row.priceAction.phaseLabel} ${formatNumber(row.priceAction.score, 0)}`,
+      tone: row.priceAction.tone as "positive" | "neutral" | "caution" | "negative",
+      detail: row.priceAction.entryTrigger,
+    });
+    checks.push({
+      key: "invalidation",
+      label: "失效线",
+      value: row.priceAction.invalidation,
+      tone: row.priceAction.tone === "negative" ? "negative" as const : "caution" as const,
+      detail: row.priceAction.summary,
+    });
+  }
+  return checks;
 }
 
 function boundaryChecks(row: AssetAnalysisRow, decision: ReturnType<typeof decisionForAsset>) {
@@ -616,20 +641,23 @@ function buildAssetResearch(row: AssetAnalysisRow, report: MarketAnalysisReport,
   const rsi = finiteNumber(row.technical?.rsi14);
   const rsiEffect = rsi == null ? 0 : (rsi - 50) * 0.45;
   const heatPenalty = rsi != null && (rsi >= 75 || rsi <= 28) ? 8 : 0;
-  const trendScore = clamp((hasTechnical ? 50 : 38) + return20d * 1.15 + (ma20Gap ?? 0) * 1.8 + rsiEffect - heatPenalty, 0, 100);
+  const priceActionScore = row.priceAction?.score ?? null;
+  const trendScore = clamp((hasTechnical ? 50 : 38) + return20d * 1.15 + (ma20Gap ?? 0) * 1.8 + rsiEffect - heatPenalty + (priceActionScore == null ? 0 : (priceActionScore - 55) * 0.35), 0, 100);
   const trendTone = scoreTone(trendScore);
-  const trendLabel = hasTechnical ? trendLabelForScore(trendScore) : "等待行情补齐";
-  const support = firstPositiveNumber(row.technical?.ma20, row.technical?.ma50, row.close ? row.close * 0.96 : null);
-  const resistance = row.close ? row.close * (return20d > 8 ? 1.03 : return20d < -6 ? 1.08 : 1.06) : null;
-  const invalidation = firstPositiveNumber(row.technical?.ma50, row.close ? row.close * 0.93 : null);
+  const trendLabel = row.priceAction?.phaseLabel ?? (hasTechnical ? trendLabelForScore(trendScore) : "等待行情补齐");
+  const support = row.priceAction?.support ?? formatPrice(firstPositiveNumber(row.technical?.ma20, row.technical?.ma50, row.close ? row.close * 0.96 : null) ?? 0, row.symbol);
+  const resistance = row.priceAction?.resistance ?? formatPrice(row.close ? row.close * (return20d > 8 ? 1.03 : return20d < -6 ? 1.08 : 1.06) : 0, row.symbol);
+  const invalidation = row.priceAction?.invalidation ?? formatPrice(firstPositiveNumber(row.technical?.ma50, row.close ? row.close * 0.93 : null) ?? 0, row.symbol);
   const horizon20 = report.backtest.stateValidation.horizonStats.find((item) => item.days === 20) ?? report.backtest.stateValidation.horizonStats[0] ?? null;
   const strategyTone = row.tradable ? decision.tone : row.registered ? "caution" : "neutral";
   const cashBlocked = row.tradable && positionPlan.cashWeight < positionPlan.policy.minCashWeight;
 
   return {
     trendLabel,
-    trendTone,
-    trendDetail: hasTechnical
+    trendTone: row.priceAction?.tone as AssetResearchTone ?? trendTone,
+    trendDetail: row.priceAction
+      ? `${row.priceAction.summary} 进入条件：${row.priceAction.entryTrigger}。`
+      : hasTechnical
       ? `基于 20日表现、MA20 偏离和 RSI 估算，趋势适配度 ${formatNumber(trendScore, 0)}/100。`
       : "当前只有持仓价格或 Profile 灯号，先把行情/指标补齐再做交易判断。",
     sparkline: buildProxySparkline(row),
@@ -644,21 +672,21 @@ function buildAssetResearch(row: AssetAnalysisRow, report: MarketAnalysisReport,
       {
         key: "support",
         label: "支撑",
-        value: formatPrice(support ?? 0, row.symbol),
-        tone: support && row.close > support ? "positive" : "caution",
-        detail: support ? "优先使用 MA20/MA50；没有均线时用现价下方代理线。" : "缺少可用价格。",
+        value: support,
+        tone: row.priceAction?.tone === "negative" ? "negative" : "positive",
+        detail: row.priceAction ? "来自价格行为引擎的关键支撑位。" : "优先使用 MA20/MA50；没有均线时用现价下方代理线。",
       },
       {
         key: "resistance",
         label: "压力",
-        value: formatPrice(resistance ?? 0, row.symbol),
+        value: resistance,
         tone: "neutral",
-        detail: "用于判断追高空间，真实阻力位后续应由 K 线结构确认。",
+        detail: row.priceAction ? "来自当前结构的突破观察位。" : "用于判断追高空间，真实阻力位后续应由 K 线结构确认。",
       },
       {
         key: "invalidation",
         label: "失效线",
-        value: formatPrice(invalidation ?? 0, row.symbol),
+        value: invalidation,
         tone: "negative",
         detail: "跌破后不再按当前观察逻辑加仓，应重新评估。",
       },
@@ -707,6 +735,13 @@ function buildAssetResearch(row: AssetAnalysisRow, report: MarketAnalysisReport,
         value: row.tradable ? "量化交易" : row.registered ? "持仓维护" : "加入观察",
         tone: strategyTone,
         detail: row.tradable ? "真实持仓可进入交易页，再选择手动、模拟或通道执行。" : row.registered ? "先补角色、成本和目标带，再决定是否转真实持仓。" : "先进入观察池，不直接进入委托队列。",
+      },
+      {
+        key: "price-action",
+        label: "价格行为",
+        value: row.priceAction ? `${row.priceAction.score}/100` : "待补齐",
+        tone: row.priceAction?.tone as AssetResearchTone ?? "neutral",
+        detail: row.priceAction?.entryTrigger ?? "等待价格行为分析。",
       },
       {
         key: "execution",

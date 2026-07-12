@@ -2,6 +2,7 @@ import AccountTreeRoundedIcon from "@mui/icons-material/AccountTreeRounded";
 import { decisionMetricsFor } from "../lib/market-metrics";
 import type { FactorScore, MarketAnalysisReport, PatternAnalysis, StructureAnalysis } from "../lib/types";
 import { DetailTooltip } from "./detail-tooltip";
+import { PatternPanel } from "./pattern-panel";
 
 type StructurePanelProps = {
   structure: StructureAnalysis;
@@ -15,58 +16,62 @@ export function StructurePanel({ structure, factorScores = [], patternAnalysis, 
   const mainPattern = patternAnalysis?.dominant ?? patternAnalysis?.patterns[0] ?? null;
 
   return (
-    <section className="panel structure-panel">
-      <div className="micro-panel-head">
-        <AccountTreeRoundedIcon fontSize="inherit" />
-        <span>动作地图</span>
-      </div>
+    <>
+      <section className="panel structure-panel">
+        <div className="micro-panel-head">
+          <AccountTreeRoundedIcon fontSize="inherit" />
+          <span>动作地图</span>
+        </div>
 
-      <div className="structure-template-grid">
-        <article className="structure-status-card">
-          <span>当前结构状态</span>
-          <strong>{cleanTrend(structure.trend)}</strong>
-          <p>
-            支撑：{structure.support}
-            <br />
-            压力：{structure.resistance}
-          </p>
-        </article>
+        <div className="structure-template-grid">
+          <article className="structure-status-card">
+            <span>当前结构状态</span>
+            <strong>{cleanTrend(structure.trend)}</strong>
+            <p>
+              支撑：{structure.support}
+              <br />
+              压力：{structure.resistance}
+            </p>
+          </article>
 
-        <div className="structure-score-row">
-          {metrics.map((metric) => (
-            <StructureScore key={metric.label} label={metric.label} value={metric.value} tone={structureScoreTone(metric.tone)} />
+          <div className="structure-score-row">
+            {metrics.map((metric) => (
+              <StructureScore key={metric.label} label={metric.label} value={metric.value} tone={structureScoreTone(metric.tone)} />
+            ))}
+          </div>
+        </div>
+
+        <div className="action-map">
+          {structure.actionMap.slice(0, 6).map((line) => (
+            <DetailTooltip key={line.key} title={line.detail}>
+              <article className={`action-line is-${line.tone} has-detail`}>
+                <span>{line.label}</span>
+                <strong>{line.value}</strong>
+                <em>{line.action}</em>
+              </article>
+            </DetailTooltip>
           ))}
         </div>
-      </div>
 
-      <div className="action-map">
-        {structure.actionMap.slice(0, 6).map((line) => (
-          <DetailTooltip key={line.key} title={line.detail}>
-            <article className={`action-line is-${line.tone} has-detail`}>
-              <span>{line.label}</span>
-              <strong>{line.value}</strong>
-              <em>{line.action}</em>
+        <div className="structure-signals is-template">
+          {structure.signals.slice(0, 4).map((signal) => (
+            <article key={signal.key} className={`structure-signal is-${signal.tone}`}>
+              <span>{signal.label}</span>
+              <strong>{signal.value}</strong>
+              <p>{signal.detail}</p>
             </article>
-          </DetailTooltip>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="structure-signals is-template">
-        {structure.signals.slice(0, 4).map((signal) => (
-          <article key={signal.key} className={`structure-signal is-${signal.tone}`}>
-            <span>{signal.label}</span>
-            <strong>{signal.value}</strong>
-            <p>{signal.detail}</p>
-          </article>
-        ))}
-      </div>
+        <article className={`main-pattern-strip is-${mainPattern?.tone ?? "neutral"}`}>
+          <span>主形态</span>
+          <strong>{mainPattern ? `${mainPattern.symbolLabel}：${mainPattern.label}` : "暂无高置信度主形态"}</strong>
+          <p>{mainPattern ? mainPattern.action : "当前以均线结构和动作线为主。"}</p>
+        </article>
+      </section>
 
-      <article className={`main-pattern-strip is-${mainPattern?.tone ?? "neutral"}`}>
-        <span>主形态</span>
-        <strong>{mainPattern ? `${mainPattern.symbolLabel}：${mainPattern.label}` : "暂无高置信度主形态"}</strong>
-        <p>{mainPattern ? mainPattern.action : "当前以均线结构和动作线为主。"}</p>
-      </article>
-    </section>
+      {patternAnalysis ? <PatternPanel analysis={patternAnalysis} compact /> : null}
+    </>
   );
 }
 

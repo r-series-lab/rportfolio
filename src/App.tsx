@@ -610,6 +610,7 @@ function App() {
                               <TechnicalPanel
                                 profileMarket={report.profileMarket}
                                 columns={report.technicalColumns}
+                                priceAction={report.priceAction}
                                 rows={report.technicalRows}
                                 strength={report.sectorStrength}
                               />

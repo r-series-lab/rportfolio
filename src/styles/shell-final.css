@@ -1,0 +1,712 @@
+/* Final application chrome: mature desktop navigation and titlebar controls. */
+html[data-rportfolio-style] {
+  --window-drag-height: 48px !important;
+  --rp-nav-width: 164px;
+  --rp-nav-collapsed-width: 72px;
+  --rp-chrome-control-height: 34px;
+  --rp-chrome-control-radius: 12px;
+  --rp-chrome-left-safe: 232px;
+  --rp-chrome-right-safe: 226px;
+}
+
+html[data-rportfolio-style] body .window-drag-region {
+  z-index: 80 !important;
+  border-bottom-color: color-mix(in srgb, var(--rp-hairline) 76%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-chrome) 96%, white 2%), color-mix(in srgb, var(--rp-chrome) 98%, black 2%)),
+    var(--rp-chrome) !important;
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, white 5%, transparent),
+    0 1px 0 color-mix(in srgb, var(--rp-canvas-deep) 16%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .workspace-shell:not(.is-sidebar-collapsed) {
+  --workspace-menu-width: var(--rp-nav-width) !important;
+}
+
+html[data-rportfolio-style] body .workspace-shell > .app-menu {
+  gap: 8px !important;
+  padding: 16px 12px 14px !important;
+  border-right: 1px solid color-mix(in srgb, var(--rp-hairline) 82%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 95px),
+    radial-gradient(circle at 50% 0, color-mix(in srgb, var(--rp-accent) 10%, transparent), transparent 120px),
+    color-mix(in srgb, var(--rp-sidebar-glass) 94%, var(--rp-canvas-deep) 6%) !important;
+  box-shadow:
+    inset -1px 0 0 color-mix(in srgb, white 4%, transparent),
+    18px 0 44px color-mix(in srgb, var(--rp-canvas-deep) 9%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .app-menu-brand {
+  min-height: 50px !important;
+  margin: 0 0 8px !important;
+  padding: 0 4px !important;
+  gap: 10px !important;
+}
+
+html[data-rportfolio-style] body .app-menu-brand > span {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 15px !important;
+  border-color: color-mix(in srgb, var(--rp-hairline-strong) 84%, transparent) !important;
+  color: color-mix(in srgb, var(--rp-accent) 44%, var(--rp-ink)) !important;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, white 14%, transparent), transparent 62%),
+    color-mix(in srgb, var(--rp-control-glass) 86%, var(--rp-accent) 7%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
+    0 12px 26px color-mix(in srgb, var(--rp-canvas-deep) 15%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .app-menu-brand strong {
+  display: none !important;
+  color: var(--rp-ink) !important;
+  font-size: 0.78rem !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.02em !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button {
+  min-height: 48px !important;
+  grid-template-columns: 26px minmax(0, 1fr) !important;
+  align-items: center !important;
+  justify-items: stretch !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border: 1px solid color-mix(in srgb, var(--rp-hairline) 68%, transparent) !important;
+  border-radius: 15px !important;
+  color: var(--rp-ink-secondary) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent),
+    color-mix(in srgb, var(--rp-control-glass) 64%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
+    0 8px 22px color-mix(in srgb, var(--rp-canvas-deep) 7%, transparent) !important;
+  transform: translateZ(0);
+}
+
+html[data-rportfolio-style] body .app-menu > button::before {
+  inset: 12px auto 12px -1px !important;
+  width: 3px !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--rp-accent) 78%, white 4%) !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button:hover {
+  color: var(--rp-ink) !important;
+  border-color: color-mix(in srgb, var(--rp-accent) 24%, var(--rp-hairline-strong)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 8%, transparent), transparent),
+    color-mix(in srgb, var(--rp-control-hover) 82%, transparent) !important;
+  transform: translateY(-1px);
+}
+
+html[data-rportfolio-style] body .app-menu > button.is-active {
+  color: var(--rp-ink) !important;
+  border-color: color-mix(in srgb, var(--rp-accent) 42%, var(--rp-hairline-strong)) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--rp-accent) 18%, transparent), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, white 10%, transparent), transparent),
+    color-mix(in srgb, var(--rp-selection) 86%, var(--rp-control-glass) 14%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+    0 14px 30px color-mix(in srgb, var(--rp-canvas-deep) 13%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button .MuiSvgIcon-root {
+  display: block !important;
+  grid-column: 1 !important;
+  justify-self: center !important;
+  font-size: 1rem !important;
+  color: color-mix(in srgb, currentColor 82%, var(--rp-accent) 18%) !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button span {
+  display: block !important;
+  grid-column: 2 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  justify-self: stretch !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button strong {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  line-height: 1.15 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button strong {
+  color: inherit !important;
+  font-size: 0.86rem !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.01em !important;
+}
+
+html[data-rportfolio-style] body .app-menu > button small {
+  display: none !important;
+}
+
+html[data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed {
+  --workspace-menu-width: 0px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html[data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed > .app-menu {
+  display: none !important;
+}
+
+html[data-rportfolio-style] body .window-leading-actions,
+html[data-rportfolio-style] body .window-titlebar-actions,
+html[data-rportfolio-style] body .window-center-toolbar {
+  z-index: 92 !important;
+  -webkit-app-region: no-drag !important;
+}
+
+html[data-rportfolio-style] body .window-leading-actions {
+  top: calc((var(--window-drag-height) - 32px) / 2) !important;
+  left: 96px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+html[data-rportfolio-style] body:has(.workspace-shell.is-sidebar-collapsed) .window-leading-actions {
+  left: 78px !important;
+}
+
+html[data-rportfolio-style] body .window-titlebar-actions {
+  top: calc((var(--window-drag-height) - 34px) / 2) !important;
+  right: 14px !important;
+  height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+html[data-rportfolio-style] body .window-leading-actions .titlebar-icon-button.MuiIconButton-root,
+html[data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root,
+html[data-rportfolio-style] body .window-leading-actions .rail-collapse-titlebar-button.MuiIconButton-root {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 12px !important;
+  border-color: color-mix(in srgb, var(--rp-hairline-strong) 76%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 8%, transparent), transparent),
+    color-mix(in srgb, var(--rp-control-glass) 78%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    0 8px 22px color-mix(in srgb, var(--rp-canvas-deep) 11%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .window-titlebar-actions .global-source-status {
+  max-width: 188px !important;
+  height: 32px !important;
+  gap: 7px !important;
+  padding: 0 11px !important;
+  border-radius: 999px !important;
+  border-color: color-mix(in srgb, var(--rp-hairline-strong) 68%, transparent) !important;
+  color: var(--rp-ink-secondary) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent),
+    color-mix(in srgb, var(--rp-control-glass) 76%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 9%, transparent) !important;
+}
+
+html[data-rportfolio-style] body .window-titlebar-actions .global-source-status span {
+  max-width: 126px !important;
+  font-size: 0.73rem !important;
+  font-weight: 700 !important;
+}
+
+html[data-rportfolio-style] body .window-titlebar-actions .global-source-status svg {
+  font-size: 0.9rem !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar,
+html[data-rportfolio-style] body .window-center-toolbar.is-sidebar-collapsed,
+html[data-rportfolio-style] body:has(.workspace-shell.is-sidebar-collapsed) .window-center-toolbar {
+  top: calc((var(--window-drag-height) - var(--rp-chrome-control-height)) / 2) !important;
+  left: var(--rp-chrome-left-safe) !important;
+  right: var(--rp-chrome-right-safe) !important;
+  height: var(--rp-chrome-control-height) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  container-type: inline-size;
+}
+
+html[data-rportfolio-style] body:has(.workspace-shell.is-sidebar-collapsed) .window-center-toolbar {
+  left: 132px !important;
+}
+
+html[data-rportfolio-style] body:has(.analysis-page-stack.has-decision-rail) .window-center-toolbar.has-right-rail {
+  right: calc(var(--rp-analysis-rail-width) + 24px) !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-layout {
+  width: auto !important;
+  inline-size: auto !important;
+  max-width: min(100%, 500px) !important;
+  height: var(--rp-chrome-control-height) !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  pointer-events: auto !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-controls {
+  width: auto !important;
+  inline-size: auto !important;
+  max-width: 100% !important;
+  height: var(--rp-chrome-control-height) !important;
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .profile-select {
+  width: clamp(178px, 22vw, 270px) !important;
+  min-width: 0 !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .date-field {
+  width: 142px !important;
+  min-width: 132px !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-refresh-button.MuiIconButton-root {
+  width: 34px !important;
+  min-width: 34px !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiOutlinedInput-root,
+html[data-rportfolio-style] body .window-center-toolbar .market-date-trigger,
+html[data-rportfolio-style] body .window-center-toolbar .topbar-refresh-button.MuiIconButton-root {
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: var(--rp-chrome-control-radius) !important;
+  border: 1px solid color-mix(in srgb, var(--rp-hairline-strong) 68%, transparent) !important;
+  color: var(--rp-ink-secondary) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 7%, transparent), transparent),
+    color-mix(in srgb, var(--rp-control-glass) 76%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 9%, transparent),
+    0 8px 22px color-mix(in srgb, var(--rp-canvas-deep) 8%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiSelect-select,
+html[data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiInputBase-input {
+  height: 34px !important;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1 !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiSelect-select {
+  padding-left: 12px !important;
+  padding-right: 32px !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .select-value-with-icon,
+html[data-rportfolio-style] body .window-center-toolbar .profile-select-value,
+html[data-rportfolio-style] body .window-center-toolbar .market-date-trigger,
+html[data-rportfolio-style] body .window-center-toolbar .market-date-value {
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  line-height: 1 !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .select-value-with-icon > span,
+html[data-rportfolio-style] body .window-center-toolbar .profile-select-value > span,
+html[data-rportfolio-style] body .window-center-toolbar .market-date-value strong,
+html[data-rportfolio-style] body .window-center-toolbar .market-date-value em {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html[data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiSelect-icon {
+  top: 50% !important;
+  right: 9px !important;
+  transform: translateY(-50%) !important;
+}
+
+html[data-rportfolio-style="light"] body .workspace-shell > .app-menu {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(236, 244, 252, 0.78)),
+    #edf4fb !important;
+}
+
+html[data-rportfolio-style="light"] body .app-menu > button {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 253, 0.62)),
+    rgba(255, 255, 255, 0.58) !important;
+}
+
+html[data-rportfolio-style="light"] body .app-menu > button.is-active {
+  background:
+    linear-gradient(135deg, rgba(61, 119, 196, 0.16), transparent 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 246, 255, 0.76)) !important;
+}
+
+@container (max-width: 430px) {
+  html[data-rportfolio-style] body .window-center-toolbar .date-field {
+    display: none !important;
+  }
+}
+
+@media (max-width: 920px) {
+  html[data-rportfolio-style] {
+    --rp-chrome-left-safe: 132px;
+    --rp-chrome-right-safe: 92px;
+  }
+
+  html[data-rportfolio-style] body .window-titlebar-actions .global-source-status {
+    display: none !important;
+  }
+
+  html[data-rportfolio-style] body .app-menu > button {
+    padding-inline: 10px !important;
+  }
+}
+
+/* Hard override for older high-specificity shell patches. Keep this block last. */
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell:not(.is-sidebar-collapsed) {
+  --workspace-menu-width: var(--rp-nav-width) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell > .app-menu {
+  gap: 8px !important;
+  padding: 16px 12px 14px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand {
+  min-height: 50px !important;
+  margin: 0 0 8px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand > span {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 15px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button {
+  min-height: 48px !important;
+  grid-template-columns: 26px minmax(0, 1fr) !important;
+  align-items: center !important;
+  justify-items: stretch !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-radius: 15px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button::before {
+  inset: 12px auto 12px -1px !important;
+  width: 3px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button .MuiSvgIcon-root {
+  display: block !important;
+  grid-column: 1 !important;
+  justify-self: center !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  font-size: 1rem !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button span {
+  display: block !important;
+  grid-column: 2 !important;
+  justify-self: stretch !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button strong {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  font-size: 0.86rem !important;
+  font-weight: 760 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.01em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-layout {
+  width: auto !important;
+  inline-size: auto !important;
+  max-width: min(100%, 500px) !important;
+  height: var(--rp-chrome-control-height) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-controls {
+  width: auto !important;
+  inline-size: auto !important;
+  max-width: 100% !important;
+  height: var(--rp-chrome-control-height) !important;
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .profile-select {
+  width: clamp(178px, 22vw, 270px) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .date-field {
+  width: 142px !important;
+  min-width: 132px !important;
+}
+
+/* Dark mode tonal parity: same shell language as light mode, graphite palette only. */
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-drag-region {
+  background:
+    linear-gradient(180deg, rgba(18, 25, 35, 0.96), rgba(8, 12, 18, 0.98)),
+    #090d13 !important;
+  border-bottom-color: rgba(132, 156, 188, 0.16) !important;
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(0, 0, 0, 0.36) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .workspace-shell > .app-menu {
+  border-right-color: rgba(132, 156, 188, 0.16) !important;
+  background:
+    linear-gradient(180deg, rgba(28, 37, 51, 0.74), rgba(8, 13, 20, 0.9) 42%),
+    radial-gradient(circle at 50% -16px, rgba(82, 125, 190, 0.13), transparent 122px),
+    #090e15 !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.045),
+    18px 0 44px rgba(0, 0, 0, 0.22) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .app-menu-brand > span {
+  border-color: rgba(137, 162, 194, 0.28) !important;
+  color: #d4e4f7 !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 62%),
+    linear-gradient(180deg, rgba(51, 68, 89, 0.74), rgba(24, 34, 47, 0.72)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 14px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .app-menu > button {
+  color: rgba(211, 222, 237, 0.72) !important;
+  border-color: rgba(132, 156, 188, 0.14) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 88%),
+    rgba(18, 27, 39, 0.68) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .app-menu > button:hover {
+  color: #f1f6fc !important;
+  border-color: rgba(128, 165, 212, 0.32) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 88%),
+    rgba(29, 42, 58, 0.82) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .app-menu > button.is-active {
+  color: #f6f9fd !important;
+  border-color: rgba(130, 169, 223, 0.48) !important;
+  background:
+    linear-gradient(135deg, rgba(71, 112, 176, 0.28), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), transparent 88%),
+    rgba(31, 45, 65, 0.86) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 14px 32px rgba(0, 0, 0, 0.18) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiOutlinedInput-root,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .market-date-trigger,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .topbar-refresh-button.MuiIconButton-root,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-titlebar-actions .global-source-status,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-leading-actions .titlebar-icon-button.MuiIconButton-root {
+  color: rgba(218, 228, 241, 0.78) !important;
+  border-color: rgba(132, 156, 188, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 90%),
+    rgba(18, 27, 39, 0.78) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 22px rgba(0, 0, 0, 0.16) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiOutlinedInput-root:hover,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .market-date-trigger:hover,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-center-toolbar .topbar-refresh-button.MuiIconButton-root:hover,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-titlebar-actions .global-source-status:hover,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root:hover,
+html[data-rportfolio-style="dark"][data-rportfolio-style] body .window-leading-actions .titlebar-icon-button.MuiIconButton-root:hover {
+  color: #f5f9ff !important;
+  border-color: rgba(139, 178, 230, 0.34) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), transparent 90%),
+    rgba(27, 40, 57, 0.92) !important;
+}
+
+/* Final titlebar breathing room: keep light/dark geometry identical and prevent vertical clipping. */
+html[data-rportfolio-style][data-rportfolio-style] body .window-drag-region {
+  height: var(--window-drag-height) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions,
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions {
+  top: calc((var(--window-drag-height) - 30px) / 2) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar.is-sidebar-collapsed,
+html[data-rportfolio-style][data-rportfolio-style] body:has(.workspace-shell.is-sidebar-collapsed) .window-center-toolbar {
+  top: calc((var(--window-drag-height) - var(--rp-chrome-control-height)) / 2) !important;
+  height: var(--rp-chrome-control-height) !important;
+  min-height: var(--rp-chrome-control-height) !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-layout,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-controls {
+  height: var(--rp-chrome-control-height) !important;
+  min-height: var(--rp-chrome-control-height) !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiSelect-select,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .profile-select-value > span,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .market-date-value strong,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .market-date-value em {
+  font-size: 13px !important;
+  font-weight: 780 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .topbar-field .MuiSelect-select {
+  line-height: var(--rp-chrome-control-height) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .profile-select-value > span,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .market-date-value strong,
+html[data-rportfolio-style][data-rportfolio-style] body .window-center-toolbar .market-date-value em {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 16px !important;
+  overflow: visible !important;
+}
+
+/* Portfolio analysis panels: let data modules expand vertically; avoid nested vertical scrollbars. */
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .asset-panel,
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .technical-panel {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .asset-list,
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack.has-decision-rail .asset-list {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding-right: 0 !important;
+  scrollbar-gutter: auto !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .asset-list::-webkit-scrollbar {
+  display: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .technical-table-wrap {
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto !important;
+}
+
+/* Portfolio weight structure: keep values visible when the card adapts to narrower widths. */
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-board,
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-block,
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-column,
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-rows {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-column {
+  grid-template-rows: auto auto !important;
+  min-height: 0 !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-rows {
+  padding: 0 !important;
+  scrollbar-gutter: auto !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-row {
+  width: 100% !important;
+  min-width: 0 !important;
+  grid-template-columns: minmax(38px, 0.64fr) minmax(36px, 1fr) minmax(34px, max-content) !important;
+  gap: 6px !important;
+  overflow: visible !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-row strong {
+  min-width: 0 !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-row em {
+  min-width: 34px !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .portfolio-dashboard.is-profile-pool .portfolio-exposure-row .portfolio-bar-track {
+  min-width: 0 !important;
+}

@@ -19,3 +19,6 @@
 @import "./styles/pages/settings-polish.css";
 @import "./styles/pages/decision-ledger.css";
 @import "./styles/workspace-inspector-system.css";
+@import "./styles/progressive-disclosure.css";
+@import "./styles/dialog-system.css";
+@import "./styles/shell-final.css";

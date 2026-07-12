@@ -13,6 +13,7 @@ import type {
   MarketState,
   OpportunityScore,
   PatternAnalysis,
+  PriceBar,
   ProfileConfigBundle,
   ProfileMandate,
   PortfolioProfile,
@@ -140,7 +141,7 @@ export async function fetchDataSourceSummaries(): Promise<DataSourceSummary[]> {
 
 const DATA_SOURCE_SUMMARIES: DataSourceSummary[] = [
   { key: "auto", name: "自动", description: "A 股优先东方财富双源校验；其他市场按 CSV、Stooq、Yahoo/FRED 降级。", requiresConfig: false },
-  { key: "china", name: "A股免费多源", description: "东方财富前复权日线 + Yahoo 核心基准校验。", requiresConfig: false },
+  { key: "china", name: "A股免费多源", description: "东方财富优先，新浪降级，核心基准独立校验。", requiresConfig: false },
   { key: "stooq", name: "Stooq 历史页", description: "抓取公开历史页表格并分页拼接。", requiresConfig: false },
   { key: "hybrid", name: "免费混合", description: "Yahoo + FRED 宏观覆盖。", requiresConfig: false },
   { key: "yahoo", name: "Yahoo", description: "Yahoo Finance 非官方 chart 接口。", requiresConfig: false },
@@ -533,6 +534,7 @@ function sampleReport(request: ScoreMarketRequest): MarketAnalysisReport {
     opportunityScores,
     structure,
     patternAnalysis: samplePatternAnalysis(),
+    priceBarsBySymbol: samplePriceBarsBySymbol(technicalRows, asOf),
     assetStatuses,
     technicalColumns,
     technicalRows,
@@ -1364,12 +1366,12 @@ type PreviewTechnicalRow = Omit<TechnicalRow, "cells">;
 
 function sampleTechnicalRows(preview: ReturnType<typeof previewFromDate>): TechnicalRow[] {
   const rows: PreviewTechnicalRow[] = [
-    { symbol: "SPY", label: "大盘", close: vary(522.18, preview.priceShift), change1d: vary(-0.42, preview.changeShift, 2), return10d: vary(1.8, preview.returnShift, 2), return20d: vary(3.2, preview.returnShift, 2), rsi14: vary(63.2, preview.rsiShift, 1), ma20: vary(520.4, preview.priceShift * 0.8), ma50: vary(510.2, preview.priceShift * 0.5), ma200: 478.9, macd: vary(4.2, preview.changeShift, 1), macdSignal: 4.8, volumeRatio: 1.12, status: "yellow", note: "回踩 MA20" },
-    { symbol: "QQQ", label: "科技", close: vary(457.33, preview.priceShift), change1d: vary(0.18, preview.changeShift, 2), return10d: vary(5.7, preview.returnShift, 2), return20d: vary(8.6, preview.returnShift, 2), rsi14: vary(78.1, preview.rsiShift, 1), ma20: vary(444.6, preview.priceShift * 0.8), ma50: vary(429.2, preview.priceShift * 0.5), ma200: 398.7, macd: vary(7.1, preview.changeShift, 1), macdSignal: 6.8, volumeRatio: 0.94, status: "yellow", note: "短线过热" },
-    { symbol: "SMH", label: "半导体", close: vary(267.8, preview.priceShift), change1d: vary(-1.34, preview.changeShift, 2), return10d: vary(13.8, preview.returnShift, 2), return20d: vary(24.6, preview.returnShift, 2), rsi14: vary(81.4, preview.rsiShift, 1), ma20: vary(247.1, preview.priceShift * 0.8), ma50: vary(228.7, preview.priceShift * 0.5), ma200: 192.2, macd: vary(9.3, preview.changeShift, 1), macdSignal: 8.4, volumeRatio: 1.46, status: "red", note: "交易拥挤" },
-    { symbol: "NVDA", label: "AI 龙头", close: vary(928.44, preview.priceShift), change1d: vary(-0.76, preview.changeShift, 2), return10d: vary(9.4, preview.returnShift, 2), return20d: vary(19.1, preview.returnShift, 2), rsi14: vary(76.8, preview.rsiShift, 1), ma20: vary(886.1, preview.priceShift * 0.8), ma50: vary(842.9, preview.priceShift * 0.5), ma200: 695.4, macd: vary(35.4, preview.changeShift, 1), macdSignal: 31.8, volumeRatio: 1.58, status: "red", note: "高位滞涨" },
-    { symbol: "IWM", label: "小盘", close: vary(204.72, preview.priceShift), change1d: vary(-1.08, preview.changeShift, 2), return10d: vary(-1.6, preview.returnShift, 2), return20d: vary(-2.1, preview.returnShift, 2), rsi14: vary(42.2, preview.rsiShift, 1), ma20: vary(208.4, preview.priceShift * 0.8), ma50: vary(212.1, preview.priceShift * 0.5), ma200: 201.6, macd: vary(-1.3, preview.changeShift, 1), macdSignal: -0.8, volumeRatio: 1.22, status: "yellow", note: "相对走弱" },
-    { symbol: "VIX", label: "恐慌", close: vary(17.9, -preview.priceShift, 1), change1d: vary(2.1, -preview.changeShift, 2), return10d: vary(-4.1, -preview.returnShift, 2), return20d: vary(-8.2, -preview.returnShift, 2), rsi14: vary(48.4, -preview.rsiShift, 1), ma20: 18.2, ma50: 17.4, ma200: 16.8, macd: vary(-0.2, -preview.changeShift, 1), macdSignal: -0.1, volumeRatio: null, status: "green", note: "正常区间" },
+    { symbol: "SPY", label: "大盘", close: vary(522.18, preview.priceShift), change1d: vary(-0.42, preview.changeShift, 2), return10d: vary(1.8, preview.returnShift, 2), return20d: vary(3.2, preview.returnShift, 2), rsi14: vary(63.2, preview.rsiShift, 1), ma20: vary(520.4, preview.priceShift * 0.8), ma50: vary(510.2, preview.priceShift * 0.5), ma200: 478.9, macd: vary(4.2, preview.changeShift, 1), macdSignal: 4.8, macdHistogram: vary(-0.6, preview.changeShift, 1), kdjK: vary(56.2, preview.rsiShift, 1), kdjD: vary(58.4, preview.rsiShift * 0.6, 1), kdjJ: vary(51.8, preview.rsiShift * 1.4, 1), volumeRatio: 1.12, status: "yellow", note: "回踩 MA20" },
+    { symbol: "QQQ", label: "科技", close: vary(457.33, preview.priceShift), change1d: vary(0.18, preview.changeShift, 2), return10d: vary(5.7, preview.returnShift, 2), return20d: vary(8.6, preview.returnShift, 2), rsi14: vary(78.1, preview.rsiShift, 1), ma20: vary(444.6, preview.priceShift * 0.8), ma50: vary(429.2, preview.priceShift * 0.5), ma200: 398.7, macd: vary(7.1, preview.changeShift, 1), macdSignal: 6.8, macdHistogram: vary(0.3, preview.changeShift, 1), kdjK: vary(82.4, preview.rsiShift, 1), kdjD: vary(77.6, preview.rsiShift * 0.6, 1), kdjJ: vary(91.9, preview.rsiShift * 1.4, 1), volumeRatio: 0.94, status: "yellow", note: "短线过热" },
+    { symbol: "SMH", label: "半导体", close: vary(267.8, preview.priceShift), change1d: vary(-1.34, preview.changeShift, 2), return10d: vary(13.8, preview.returnShift, 2), return20d: vary(24.6, preview.returnShift, 2), rsi14: vary(81.4, preview.rsiShift, 1), ma20: vary(247.1, preview.priceShift * 0.8), ma50: vary(228.7, preview.priceShift * 0.5), ma200: 192.2, macd: vary(9.3, preview.changeShift, 1), macdSignal: 8.4, macdHistogram: vary(0.9, preview.changeShift, 1), kdjK: vary(88.5, preview.rsiShift, 1), kdjD: vary(81.2, preview.rsiShift * 0.6, 1), kdjJ: vary(103.1, preview.rsiShift * 1.4, 1), volumeRatio: 1.46, status: "red", note: "交易拥挤" },
+    { symbol: "NVDA", label: "AI 龙头", close: vary(928.44, preview.priceShift), change1d: vary(-0.76, preview.changeShift, 2), return10d: vary(9.4, preview.returnShift, 2), return20d: vary(19.1, preview.returnShift, 2), rsi14: vary(76.8, preview.rsiShift, 1), ma20: vary(886.1, preview.priceShift * 0.8), ma50: vary(842.9, preview.priceShift * 0.5), ma200: 695.4, macd: vary(35.4, preview.changeShift, 1), macdSignal: 31.8, macdHistogram: vary(3.6, preview.changeShift, 1), kdjK: vary(79.8, preview.rsiShift, 1), kdjD: vary(82.1, preview.rsiShift * 0.6, 1), kdjJ: vary(75.2, preview.rsiShift * 1.4, 1), volumeRatio: 1.58, status: "red", note: "高位滞涨" },
+    { symbol: "IWM", label: "小盘", close: vary(204.72, preview.priceShift), change1d: vary(-1.08, preview.changeShift, 2), return10d: vary(-1.6, preview.returnShift, 2), return20d: vary(-2.1, preview.returnShift, 2), rsi14: vary(42.2, preview.rsiShift, 1), ma20: vary(208.4, preview.priceShift * 0.8), ma50: vary(212.1, preview.priceShift * 0.5), ma200: 201.6, macd: vary(-1.3, preview.changeShift, 1), macdSignal: -0.8, macdHistogram: vary(-0.5, preview.changeShift, 1), kdjK: vary(35.3, preview.rsiShift, 1), kdjD: vary(40.1, preview.rsiShift * 0.6, 1), kdjJ: vary(25.7, preview.rsiShift * 1.4, 1), volumeRatio: 1.22, status: "yellow", note: "相对走弱" },
+    { symbol: "VIX", label: "恐慌", close: vary(17.9, -preview.priceShift, 1), change1d: vary(2.1, -preview.changeShift, 2), return10d: vary(-4.1, -preview.returnShift, 2), return20d: vary(-8.2, -preview.returnShift, 2), rsi14: vary(48.4, -preview.rsiShift, 1), ma20: 18.2, ma50: 17.4, ma200: 16.8, macd: vary(-0.2, -preview.changeShift, 1), macdSignal: -0.1, macdHistogram: vary(-0.1, -preview.changeShift, 1), kdjK: vary(44.8, -preview.rsiShift, 1), kdjD: vary(46.5, -preview.rsiShift * 0.6, 1), kdjJ: vary(41.4, -preview.rsiShift * 1.4, 1), volumeRatio: null, status: "green", note: "正常区间" },
   ];
 
   return rows.map((row) => ({
@@ -1384,9 +1386,52 @@ function sampleTechnicalRows(preview: ReturnType<typeof previewFromDate>): Techn
       { key: "ma50", display: row.ma50?.toFixed(0) ?? "-", value: row.ma50, tone: "neutral" },
       { key: "ma200", display: row.ma200?.toFixed(0) ?? "-", value: row.ma200, tone: "neutral" },
       { key: "macd", display: row.macd?.toFixed(1) ?? "-", value: row.macd, tone: "neutral" },
+      { key: "macdHistogram", display: row.macdHistogram?.toFixed(1) ?? "-", value: row.macdHistogram, tone: tone(row.macdHistogram) },
+      { key: "kdjK", display: row.kdjK?.toFixed(1) ?? "-", value: row.kdjK, tone: "neutral" },
+      { key: "kdjD", display: row.kdjD?.toFixed(1) ?? "-", value: row.kdjD, tone: "neutral" },
+      { key: "kdjJ", display: row.kdjJ?.toFixed(1) ?? "-", value: row.kdjJ, tone: "neutral" },
       { key: "volumeRatio", display: row.volumeRatio === null ? "-" : `${row.volumeRatio.toFixed(2)}x`, value: row.volumeRatio, tone: "neutral" },
     ],
   }));
+}
+
+function samplePriceBarsBySymbol(rows: TechnicalRow[], asOf: string): Record<string, PriceBar[]> {
+  return Object.fromEntries(rows.map((row) => [row.symbol, samplePriceBars(row, asOf)]));
+}
+
+function samplePriceBars(row: TechnicalRow, asOf: string): PriceBar[] {
+  const count = 72;
+  const trend = clamp((row.return20d ?? 0) / 100, -0.18, 0.26);
+  const heat = clamp(((row.rsi14 ?? 50) - 50) / 100, -0.18, 0.22);
+  const raw = Array.from({ length: count }, (_, index) => {
+    const progress = index / (count - 1);
+    const wave = Math.sin(index * 0.48) * 0.018 + Math.sin(index * 0.17 + row.symbol.length) * 0.012;
+    const pullback = row.status === "red" ? -Math.max(0, progress - 0.72) * 0.045 : 0;
+    return 1 + trend * (progress - 0.52) + heat * 0.16 + wave + pullback;
+  });
+  const scale = row.close / Math.max(raw[count - 1] ?? 1, 0.0001);
+
+  return raw.map((value, index) => {
+    const close = roundTo(value * scale, 4);
+    const previousClose = index > 0 ? raw[index - 1] * scale : close * (1 - ((row.change1d ?? 0) / 100));
+    const open = roundTo((previousClose + close) / 2, 4);
+    const spread = 0.006 + Math.abs(Math.sin(index * 0.37)) * 0.008;
+    const high = roundTo(Math.max(open, close) * (1 + spread), 4);
+    const low = roundTo(Math.min(open, close) * (1 - spread * 0.9), 4);
+    const volumeBase = row.symbol === "VIX" ? 0 : 900_000 + row.symbol.length * 42_000;
+    const volumeRatio = row.volumeRatio ?? 1;
+
+    return {
+      date: addDays(asOf, index - count + 1),
+      open,
+      high,
+      low,
+      close,
+      volume: row.symbol === "VIX"
+        ? null
+        : Math.round(volumeBase * (0.85 + volumeRatio * 0.18 + Math.abs(Math.sin(index * 0.29)) * 0.22)),
+    };
+  });
 }
 
 function formatSigned(value: number | null) {
@@ -1442,6 +1487,11 @@ function levelForScore(score: number): RiskLevel {
 function vary(value: number, delta: number, digits = 2): number {
   const factor = 10 ** digits;
   return Math.round((value + delta) * factor) / factor;
+}
+
+function roundTo(value: number, digits: number): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
 }
 
 function clamp(value: number, min: number, max: number): number {

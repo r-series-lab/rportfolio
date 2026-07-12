@@ -1,0 +1,576 @@
+/* Unified dialog system inspired by the "Professional Trading Desk" direction.
+ * Geometry stays stable across light/dark themes; only tone tokens change.
+ */
+
+html[data-rportfolio-style] {
+  --rp-dialog-radius: 14px;
+  --rp-dialog-control-radius: 9px;
+  --rp-dialog-head-height: 64px;
+  --rp-dialog-gap: 12px;
+  --rp-dialog-pad: 14px;
+  --rp-dialog-body-max: min(690px, calc(100dvh - 112px));
+  --rp-dialog-title-size: 1.02rem;
+  --rp-dialog-small-size: 0.72rem;
+}
+
+html[data-rportfolio-style="dark"] {
+  --rp-dialog-overlay: rgba(2, 5, 9, 0.56);
+  --rp-dialog-surface: rgba(24, 32, 43, 0.94);
+  --rp-dialog-surface-strong: rgba(29, 38, 51, 0.96);
+  --rp-dialog-surface-soft: rgba(255, 255, 255, 0.042);
+  --rp-dialog-header: rgba(33, 43, 56, 0.74);
+  --rp-dialog-line: rgba(216, 227, 240, 0.12);
+  --rp-dialog-line-strong: rgba(216, 227, 240, 0.2);
+  --rp-dialog-shadow:
+    0 34px 92px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065);
+  --rp-dialog-control: rgba(255, 255, 255, 0.048);
+  --rp-dialog-control-hover: rgba(255, 255, 255, 0.086);
+  --rp-dialog-primary: linear-gradient(180deg, rgba(148, 181, 218, 0.28), rgba(148, 181, 218, 0.14));
+  --rp-dialog-primary-border: rgba(148, 181, 218, 0.48);
+}
+
+html[data-rportfolio-style="light"] {
+  --rp-dialog-overlay: rgba(38, 54, 72, 0.18);
+  --rp-dialog-surface: rgba(248, 251, 255, 0.96);
+  --rp-dialog-surface-strong: rgba(255, 255, 255, 0.97);
+  --rp-dialog-surface-soft: rgba(75, 101, 130, 0.055);
+  --rp-dialog-header: rgba(239, 245, 251, 0.92);
+  --rp-dialog-line: rgba(55, 76, 99, 0.13);
+  --rp-dialog-line-strong: rgba(55, 76, 99, 0.22);
+  --rp-dialog-shadow:
+    0 30px 80px rgba(45, 64, 86, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --rp-dialog-control: rgba(255, 255, 255, 0.72);
+  --rp-dialog-control-hover: rgba(255, 255, 255, 0.95);
+  --rp-dialog-primary: linear-gradient(180deg, rgba(83, 111, 142, 0.22), rgba(83, 111, 142, 0.12));
+  --rp-dialog-primary-border: rgba(83, 111, 142, 0.36);
+}
+
+html[data-rportfolio-style] [data-slot="dialog-overlay"]:has(~ .settings-dialog),
+html[data-rportfolio-style] [data-slot="dialog-overlay"]:has(~ .holdings-shadcn-dialog),
+html[data-rportfolio-style] [data-slot="dialog-overlay"]:has(~ .rule-preset-dialog),
+html[data-rportfolio-style] body > .quant-control-backdrop,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog-backdrop {
+  background: var(--rp-dialog-overlay) !important;
+  backdrop-filter: blur(7px) saturate(0.92) !important;
+  -webkit-backdrop-filter: blur(7px) saturate(0.92) !important;
+}
+
+html[data-rportfolio-style] .settings-dialog,
+html[data-rportfolio-style] .holdings-shadcn-dialog[data-slot="dialog-content"],
+html[data-rportfolio-style] .rule-preset-dialog[data-slot="dialog-content"],
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog,
+html[data-rportfolio-style] body > .quant-control-panel.quant-control-sheet {
+  border: 1px solid var(--rp-dialog-line-strong) !important;
+  border-radius: var(--rp-dialog-radius) !important;
+  color: var(--rp-ink) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent 190px),
+    var(--rp-dialog-surface) !important;
+  box-shadow: var(--rp-dialog-shadow) !important;
+  backdrop-filter: blur(24px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.08) !important;
+}
+
+html[data-rportfolio-style="light"] .settings-dialog,
+html[data-rportfolio-style="light"] .holdings-shadcn-dialog[data-slot="dialog-content"],
+html[data-rportfolio-style="light"] .rule-preset-dialog[data-slot="dialog-content"],
+html[data-rportfolio-style="light"] body > .quant-dialog-layer > .quant-dialog,
+html[data-rportfolio-style="light"] body > .quant-control-panel.quant-control-sheet {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 251, 255, 0.62) 210px, transparent 420px),
+    var(--rp-dialog-surface) !important;
+}
+
+/* Medium parameter panel: this should behave like a real modal, not a layout-affecting drawer. */
+html[data-rportfolio-style] body > .quant-control-panel.quant-control-sheet {
+  position: fixed !important;
+  z-index: 112 !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  width: min(440px, calc(100vw - 36px)) !important;
+  max-height: min(720px, calc(100dvh - 36px)) !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 12px !important;
+  display: grid !important;
+  align-content: start !important;
+  gap: 10px !important;
+  overflow: hidden auto !important;
+  transform: translate(-50%, -50%) !important;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--rp-ink-muted) 24%, transparent) transparent;
+}
+
+html[data-rportfolio-style] .quant-control-drawer-head,
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-head,
+html[data-rportfolio-style] .settings-dialog .settings-sheet-head,
+html[data-rportfolio-style] .rule-preset-dialog-head,
+html[data-rportfolio-style] .holdings-dialog-head {
+  min-height: var(--rp-dialog-head-height) !important;
+  border-bottom: 1px solid var(--rp-dialog-line) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    var(--rp-dialog-header) !important;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-head,
+html[data-rportfolio-style] .settings-dialog .settings-sheet-head {
+  padding: 13px 16px !important;
+}
+
+html[data-rportfolio-style] .holdings-dialog-head {
+  padding: 14px 54px 13px 18px !important;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-head > div,
+html[data-rportfolio-style] .settings-dialog .settings-sheet-title,
+html[data-rportfolio-style] .holdings-dialog-head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-head span,
+html[data-rportfolio-style] .settings-dialog .settings-sheet-title > span,
+html[data-rportfolio-style] .holdings-dialog-head [data-slot="dialog-description"] {
+  color: var(--rp-ink-muted) !important;
+  font-size: var(--rp-dialog-small-size) !important;
+  font-weight: 780 !important;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-head strong,
+html[data-rportfolio-style] .settings-dialog .settings-sheet-title [data-slot="dialog-title"],
+html[data-rportfolio-style] .holdings-dialog-head [data-slot="dialog-title"] {
+  overflow: hidden;
+  color: var(--rp-ink) !important;
+  font-size: var(--rp-dialog-title-size) !important;
+  font-weight: 820 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog {
+  width: min(640px, calc(100vw - 36px)) !important;
+  max-height: min(780px, calc(100dvh - 36px)) !important;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-strategy,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-risk,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-bridge,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-account,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-backtest,
+html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog.is-replacement {
+  width: min(760px, calc(100vw - 36px)) !important;
+}
+
+html[data-rportfolio-style] body > .quant-dialog-layer .quant-dialog-stack {
+  max-height: calc(100dvh - 122px) !important;
+  padding: var(--rp-dialog-pad) !important;
+  display: grid !important;
+  gap: var(--rp-dialog-gap) !important;
+  overflow: hidden auto !important;
+  scrollbar-gutter: stable !important;
+}
+
+html[data-rportfolio-style] .settings-dialog {
+  width: min(980px, calc(100vw - 48px)) !important;
+  height: min(760px, calc(100dvh - 56px)) !important;
+  max-height: calc(100dvh - 56px) !important;
+}
+
+html[data-rportfolio-style] .settings-dialog .settings-workbench {
+  grid-template-columns: 148px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  padding: 12px !important;
+}
+
+html[data-rportfolio-style] .settings-dialog .settings-section-nav,
+html[data-rportfolio-style] .settings-dialog .settings-section-hero,
+html[data-rportfolio-style] .settings-dialog .settings-appearance-card,
+html[data-rportfolio-style] .settings-dialog .settings-global-grid [data-slot="card"],
+html[data-rportfolio-style] .settings-dialog .settings-profile-panel .profile-config-list,
+html[data-rportfolio-style] .settings-dialog .settings-profile-panel .profile-builder-card,
+html[data-rportfolio-style] .settings-dialog .settings-profile-panel .profile-builder-preview,
+html[data-rportfolio-style] .holdings-shadcn-dialog .holding-role-segment,
+html[data-rportfolio-style] .holdings-shadcn-dialog .trade-side-segment,
+html[data-rportfolio-style] .holdings-shadcn-dialog .holding-form-grid label,
+html[data-rportfolio-style] .holdings-shadcn-dialog .position-policy-grid label,
+html[data-rportfolio-style] .quant-qbot-presets,
+html[data-rportfolio-style] .quant-scaling-policy-panel,
+html[data-rportfolio-style] .quant-risk-switchboard,
+html[data-rportfolio-style] .quant-broker-options,
+html[data-rportfolio-style] .quant-execution-mode-options,
+html[data-rportfolio-style] .quant-bridge-status-list,
+html[data-rportfolio-style] .quant-router-meta,
+html[data-rportfolio-style] .quant-manual-mode-card,
+html[data-rportfolio-style] .quant-parameter-grid,
+html[data-rportfolio-style] .quant-order-center-summary,
+html[data-rportfolio-style] .quant-account-list article,
+html[data-rportfolio-style] .quant-reconcile-list article,
+html[data-rportfolio-style] .quant-backtest-summary,
+html[data-rportfolio-style] .quant-backtest-orders article,
+html[data-rportfolio-style] .quant-log-dialog > article,
+html[data-rportfolio-style] .quant-dialog-empty {
+  border-color: var(--rp-dialog-line) !important;
+  border-radius: 12px !important;
+  background: var(--rp-dialog-surface-soft) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent) !important;
+}
+
+html[data-rportfolio-style] .quant-execution-mode-options,
+html[data-rportfolio-style] .quant-broker-options,
+html[data-rportfolio-style] .quant-router-meta,
+html[data-rportfolio-style] .quant-parameter-grid,
+html[data-rportfolio-style] .quant-order-center-summary {
+  gap: 9px !important;
+}
+
+html[data-rportfolio-style] .quant-qbot-list button,
+html[data-rportfolio-style] .quant-execution-mode-options button,
+html[data-rportfolio-style] .quant-broker-options button,
+html[data-rportfolio-style] .quant-bridge-status-list button,
+html[data-rportfolio-style] .quant-risk-switchboard button,
+html[data-rportfolio-style] .quant-dialog-actions [data-slot="button"],
+html[data-rportfolio-style] .quant-dialog button:not(.quant-dialog-backdrop),
+html[data-rportfolio-style] .quant-layer-close,
+html[data-rportfolio-style] .settings-dialog [data-slot="button"],
+html[data-rportfolio-style] .holdings-shadcn-dialog [data-slot="button"],
+html[data-rportfolio-style] .holdings-shadcn-dialog > [data-slot="dialog-close"] {
+  border-color: var(--rp-dialog-line) !important;
+  border-radius: var(--rp-dialog-control-radius) !important;
+  color: var(--rp-ink-secondary) !important;
+  background: var(--rp-dialog-control) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style] .quant-qbot-list button:hover,
+html[data-rportfolio-style] .quant-execution-mode-options button:hover,
+html[data-rportfolio-style] .quant-broker-options button:hover,
+html[data-rportfolio-style] .quant-layer-close:hover,
+html[data-rportfolio-style] .settings-dialog [data-slot="button"]:hover,
+html[data-rportfolio-style] .holdings-shadcn-dialog [data-slot="button"]:hover {
+  color: var(--rp-ink) !important;
+  border-color: var(--rp-dialog-line-strong) !important;
+  background: var(--rp-dialog-control-hover) !important;
+}
+
+html[data-rportfolio-style] .quant-qbot-list button.is-active,
+html[data-rportfolio-style] .quant-execution-mode-options button.is-active,
+html[data-rportfolio-style] .quant-broker-options button.is-active,
+html[data-rportfolio-style] .settings-dialog [data-slot="tabs-trigger"][data-state="active"],
+html[data-rportfolio-style] .holdings-shadcn-dialog .holding-role-segment .is-active,
+html[data-rportfolio-style] .holdings-shadcn-dialog .trade-side-segment .is-active {
+  color: var(--rp-ink) !important;
+  border-color: var(--rp-dialog-primary-border) !important;
+  background: var(--rp-dialog-primary) !important;
+}
+
+html[data-rportfolio-style] .quant-dialog-actions [data-slot="button"]:last-child,
+html[data-rportfolio-style] .holdings-shadcn-dialog .primary-action-button[data-slot="button"] {
+  color: var(--rp-ink) !important;
+  border-color: var(--rp-dialog-primary-border) !important;
+  background: var(--rp-dialog-primary) !important;
+}
+
+html[data-rportfolio-style] .holdings-shadcn-dialog[data-slot="dialog-content"] {
+  width: min(720px, calc(100vw - 32px)) !important;
+  max-width: 720px !important;
+  max-height: calc(100dvh - 56px) !important;
+}
+
+html[data-rportfolio-style] .holdings-shadcn-dialog.position-policy-dialog,
+html[data-rportfolio-style] .holdings-shadcn-dialog.trade-form-dialog {
+  max-width: 620px !important;
+}
+
+html[data-rportfolio-style] .holdings-shadcn-dialog [data-slot="input"],
+html[data-rportfolio-style] .holdings-shadcn-dialog [data-slot="textarea"],
+html[data-rportfolio-style] .holdings-shadcn-dialog select {
+  border-color: var(--rp-dialog-line) !important;
+  border-radius: var(--rp-dialog-control-radius) !important;
+  color: var(--rp-ink) !important;
+  background: color-mix(in srgb, var(--rp-dialog-control) 86%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent) !important;
+}
+
+html[data-rportfolio-style] .holdings-shadcn-dialog .holding-form-footer[data-slot="dialog-footer"] {
+  border-top-color: var(--rp-dialog-line) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent),
+    color-mix(in srgb, var(--rp-dialog-header) 78%, transparent) !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog[data-slot="dialog-content"] {
+  width: min(640px, calc(100vw - 32px)) !important;
+  max-width: 640px !important;
+  max-height: calc(100dvh - 52px) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-head {
+  padding: 14px 16px 13px !important;
+  display: grid !important;
+  gap: 4px !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-head [data-slot="dialog-description"] {
+  margin: 0 !important;
+  color: var(--rp-ink-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 780 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-head [data-slot="dialog-title"] {
+  color: var(--rp-ink) !important;
+  font-size: 1.08rem !important;
+  font-weight: 860 !important;
+  letter-spacing: -0.025em !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-head p {
+  max-width: 520px;
+  margin: 2px 0 0;
+  color: var(--rp-ink-secondary);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+html[data-rportfolio-style] .rule-preset-preview {
+  max-height: min(540px, calc(100dvh - 210px));
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--rp-ink-muted) 24%, transparent) transparent;
+}
+
+html[data-rportfolio-style] .rule-preset-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rp-ink-muted) 22%, transparent);
+}
+
+html[data-rportfolio-style] .rule-preset-preview-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-summary article,
+html[data-rportfolio-style] .rule-preset-preview-list article,
+html[data-rportfolio-style] .rule-preset-preview-note {
+  border: 1px solid var(--rp-dialog-line);
+  border-radius: 12px;
+  background: var(--rp-dialog-surface-soft);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 5%, transparent);
+}
+
+html[data-rportfolio-style] .rule-preset-preview-summary article {
+  min-height: 64px;
+  padding: 10px 11px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-summary span,
+html[data-rportfolio-style] .rule-preset-preview-list span,
+html[data-rportfolio-style] .rule-preset-preview-list small {
+  color: var(--rp-ink-muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-summary strong {
+  color: var(--rp-ink);
+  font-size: 1.02rem;
+  font-weight: 860;
+  letter-spacing: -0.02em;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-meta span {
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--rp-dialog-line);
+  border-radius: 999px;
+  color: var(--rp-ink-secondary);
+  background: var(--rp-dialog-control);
+  font-size: 0.7rem;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-note {
+  margin: 0;
+  padding: 10px 12px;
+  color: rgba(var(--yellow-rgb), 0.92);
+  font-size: 0.74rem;
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list article {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list article > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list em {
+  color: var(--rp-ink-secondary);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list strong {
+  justify-self: end;
+  color: var(--rp-ink);
+  font-size: 0.76rem;
+  font-weight: 840;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--rp-ink);
+  font-size: 0.77rem;
+  font-weight: 680;
+  line-height: 1.42;
+}
+
+html[data-rportfolio-style] .rule-preset-preview-list small {
+  grid-column: 1 / -1;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-footer[data-slot="dialog-footer"] {
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  border-top: 1px solid var(--rp-dialog-line) !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent),
+    color-mix(in srgb, var(--rp-dialog-header) 78%, transparent) !important;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-footer button,
+html[data-rportfolio-style] .rule-preset-dialog > [data-slot="dialog-close"] {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--rp-dialog-line);
+  border-radius: var(--rp-dialog-control-radius);
+  color: var(--rp-ink-secondary);
+  background: var(--rp-dialog-control);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-footer button:hover,
+html[data-rportfolio-style] .rule-preset-dialog > [data-slot="dialog-close"]:hover {
+  color: var(--rp-ink);
+  border-color: var(--rp-dialog-line-strong);
+  background: var(--rp-dialog-control-hover);
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-footer button.is-primary {
+  color: var(--rp-ink);
+  border-color: var(--rp-dialog-primary-border);
+  background: var(--rp-dialog-primary);
+}
+
+html[data-rportfolio-style] .rule-preset-dialog-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 680px) {
+  html[data-rportfolio-style] .rule-preset-preview-summary {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-rportfolio-style] .rule-preset-preview-list article {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-rportfolio-style] .rule-preset-preview-list strong {
+    justify-self: start;
+  }
+}
+
+html[data-rportfolio-style] .quant-backtest-orders article,
+html[data-rportfolio-style] .quant-log-dialog > article {
+  padding: 10px 12px !important;
+}
+
+html[data-rportfolio-style] .quant-log-dialog > article p,
+html[data-rportfolio-style] .quant-backtest-orders article strong,
+html[data-rportfolio-style] .quant-backtest-orders article span,
+html[data-rportfolio-style] .quant-backtest-orders article em {
+  font-size: 0.73rem !important;
+}
+
+html[data-rportfolio-style] .quant-layer-close {
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 820px) {
+  html[data-rportfolio-style] .settings-dialog {
+    width: calc(100vw - 24px) !important;
+    height: calc(100dvh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+  }
+
+  html[data-rportfolio-style] .settings-dialog .settings-workbench {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  html[data-rportfolio-style] body > .quant-control-panel.quant-control-sheet,
+  html[data-rportfolio-style] body > .quant-dialog-layer > .quant-dialog,
+  html[data-rportfolio-style] .holdings-shadcn-dialog[data-slot="dialog-content"] {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+  }
+}

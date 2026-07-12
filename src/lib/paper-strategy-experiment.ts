@@ -1,4 +1,10 @@
-import { normalizePaperSimState, paperTradePerformanceFor, type PaperSimState, type PaperSimTrade } from "./paper-sim";
+import {
+  normalizePaperSimState,
+  paperTradePerformanceFor,
+  paperTradeRoundTripsFor,
+  type PaperSimState,
+  type PaperTradeRoundTrip,
+} from "./paper-sim";
 import { paperTradeAttributionFor } from "./paper-trade-attribution";
 import type { LabTone } from "./strategy-engine";
 
@@ -33,10 +39,10 @@ export function paperStrategyExperimentFor(state: PaperSimState): PaperStrategyE
   const normalized = normalizePaperSimState(state);
   const performance = paperTradePerformanceFor(normalized);
   const attribution = paperTradeAttributionFor(normalized);
-  const exits = normalized.trades.filter(isRealizedExit);
-  const baselineSamples = exits.map((trade) => ({ active: true, pnl: trade.realizedPnl }));
+  const rounds = paperTradeRoundTripsFor(normalized).rounds.filter((round) => round.complete);
+  const baselineSamples = rounds.map((round) => ({ active: true, pnl: round.netPnl }));
   const variant = experimentVariant(attribution.driverKey);
-  const candidateSamples = exits.map((trade) => replayTrade(trade, normalized.initialCapital, variant.key));
+  const candidateSamples = rounds.map((round) => replayRound(round, normalized.initialCapital, variant.key));
   const baseline = metricsFor(baselineSamples);
   const candidate = metricsFor(candidateSamples);
   const pnlDelta = candidate.netPnl - baseline.netPnl;
@@ -149,30 +155,30 @@ function experimentVariant(driverKey: ReturnType<typeof paperTradeAttributionFor
   };
 }
 
-function replayTrade(
-  trade: PaperSimTrade,
+function replayRound(
+  round: PaperTradeRoundTrip,
   initialCapital: number,
   variant: ReturnType<typeof experimentVariant>["key"],
 ): ReplaySample {
   if (variant === "position-cap") {
     const cap = Math.max(0, initialCapital * 0.05);
-    const scale = trade.notional > 0 && cap > 0 ? Math.min(1, cap / trade.notional) : 1;
-    return { active: true, pnl: trade.realizedPnl * scale };
+    const scale = round.entryNotional > 0 && cap > 0 ? Math.min(1, cap / round.entryNotional) : 1;
+    return { active: true, pnl: round.netPnl * scale };
   }
   if (variant === "loss-cap") {
-    const costBasis = Math.max(0.01, trade.notional - (trade.realizedPnl + trade.fee));
-    return { active: true, pnl: Math.max(trade.realizedPnl, -costBasis * 0.05) };
+    const costBasis = Math.max(0.01, round.entryNotional + round.entryFees);
+    return { active: true, pnl: Math.max(round.netPnl, -costBasis * 0.05) };
   }
   if (variant === "slippage-cap") {
-    const cappedSlippage = trade.notional * 0.002;
-    const recoveredSlippage = Math.max(0, trade.slippage - cappedSlippage);
-    return { active: true, pnl: trade.realizedPnl + recoveredSlippage };
+    const cappedSlippage = (round.entryNotional + round.exitNotional) * 0.002;
+    const recoveredSlippage = Math.max(0, round.slippage - cappedSlippage);
+    return { active: true, pnl: round.netPnl + recoveredSlippage };
   }
   if (variant === "small-order-filter") {
     const minimumNotional = Math.max(0, initialCapital * 0.01);
-    return { active: trade.notional >= minimumNotional, pnl: trade.realizedPnl };
+    return { active: round.entryNotional >= minimumNotional, pnl: round.netPnl };
   }
-  return { active: true, pnl: trade.realizedPnl };
+  return { active: true, pnl: round.netPnl };
 }
 
 function metricsFor(samples: ReplaySample[]): PaperExperimentMetrics {
@@ -190,10 +196,6 @@ function metricsFor(samples: ReplaySample[]): PaperExperimentMetrics {
     payoffRatio: averageWin !== null && averageLoss !== null && averageLoss > 0 ? averageWin / averageLoss : null,
     worstTradePnl: active.length ? Math.min(...active.map((sample) => sample.pnl)) : 0,
   };
-}
-
-function isRealizedExit(trade: PaperSimTrade) {
-  return trade.side === "SELL" && trade.quantity > 0 && trade.notional > 0 && Number.isFinite(trade.realizedPnl);
 }
 
 function sum(values: number[]) {

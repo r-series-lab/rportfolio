@@ -1,0 +1,280 @@
+.progressive-disclosure {
+  min-width: 0;
+  border-top: 1px solid var(--rp-final-line-soft, var(--rp-line-soft));
+}
+
+.progressive-disclosure > summary {
+  min-width: 0;
+  min-height: 32px;
+  padding: 7px 2px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 7px;
+  list-style: none;
+  color: var(--rp-muted);
+  font-size: 0.66rem;
+  font-weight: 760;
+  cursor: pointer;
+  user-select: none;
+}
+
+.progressive-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.progressive-disclosure > summary:hover,
+.progressive-disclosure > summary:focus-visible {
+  color: var(--rp-text);
+}
+
+.progressive-disclosure > summary:focus-visible {
+  outline: 2px solid var(--rp-accent-border);
+  outline-offset: 2px;
+  border-radius: 7px;
+}
+
+.progressive-disclosure > summary > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressive-disclosure > summary > em {
+  padding: 2px 6px;
+  border: 1px solid var(--rp-final-line-soft, var(--rp-line-soft));
+  border-radius: 999px;
+  color: var(--rp-muted);
+  background: var(--rp-final-surface-soft, var(--rp-control-bg));
+  font-size: 0.56rem;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.progressive-disclosure > summary > svg {
+  color: var(--rp-muted);
+  font-size: 1rem;
+  transition: transform 160ms ease;
+}
+
+.progressive-disclosure[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.progressive-disclosure-content {
+  min-width: 0;
+  padding: 3px 0 8px;
+}
+
+/* Quant decision density: keep actions and conclusions visible, reveal evidence on demand. */
+html[data-rportfolio-style] .quant-decision-coverage > .progressive-disclosure {
+  margin-top: 1px;
+  color: var(--rp-ink-muted);
+}
+
+html[data-rportfolio-style] .quant-decision-coverage > .progressive-disclosure > summary {
+  width: 100%;
+  padding-inline: 0;
+  color: var(--rp-ink-muted);
+}
+
+.quant-evidence-summary {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.quant-evidence-summary > span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--rp-final-line-soft, var(--rp-line-soft));
+}
+
+.quant-evidence-summary strong,
+.quant-evidence-summary em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.64rem;
+  font-style: normal;
+}
+
+.quant-evidence-summary strong {
+  color: var(--rp-text);
+}
+
+.quant-evidence-summary em {
+  color: var(--rp-muted);
+}
+
+html[data-rportfolio-style] .quant-decision-coverage > p.quant-coverage-primary {
+  color: var(--rp-ink-secondary);
+  font-weight: 680;
+}
+
+html[data-rportfolio-style] .quant-ticket-risk > p.quant-ticket-risk-summary {
+  margin: 0;
+  overflow: hidden;
+  color: var(--rp-muted);
+  font-size: 0.64rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-ticket-risk > p.quant-ticket-risk-summary.is-positive {
+  color: var(--rp-success, var(--rp-positive));
+}
+
+html[data-rportfolio-style] .quant-ticket-risk > p.quant-ticket-risk-summary.is-caution {
+  color: var(--rp-warning, var(--rp-caution));
+}
+
+html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure {
+  border-top-color: var(--quant-line);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summary {
+  color: var(--rp-ink-muted);
+  background: transparent;
+}
+
+.quant-ticket-risk > .progressive-disclosure > summary {
+  min-height: 28px;
+  padding-block: 5px;
+}
+
+.quant-ticket-risk > .progressive-disclosure .progressive-disclosure-content {
+  padding-bottom: 1px;
+}
+
+.quant-paper-evidence-strip {
+  min-width: 0;
+  padding: 7px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  border: 1px solid var(--rp-final-line-soft, var(--rp-line-soft));
+  border-radius: 8px;
+  color: var(--rp-muted);
+  background: var(--rp-final-surface-soft, var(--rp-control-bg));
+}
+
+.quant-paper-evidence-strip span,
+.quant-paper-evidence-strip small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.58rem;
+}
+
+.quant-paper-evidence-strip strong {
+  color: var(--rp-text);
+  font-size: 0.66rem;
+}
+
+.quant-paper-evidence-strip small {
+  grid-column: 1 / -1;
+}
+
+.quant-paper-evidence-strip.is-positive strong {
+  color: var(--rp-success, var(--rp-positive));
+}
+
+.quant-paper-evidence-strip.is-caution strong {
+  color: var(--rp-warning, var(--rp-caution));
+}
+
+.quant-paper-sim-card > .progressive-disclosure > summary {
+  min-height: 29px;
+  padding-block: 5px;
+}
+
+.quant-paper-detail-stack {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.quant-log-panel > .quant-log-disclosure {
+  margin-top: 1px;
+}
+
+.quant-log-panel > .quant-log-disclosure > summary {
+  min-height: 29px;
+  padding: 5px 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--rp-final-surface-soft, var(--rp-control-bg)) 72%, transparent);
+}
+
+.quant-log-disclosure .progressive-disclosure-content {
+  padding: 2px 0 0;
+}
+
+@media (max-width: 760px) {
+  .quant-evidence-summary > span {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* Holdings inspector */
+.holding-detail-panel > .holding-detail-disclosure,
+.holding-detail-panel > .holding-horizon-disclosure {
+  margin-inline: 0;
+}
+
+.holding-detail-panel > .progressive-disclosure > summary {
+  min-height: 36px;
+  padding-inline: 2px;
+}
+
+.holding-detail-evidence {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.holding-detail-evidence > span {
+  min-width: 0;
+  padding: 7px 8px;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  border-radius: 8px;
+  color: var(--rp-muted);
+  background: var(--rp-final-surface-soft, var(--rp-control-bg));
+}
+
+.holding-detail-evidence strong,
+.holding-detail-evidence em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.66rem;
+  font-style: normal;
+}
+
+.holding-detail-evidence strong {
+  color: var(--rp-text);
+}
+
+.holding-horizon-disclosure .progressive-disclosure-content {
+  padding-bottom: 1px;
+}
+
+@media (max-width: 760px) {
+  .holding-detail-evidence > span {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

@@ -100,6 +100,16 @@ export function guardOrderIntent({
     checks.push({ key, label, severity, detail });
   };
 
+  if (isBuy(side) && orderIntent.scaling) {
+    addCheck(
+      "strategy.scaling",
+      "仓位递进",
+      orderIntent.scaling.allowed ? "pass" : "block",
+      `${orderIntent.scaling.policyLabel} · ${orderIntent.scaling.stateLabel} · ${orderIntent.scaling.detail}`,
+      false,
+    );
+  }
+
   if (instrumentKind === "cash") {
     addCheck("instrument.cash", "标的类型", "block", "现金或货基不作为交易委托标的。", false);
   } else {

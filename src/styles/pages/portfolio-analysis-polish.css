@@ -376,6 +376,97 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .technical-tab
   background: color-mix(in srgb, rgb(var(--blue-rgb)) 4%, transparent) !important;
 }
 
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-strip {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(0, 1.4fr);
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid var(--rp-hairline);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    color-mix(in srgb, var(--rp-canvas-deep) 12%, var(--rp-panel-quiet));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary,
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list article {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rp-hairline);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--rp-control-glass) 68%, transparent);
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary {
+  border-left: 3px solid var(--technical-accent);
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary span,
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list span {
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.6rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary strong,
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list strong {
+  overflow: hidden;
+  color: var(--rp-ink);
+  font-size: 0.76rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary p,
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--rp-ink-secondary);
+  font-size: 0.62rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(112px, 1fr));
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list article.is-positive {
+  border-left: 3px solid var(--rp-success);
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list article.is-caution {
+  border-left: 3px solid var(--rp-warning);
+}
+
+html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list article.is-negative {
+  border-left: 3px solid var(--rp-danger);
+}
+
+@media (max-width: 1320px) {
+  html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   html[data-rportfolio-style] .analysis-page-stack .technical-panel .indicator-filter-strip {
     width: 100%;

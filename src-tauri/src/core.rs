@@ -12,6 +12,7 @@ use std::time::Duration as StdDuration;
 
 const HISTORY_RANGE: &str = "2y";
 const MIN_DAILY_BARS: usize = 220;
+const PRICE_BAR_LOOKBACK: usize = 90;
 const BACKTEST_SAMPLE_SPACING_DAYS: usize = 5;
 const DEFAULT_PROFILE_KEY: &str = "us-core";
 const DEFAULT_QBOT_PATH: &str = "/Users/ikiru/Documents/Qbot";
@@ -22,19 +23,42 @@ const YAHOO_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) 
 const YAHOO_CHART_HOSTS: [&str; 2] = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 const FRED_GRAPH_CSV_URL: &str = "https://fred.stlouisfed.org/graph/fredgraph.csv";
 const EASTMONEY_KLINE_URL: &str = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
+const SINA_KLINE_URL: &str =
+    "https://quotes.sina.cn/cn/api/openapi.php/CN_MarketDataService.getKLineData";
 const STOOQ_HISTORY_URL: &str = "https://stooq.com/q/d/";
 const STOOQ_ROWS_PER_PAGE: usize = 40;
 const STOOQ_MAX_PAGES: usize = 8;
 const AUTO_PROVIDER_TIMEOUT: StdDuration = StdDuration::from_secs(4);
-const CHINA_PROVIDER_TIMEOUT: StdDuration = StdDuration::from_secs(12);
+const CHINA_PROVIDER_TIMEOUT: StdDuration = StdDuration::from_secs(20);
 const HTTP_REQUEST_TIMEOUT: StdDuration = StdDuration::from_secs(4);
 const HTTP_CONNECT_TIMEOUT: StdDuration = StdDuration::from_secs(2);
 const SUPPORTED_RULE_TYPES: &[&str] = &[
     "close_below_ma",
     "volume_break_ma",
     "ma_below_ma",
+    "macd_bullish",
     "macd_bearish",
+    "macd_cross_up",
+    "macd_cross_down",
+    "kdj_bullish",
+    "kdj_bearish",
+    "kdj_cross_up",
+    "kdj_cross_down",
+    "kdj_above",
+    "kdj_below",
     "rsi_above",
+    "volume_ratio_above",
+    "volume_ratio_below",
+    "trend_continuation",
+    "pullback_hold_ma",
+    "volume_breakout",
+    "support_lost",
+    "range_compression",
+    "risk_proxy_cooling",
+    "risk_proxy_heating",
+    "momentum_exhaustion",
+    "distribution_volume",
+    "macd_confirmation",
     "distance_above_ma",
     "return_above",
     "long_bearish_volume_candle",
@@ -62,6 +86,11 @@ const SUPPORTED_TECHNICAL_METRICS: &[&str] = &[
     "ma_pair",
     "macd",
     "macd_signal",
+    "macd_histogram",
+    "kdj",
+    "kdj_k",
+    "kdj_d",
+    "kdj_j",
     "volume_ratio",
     "flow",
 ];
@@ -670,6 +699,7 @@ pub struct MarketAnalysisReport {
     pub opportunity_scores: Vec<OpportunityScore>,
     pub structure: StructureAnalysis,
     pub pattern_analysis: PatternAnalysis,
+    pub price_bars_by_symbol: BTreeMap<String, Vec<PriceBar>>,
     pub asset_statuses: Vec<AssetStatus>,
     pub technical_columns: Vec<TechnicalColumn>,
     pub technical_rows: Vec<TechnicalRow>,
@@ -882,6 +912,17 @@ pub struct PatternPoint {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PriceBar {
+    pub date: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetStatus {
     pub symbol: String,
     pub label: String,
@@ -909,6 +950,10 @@ pub struct TechnicalRow {
     pub ma_200: Option<f64>,
     pub macd: Option<f64>,
     pub macd_signal: Option<f64>,
+    pub macd_histogram: Option<f64>,
+    pub kdj_k: Option<f64>,
+    pub kdj_d: Option<f64>,
+    pub kdj_j: Option<f64>,
     pub volume_ratio: Option<f64>,
     pub status: String,
     pub note: String,
@@ -1123,6 +1168,15 @@ pub struct StateValidation {
     pub confidence: String,
     pub horizon_stats: Vec<BacktestHorizonStat>,
     pub event_stats: Vec<BacktestEventStat>,
+    pub replay_samples: Vec<StateReplaySample>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateReplaySample {
+    pub date: String,
+    pub exact_state_match: bool,
+    pub path_returns_pct: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1635,6 +1689,7 @@ struct TechnicalColumnConfig {
     period: Option<u16>,
     left_period: Option<u16>,
     right_period: Option<u16>,
+    line: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1661,12 +1716,24 @@ struct RuleConfig {
     days: Option<u16>,
     threshold: Option<f64>,
     max_threshold: Option<f64>,
+    tolerance_pct: Option<f64>,
+    return20d_abs_max: Option<f64>,
+    volume_max: Option<f64>,
+    volume_threshold: Option<f64>,
     buffer: Option<f64>,
     multiplier: Option<f64>,
     change_lte: Option<f64>,
     volume_ratio_gt: Option<f64>,
+    line: Option<String>,
     points: u8,
     reason: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct KdjValue {
+    k: f64,
+    d: f64,
+    j: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -1679,6 +1746,10 @@ struct IndicatorSnapshot {
     rsi_14: Option<f64>,
     macd: Option<f64>,
     macd_signal: Option<f64>,
+    previous_macd: Option<f64>,
+    previous_macd_signal: Option<f64>,
+    kdj_values: HashMap<u16, KdjValue>,
+    previous_kdj_values: HashMap<u16, KdjValue>,
     volume_avg_20: Option<f64>,
     highs: HashMap<u16, f64>,
     high_60: Option<f64>,
@@ -1707,6 +1778,20 @@ impl IndicatorSnapshot {
 
     fn rsi(&self, period: u16) -> Option<f64> {
         self.rsi_values.get(&period).copied()
+    }
+
+    fn macd_histogram(&self) -> Option<f64> {
+        self.macd
+            .zip(self.macd_signal)
+            .map(|(macd, signal)| macd - signal)
+    }
+
+    fn kdj(&self, period: u16) -> Option<KdjValue> {
+        self.kdj_values.get(&period).copied()
+    }
+
+    fn previous_kdj(&self, period: u16) -> Option<KdjValue> {
+        self.previous_kdj_values.get(&period).copied()
     }
 
     fn high(&self, period: u16) -> Option<f64> {
@@ -1844,7 +1929,7 @@ pub fn list_data_sources() -> Vec<DataSourceSummary> {
         DataSourceSummary {
             key: "china".to_string(),
             name: "A股免费多源".to_string(),
-            description: "A股/ETF 使用东方财富前复权日线，离岸标的使用 Yahoo；核心基准执行第二来源交叉校验。".to_string(),
+            description: "境内标的优先东方财富前复权日线，异常时降级新浪；离岸标的使用 Yahoo，核心基准执行第二来源交叉校验。".to_string(),
             requires_config: false,
         },
         DataSourceSummary {
@@ -2034,7 +2119,8 @@ pub async fn lookup_fund_profile_seed(code: String) -> Result<FundProfileSeed, A
             holdings_as_of = snapshot.as_of;
             top_holdings = snapshot.holdings;
             if top_holdings.is_empty() {
-                warnings.push("基金最新季报未返回股票前十大持仓，重合度将使用规则型估计。".to_string());
+                warnings
+                    .push("基金最新季报未返回股票前十大持仓，重合度将使用规则型估计。".to_string());
             }
         }
         Err(error) => warnings.push(format!("基金季报持仓读取失败：{}", error.message)),
@@ -2107,7 +2193,10 @@ pub async fn lookup_fund_nav(code: String, date: String) -> Result<FundNavLookup
         .ok_or_else(|| AppError::fetch(format!("基金 {code} 的历史净值数据未识别")))?;
     let point = fund_nav_point_for_date(&trend, requested);
     let (nav_date, nav) = point.ok_or_else(|| {
-        AppError::fetch(format!("基金 {code} 未找到 {} 的确认净值", requested.format("%Y-%m-%d")))
+        AppError::fetch(format!(
+            "基金 {code} 未找到 {} 的确认净值",
+            requested.format("%Y-%m-%d")
+        ))
     })?;
     Ok(FundNavLookup {
         code: code.to_string(),
@@ -2394,10 +2483,12 @@ pub fn load_recommendations_from_path(path: &Path) -> Result<Vec<Value>, AppErro
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(path)
-        .map_err(|error| AppError::internal(format!("recommendations file read failed: {error}")))?;
-    let value: Value = serde_json::from_str(&content)
-        .map_err(|error| AppError::invalid(format!("recommendations json parse failed: {error}")))?;
+    let content = fs::read_to_string(path).map_err(|error| {
+        AppError::internal(format!("recommendations file read failed: {error}"))
+    })?;
+    let value: Value = serde_json::from_str(&content).map_err(|error| {
+        AppError::invalid(format!("recommendations json parse failed: {error}"))
+    })?;
     Ok(value
         .get("records")
         .and_then(Value::as_array)
@@ -2429,13 +2520,16 @@ pub fn save_recommendations_to_path(
         updated_at: Utc::now().to_rfc3339(),
         records: records.clone(),
     };
-    let json = serde_json::to_string_pretty(&snapshot)
-        .map_err(|error| AppError::internal(format!("recommendations serialize failed: {error}")))?;
+    let json = serde_json::to_string_pretty(&snapshot).map_err(|error| {
+        AppError::internal(format!("recommendations serialize failed: {error}"))
+    })?;
     let temp_path = path.with_extension("json.tmp");
-    fs::write(&temp_path, json)
-        .map_err(|error| AppError::internal(format!("recommendations temp write failed: {error}")))?;
-    fs::rename(&temp_path, path)
-        .map_err(|error| AppError::internal(format!("recommendations file replace failed: {error}")))?;
+    fs::write(&temp_path, json).map_err(|error| {
+        AppError::internal(format!("recommendations temp write failed: {error}"))
+    })?;
+    fs::rename(&temp_path, path).map_err(|error| {
+        AppError::internal(format!("recommendations file replace failed: {error}"))
+    })?;
     Ok(records)
 }
 
@@ -2537,7 +2631,11 @@ fn evaluate_recommendation_records(
             }
 
             let raw_return = percent(target.close / reference_price - 1.0);
-            let signed_return = if inverse_outcome { -raw_return } else { raw_return };
+            let signed_return = if inverse_outcome {
+                -raw_return
+            } else {
+                raw_return
+            };
             let adverse_return = symbol_series[anchor_index + 1..=target_index]
                 .iter()
                 .map(|candle| percent(candle.close / reference_price - 1.0))
@@ -2550,8 +2648,8 @@ fn evaluate_recommendation_records(
                 let end_close = benchmark.get(end)?.close;
                 (start_close > 0.0).then_some(percent(end_close / start_close - 1.0))
             });
-            let signed_benchmark = benchmark_return
-                .map(|value| if inverse_outcome { -value } else { value });
+            let signed_benchmark =
+                benchmark_return.map(|value| if inverse_outcome { -value } else { value });
             let excess_return = signed_benchmark.map(|value| signed_return - value);
             let avoided_loss = if inverse_outcome {
                 Some((-raw_return).max(0.0))
@@ -2560,10 +2658,16 @@ fn evaluate_recommendation_records(
             };
 
             outcome_object.insert("status".to_string(), Value::String("evaluated".to_string()));
-            outcome_object.insert("evaluatedAt".to_string(), Value::String(Utc::now().to_rfc3339()));
+            outcome_object.insert(
+                "evaluatedAt".to_string(),
+                Value::String(Utc::now().to_rfc3339()),
+            );
             outcome_object.insert("evaluationPrice".to_string(), json_number(target.close));
             outcome_object.insert("returnPct".to_string(), json_number(round(raw_return, 4)));
-            outcome_object.insert("signedReturnPct".to_string(), json_number(round(signed_return, 4)));
+            outcome_object.insert(
+                "signedReturnPct".to_string(),
+                json_number(round(signed_return, 4)),
+            );
             outcome_object.insert(
                 "benchmarkReturnPct".to_string(),
                 optional_json_number(benchmark_return.map(|value| round(value, 4))),
@@ -2653,8 +2757,14 @@ fn recommendation_performance_for(
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
-        let as_of = record.get("asOf").and_then(Value::as_str).unwrap_or_default();
-        let symbol = record.get("symbol").and_then(Value::as_str).unwrap_or_default();
+        let as_of = record
+            .get("asOf")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let symbol = record
+            .get("symbol")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         let side = record
             .get("side")
             .and_then(Value::as_str)
@@ -2675,7 +2785,11 @@ fn recommendation_performance_for(
             continue;
         };
         for outcome in outcomes {
-            match outcome.get("status").and_then(Value::as_str).unwrap_or("pending") {
+            match outcome
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("pending")
+            {
                 "pending" => {
                     pending_outcomes += 1;
                     continue;
@@ -2737,7 +2851,8 @@ fn recommendation_performance_for(
 
     let observations = deduplicated.into_values().collect::<Vec<_>>();
     let mut horizon_groups = BTreeMap::<usize, Vec<&RecommendationPerformanceObservation>>::new();
-    let mut direction_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
+    let mut direction_groups =
+        BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
     let mut state_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
     let mut priority_groups = BTreeMap::<String, Vec<&RecommendationPerformanceObservation>>::new();
     for observation in &observations {
@@ -2754,17 +2869,16 @@ fn recommendation_performance_for(
             .or_default()
             .push(observation);
         if let Some(priority) = &observation.priority {
-            priority_groups.entry(priority.clone()).or_default().push(observation);
+            priority_groups
+                .entry(priority.clone())
+                .or_default()
+                .push(observation);
         }
     }
 
     let horizons = horizon_groups
         .into_iter()
-        .map(|(days, items)| performance_slice(
-            days.to_string(),
-            format!("{days} 日"),
-            &items,
-        ))
+        .map(|(days, items)| performance_slice(days.to_string(), format!("{days} 日"), &items))
         .collect::<Vec<_>>();
     let directions = direction_groups
         .into_iter()
@@ -2782,11 +2896,13 @@ fn recommendation_performance_for(
         .collect::<Vec<_>>();
     let mut market_states = state_groups
         .into_iter()
-        .map(|(state, items)| performance_slice(
-            state.clone(),
-            market_state_performance_label(&state),
-            &items,
-        ))
+        .map(|(state, items)| {
+            performance_slice(
+                state.clone(),
+                market_state_performance_label(&state),
+                &items,
+            )
+        })
         .collect::<Vec<_>>();
     market_states.sort_by(|left, right| right.sample_count.cmp(&left.sample_count));
     market_states.truncate(6);
@@ -2857,10 +2973,8 @@ fn performance_slice(
         label,
         sample_count,
         correct_count,
-        hit_rate_pct: (sample_count > 0).then_some(round(
-            correct_count as f64 / sample_count as f64 * 100.0,
-            1,
-        )),
+        hit_rate_pct: (sample_count > 0)
+            .then_some(round(correct_count as f64 / sample_count as f64 * 100.0, 1)),
         average_signed_return_pct: average_numbers(
             observations.iter().map(|item| Some(item.signed_return_pct)),
         ),
@@ -2874,11 +2988,11 @@ fn performance_slice(
 }
 
 fn average_numbers(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
-    let values = values.flatten().filter(|value| value.is_finite()).collect::<Vec<_>>();
-    (!values.is_empty()).then_some(round(
-        values.iter().sum::<f64>() / values.len() as f64,
-        3,
-    ))
+    let values = values
+        .flatten()
+        .filter(|value| value.is_finite())
+        .collect::<Vec<_>>();
+    (!values.is_empty()).then_some(round(values.iter().sum::<f64>() / values.len() as f64, 3))
 }
 
 fn recommendation_performance_label(
@@ -2963,7 +3077,13 @@ fn calibration_action_for(
         .find(|item| item.key == "risk_diffusion_watch");
     let current_sample_count = horizon_20
         .map(|item| item.sample_count)
-        .or_else(|| performance.horizons.iter().map(|item| item.sample_count).max())
+        .or_else(|| {
+            performance
+                .horizons
+                .iter()
+                .map(|item| item.sample_count)
+                .max()
+        })
         .unwrap_or(0);
     let mut evidence = performance
         .horizons
@@ -2981,7 +3101,8 @@ fn calibration_action_for(
             action: format!(
                 "保持当前 Profile，不调整参数；再积累 {missing} 个去重的 20 日结果后复核。"
             ),
-            rationale: "样本不足时调参容易追随短期噪声，当前最实用的动作是继续记录而不是改变阈值。".to_string(),
+            rationale: "样本不足时调参容易追随短期噪声，当前最实用的动作是继续记录而不是改变阈值。"
+                .to_string(),
             next_review: format!("20 日有效样本达到 {MINIMUM_SAMPLE_COUNT} 个时"),
             minimum_sample_count: MINIMUM_SAMPLE_COUNT,
             current_sample_count,
@@ -3001,7 +3122,8 @@ fn calibration_action_for(
                 path: "calibration.expansionStructureMin".to_string(),
                 current_value: current.to_string(),
                 proposed_value: proposed.to_string(),
-                expected_effect: "减少结构证据不足时的买入，优先提高准确率，代价是降低出手频率。".to_string(),
+                expected_effect: "减少结构证据不足时的买入，优先提高准确率，代价是降低出手频率。"
+                    .to_string(),
                 reason: "增加风险方向的真实结果偏弱。".to_string(),
                 sample_count: buy.map(|item| item.sample_count).unwrap_or(0),
                 confidence: proposal_confidence(buy.map(|item| item.sample_count).unwrap_or(0)),
@@ -3023,7 +3145,9 @@ fn calibration_action_for(
                 expected_effect: "风险扩散时少承担短线暴露，降低错误加仓和尾部损失。".to_string(),
                 reason: "风险扩散状态的样本外方向收益或命中率偏弱。".to_string(),
                 sample_count: risk_diffusion.map(|item| item.sample_count).unwrap_or(0),
-                confidence: proposal_confidence(risk_diffusion.map(|item| item.sample_count).unwrap_or(0)),
+                confidence: proposal_confidence(
+                    risk_diffusion.map(|item| item.sample_count).unwrap_or(0),
+                ),
                 directly_applicable: true,
             });
         }
@@ -3057,14 +3181,19 @@ fn calibration_action_for(
                 expected_effect: "避免把中期有效信号机械延长为长期重仓。".to_string(),
                 reason: "20 日方向有效，但 60 日方向收益转弱。".to_string(),
                 sample_count: horizon_60.map(|item| item.sample_count).unwrap_or(0),
-                confidence: proposal_confidence(horizon_60.map(|item| item.sample_count).unwrap_or(0)),
+                confidence: proposal_confidence(
+                    horizon_60.map(|item| item.sample_count).unwrap_or(0),
+                ),
                 directly_applicable: true,
             });
         }
     }
 
     if !proposals.is_empty() {
-        let direct_count = proposals.iter().filter(|item| item.directly_applicable).count();
+        let direct_count = proposals
+            .iter()
+            .filter(|item| item.directly_applicable)
+            .count();
         let action = if direct_count > 0 {
             format!(
                 "先试运行 {} 项收紧方案，不直接覆盖当前 Profile；通过 walk-forward 对比后再人工确认。",
@@ -3078,7 +3207,9 @@ fn calibration_action_for(
             label: "生成收紧候选".to_string(),
             tone: "caution".to_string(),
             action,
-            rationale: "真实样本已达到最低门槛，但任何参数变更仍需与当前版本做同窗口对比，不能直接上线。".to_string(),
+            rationale:
+                "真实样本已达到最低门槛，但任何参数变更仍需与当前版本做同窗口对比，不能直接上线。"
+                    .to_string(),
             next_review: "完成候选参数 walk-forward 对比后".to_string(),
             minimum_sample_count: MINIMUM_SAMPLE_COUNT,
             current_sample_count,
@@ -3090,8 +3221,18 @@ fn calibration_action_for(
     let horizon_20_good = slice_is_strong(horizon_20, MINIMUM_SAMPLE_COUNT);
     ProfileCalibrationAction {
         key: if horizon_20_good { "hold" } else { "review" }.to_string(),
-        label: if horizon_20_good { "保持参数" } else { "暂停扩张" }.to_string(),
-        tone: if horizon_20_good { "positive" } else { "caution" }.to_string(),
+        label: if horizon_20_good {
+            "保持参数"
+        } else {
+            "暂停扩张"
+        }
+        .to_string(),
+        tone: if horizon_20_good {
+            "positive"
+        } else {
+            "caution"
+        }
+        .to_string(),
         action: if horizon_20_good {
             "保持当前参数，不提高仓位上限；每新增 10 个去重的 20 日结果复核一次。".to_string()
         } else {
@@ -3110,10 +3251,7 @@ fn calibration_action_for(
     }
 }
 
-fn slice_is_weak(
-    slice: Option<&RecommendationPerformanceSlice>,
-    minimum_count: usize,
-) -> bool {
+fn slice_is_weak(slice: Option<&RecommendationPerformanceSlice>, minimum_count: usize) -> bool {
     slice.is_some_and(|item| {
         item.sample_count >= minimum_count
             && (item.hit_rate_pct.unwrap_or(0.0) < 45.0
@@ -3121,10 +3259,7 @@ fn slice_is_weak(
     })
 }
 
-fn slice_is_strong(
-    slice: Option<&RecommendationPerformanceSlice>,
-    minimum_count: usize,
-) -> bool {
+fn slice_is_strong(slice: Option<&RecommendationPerformanceSlice>, minimum_count: usize) -> bool {
     slice.is_some_and(|item| {
         item.sample_count >= minimum_count
             && item.hit_rate_pct.unwrap_or(0.0) >= 55.0
@@ -3204,7 +3339,10 @@ pub fn save_monitor_state_to_path(path: &Path, state: Value) -> Result<Value, Ap
     let snapshot = MonitorStoreSnapshot {
         version: 1,
         updated_at: Utc::now().to_rfc3339(),
-        snapshot: normalized.get("snapshot").cloned().filter(|value| !value.is_null()),
+        snapshot: normalized
+            .get("snapshot")
+            .cloned()
+            .filter(|value| !value.is_null()),
         records: normalized
             .get("records")
             .and_then(Value::as_array)
@@ -3306,8 +3444,9 @@ pub fn export_order_audit_from_paths_with_policy(
         .map(load_risk_policy_from_path)
         .transpose()?;
     let format = normalize_audit_format(request.format);
-    fs::create_dir_all(export_dir)
-        .map_err(|error| AppError::internal(format!("order audit directory create failed: {error}")))?;
+    fs::create_dir_all(export_dir).map_err(|error| {
+        AppError::internal(format!("order audit directory create failed: {error}"))
+    })?;
     let exported_at = Utc::now();
     let events = count_order_events(&orders);
     let path = export_dir.join(format!(
@@ -3319,7 +3458,13 @@ pub fn export_order_audit_from_paths_with_policy(
     if format == "csv" {
         write_order_audit_csv(&path, &orders)?;
     } else {
-        write_order_audit_json(&path, &orders, risk_policy, exported_at.to_rfc3339(), events)?;
+        write_order_audit_json(
+            &path,
+            &orders,
+            risk_policy,
+            exported_at.to_rfc3339(),
+            events,
+        )?;
     }
 
     Ok(OrderAuditExportResult {
@@ -3542,10 +3687,7 @@ fn normalize_object_array_field(
 }
 
 fn insert_default_string(object: &mut serde_json::Map<String, Value>, key: &str, fallback: &str) {
-    let valid = object
-        .get(key)
-        .and_then(Value::as_str)
-        .is_some();
+    let valid = object.get(key).and_then(Value::as_str).is_some();
     if !valid {
         object.insert(key.to_string(), Value::String(fallback.to_string()));
     }
@@ -3625,8 +3767,9 @@ fn write_order_audit_json(
         "riskPolicy": risk_policy,
         "orders": orders,
     });
-    let json = serde_json::to_string_pretty(&payload)
-        .map_err(|error| AppError::internal(format!("order audit json serialize failed: {error}")))?;
+    let json = serde_json::to_string_pretty(&payload).map_err(|error| {
+        AppError::internal(format!("order audit json serialize failed: {error}"))
+    })?;
     atomic_write(path, json.as_bytes(), "order audit json")
 }
 
@@ -3730,21 +3873,36 @@ fn write_order_audit_csv_row(
             value_field(order, "filledAt"),
             value_field(order, "lastError"),
             warnings_field(order),
-            event.map(|value| value_field(value, "key")).unwrap_or_default(),
-            event.map(|value| value_field(value, "at")).unwrap_or_default(),
-            event.map(|value| value_field(value, "time")).unwrap_or_default(),
-            event.map(|value| value_field(value, "type")).unwrap_or_default(),
-            event.map(|value| value_field(value, "status")).unwrap_or_default(),
-            event.map(|value| value_field(value, "label")).unwrap_or_default(),
-            event.map(|value| value_field(value, "detail")).unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "key"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "at"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "time"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "type"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "status"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "label"))
+                .unwrap_or_default(),
+            event
+                .map(|value| value_field(value, "detail"))
+                .unwrap_or_default(),
         ])
         .map_err(|error| AppError::internal(format!("order audit csv row failed: {error}")))
 }
 
 fn atomic_write(path: &Path, bytes: &[u8], label: &str) -> Result<(), AppError> {
     if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)
-            .map_err(|error| AppError::internal(format!("{label} directory create failed: {error}")))?;
+        fs::create_dir_all(dir).map_err(|error| {
+            AppError::internal(format!("{label} directory create failed: {error}"))
+        })?;
     }
     let temp_path = path.with_extension(format!(
         "{}.tmp",
@@ -3759,17 +3917,20 @@ fn atomic_write(path: &Path, bytes: &[u8], label: &str) -> Result<(), AppError> 
 }
 
 fn value_field(value: &Value, key: &str) -> String {
-    value
-        .get(key)
-        .map(value_to_cell)
-        .unwrap_or_default()
+    value.get(key).map(value_to_cell).unwrap_or_default()
 }
 
 fn warnings_field(order: &Value) -> String {
     order
         .get("warnings")
         .and_then(Value::as_array)
-        .map(|items| items.iter().map(value_to_cell).collect::<Vec<_>>().join(" | "))
+        .map(|items| {
+            items
+                .iter()
+                .map(value_to_cell)
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
         .unwrap_or_default()
 }
 
@@ -3907,7 +4068,10 @@ pub fn route_quant_order(request: QuantOrderRouteRequest) -> QuantOrderRouteResu
         };
     }
 
-    warnings.push("Live flag 已开启，但当前版本只完成 adapter handoff；真实成交回报需要下一步接入账户回调。".to_string());
+    warnings.push(
+        "Live flag 已开启，但当前版本只完成 adapter handoff；真实成交回报需要下一步接入账户回调。"
+            .to_string(),
+    );
     QuantOrderRouteResult {
         accepted: true,
         submitted: false,
@@ -4133,7 +4297,8 @@ pub fn sync_market_quote(request: MarketQuoteRequest) -> MarketQuoteSnapshot {
                 quote.synced_at = Utc::now().to_rfc3339();
             }
             if quote.message.trim().is_empty() {
-                quote.message = format!("{} market quote synced for {}", status.label, quote.symbol);
+                quote.message =
+                    format!("{} market quote synced for {}", status.label, quote.symbol);
             }
             warnings.extend(quote.warnings.clone());
             command_preview.extend(quote.command_preview.clone());
@@ -4496,7 +4661,8 @@ fn local_paper_market_quote(request: &MarketQuoteRequest, bridge: String) -> Mar
         session: "unknown".to_string(),
         source: "local-paper".to_string(),
         synced_at: Utc::now().to_rfc3339(),
-        message: "Local Paper quote uses current holding/reference price for limit protection.".to_string(),
+        message: "Local Paper quote uses current holding/reference price for limit protection."
+            .to_string(),
         ..MarketQuoteSnapshot::default()
     }
 }
@@ -4735,9 +4901,9 @@ fn run_market_quote_adapter(
         command.env("PYTHONPATH", python_path_with_workspace(&workspace_path));
     }
 
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("cannot start {bridge} market data adapter with {python}: {error}"))?;
+    let mut child = command.spawn().map_err(|error| {
+        format!("cannot start {bridge} market data adapter with {python}: {error}")
+    })?;
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(payload_text.as_bytes())
@@ -4788,7 +4954,9 @@ fn parse_adapter_response(stdout: &str) -> Result<BrokerAdapterResponse, String>
             }
         }
     }
-    Err(format!("broker adapter returned non-JSON output: {trimmed}"))
+    Err(format!(
+        "broker adapter returned non-JSON output: {trimmed}"
+    ))
 }
 
 fn parse_account_snapshot(stdout: &str) -> Result<BrokerAccountSnapshot, String> {
@@ -4807,7 +4975,9 @@ fn parse_account_snapshot(stdout: &str) -> Result<BrokerAccountSnapshot, String>
             }
         }
     }
-    Err(format!("account adapter returned non-JSON output: {trimmed}"))
+    Err(format!(
+        "account adapter returned non-JSON output: {trimmed}"
+    ))
 }
 
 fn parse_market_quote_snapshot(stdout: &str) -> Result<MarketQuoteSnapshot, String> {
@@ -4826,7 +4996,9 @@ fn parse_market_quote_snapshot(stdout: &str) -> Result<MarketQuoteSnapshot, Stri
             }
         }
     }
-    Err(format!("market data adapter returned non-JSON output: {trimmed}"))
+    Err(format!(
+        "market data adapter returned non-JSON output: {trimmed}"
+    ))
 }
 
 fn adapter_event_label(action: &str, status: &str, accepted: bool) -> &'static str {
@@ -4947,7 +5119,10 @@ fn qbot_bridge_status(path: &str, python: &str, python_ok: bool) -> BrokerBridge
             "start_trade".to_string(),
         ],
         command_preview: if let Some(command) = command {
-            vec![format!("cd {}", root.display()), format!("{command} < rportfolio-order.json")]
+            vec![
+                format!("cd {}", root.display()),
+                format!("{command} < rportfolio-order.json"),
+            ]
         } else {
             vec![
                 format!("cd {}", root.display()),
@@ -5061,10 +5236,8 @@ pub async fn score_market_and_evaluate_recommendations(
             request.as_of.as_deref(),
         )?;
     }
-    let recommendation_performance = recommendation_performance_for(
-        recommendations_path,
-        &profile.key,
-    )?;
+    let recommendation_performance =
+        recommendation_performance_for(recommendations_path, &profile.key)?;
     let calibration_action = calibration_action_for(&profile, &recommendation_performance);
     let mut report = build_report(loaded, request.as_of, profile)?;
     report.recommendation_performance = recommendation_performance;
@@ -5159,10 +5332,7 @@ fn parse_profile_json_value(content: &str) -> Result<Value, AppError> {
         .map_err(|error| AppError::invalid(format!("profile json parse failed: {error}")))
 }
 
-fn resolve_profile_json_value(
-    value: Value,
-    base_dir: Option<&Path>,
-) -> Result<Value, AppError> {
+fn resolve_profile_json_value(value: Value, base_dir: Option<&Path>) -> Result<Value, AppError> {
     let mut stack = Vec::new();
     resolve_profile_json_value_inner(value, base_dir, &mut stack)
 }
@@ -5196,11 +5366,8 @@ fn resolve_profile_json_value_inner(
     let result = if let Some(parent_ref) = parent_ref {
         let (parent_content, parent_base_dir) = raw_profile_source(&parent_ref, base_dir)?;
         let parent_value = parse_profile_json_value(&parent_content)?;
-        let mut resolved_parent = resolve_profile_json_value_inner(
-            parent_value,
-            parent_base_dir.as_deref(),
-            stack,
-        )?;
+        let mut resolved_parent =
+            resolve_profile_json_value_inner(parent_value, parent_base_dir.as_deref(), stack)?;
         merge_profile_value(&mut resolved_parent, &child);
         Ok(resolved_parent)
     } else {
@@ -5442,7 +5609,10 @@ fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<Holding
             )));
         }
     }
-    if holding.confirmed_nav.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+    if holding
+        .confirmed_nav
+        .is_some_and(|value| !value.is_finite() || value <= 0.0)
+    {
         return Err(AppError::invalid(format!(
             "holdings[{index}].confirmedNav must be a positive finite number"
         )));
@@ -5849,7 +6019,10 @@ fn validate_profile_metadata(profile: &AnalysisProfile, report: &mut ProfileVali
         report.error(
             "profile",
             "schemaVersion",
-            format!("unsupported schemaVersion {}; expected 1 or 2", profile.schema_version),
+            format!(
+                "unsupported schemaVersion {}; expected 1 or 2",
+                profile.schema_version
+            ),
         );
     } else if profile.schema_version == 1 {
         report.warning(
@@ -5860,7 +6033,11 @@ fn validate_profile_metadata(profile: &AnalysisProfile, report: &mut ProfileVali
     }
 
     if profile.profile_version.trim().is_empty() {
-        report.error("profile", "profileVersion", "profileVersion cannot be empty");
+        report.error(
+            "profile",
+            "profileVersion",
+            "profileVersion cannot be empty",
+        );
     }
 
     if profile.schema_version < 2 {
@@ -5868,40 +6045,95 @@ fn validate_profile_metadata(profile: &AnalysisProfile, report: &mut ProfileVali
     }
 
     let meta = &profile.calibration_meta;
-    if meta.method.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+    if meta
+        .method
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
         report.warning(
             "calibration",
             "calibrationMeta.method",
             "v2 Profile should declare whether calibration is manual, walk-forward, or imported",
         );
     }
-    if meta.data_signature.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+    if meta
+        .data_signature
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
         report.warning(
             "calibration",
             "calibrationMeta.dataSignature",
             "v2 Profile should record a data signature before comparing parameter performance",
         );
     }
-    validate_optional_date(meta.calibrated_at.as_deref(), "calibrationMeta.calibratedAt", report);
-    let training_start = validate_optional_date(meta.training_start.as_deref(), "calibrationMeta.trainingStart", report);
-    let training_end = validate_optional_date(meta.training_end.as_deref(), "calibrationMeta.trainingEnd", report);
-    let validation_start = validate_optional_date(meta.validation_start.as_deref(), "calibrationMeta.validationStart", report);
-    let validation_end = validate_optional_date(meta.validation_end.as_deref(), "calibrationMeta.validationEnd", report);
+    validate_optional_date(
+        meta.calibrated_at.as_deref(),
+        "calibrationMeta.calibratedAt",
+        report,
+    );
+    let training_start = validate_optional_date(
+        meta.training_start.as_deref(),
+        "calibrationMeta.trainingStart",
+        report,
+    );
+    let training_end = validate_optional_date(
+        meta.training_end.as_deref(),
+        "calibrationMeta.trainingEnd",
+        report,
+    );
+    let validation_start = validate_optional_date(
+        meta.validation_start.as_deref(),
+        "calibrationMeta.validationStart",
+        report,
+    );
+    let validation_end = validate_optional_date(
+        meta.validation_end.as_deref(),
+        "calibrationMeta.validationEnd",
+        report,
+    );
 
-    if training_start.zip(training_end).is_some_and(|(start, end)| start > end) {
-        report.error("calibration", "calibrationMeta.trainingEnd", "trainingEnd must not be earlier than trainingStart");
+    if training_start
+        .zip(training_end)
+        .is_some_and(|(start, end)| start > end)
+    {
+        report.error(
+            "calibration",
+            "calibrationMeta.trainingEnd",
+            "trainingEnd must not be earlier than trainingStart",
+        );
     }
-    if validation_start.zip(validation_end).is_some_and(|(start, end)| start > end) {
-        report.error("calibration", "calibrationMeta.validationEnd", "validationEnd must not be earlier than validationStart");
+    if validation_start
+        .zip(validation_end)
+        .is_some_and(|(start, end)| start > end)
+    {
+        report.error(
+            "calibration",
+            "calibrationMeta.validationEnd",
+            "validationEnd must not be earlier than validationStart",
+        );
     }
-    if training_end.zip(validation_start).is_some_and(|(train_end, validate_start)| validate_start <= train_end) {
+    if training_end
+        .zip(validation_start)
+        .is_some_and(|(train_end, validate_start)| validate_start <= train_end)
+    {
         report.warning(
             "calibration",
             "calibrationMeta.validationStart",
             "validation window overlaps the training window; keep an out-of-sample boundary",
         );
     }
-    if meta.objective.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+    if meta
+        .objective
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
         report.warning(
             "calibration",
             "calibrationMeta.objective",
@@ -6028,13 +6260,25 @@ fn validate_technical_columns(
         }
         if matches!(
             column.metric.as_str(),
-            "return" | "rsi" | "ma_distance" | "ma"
+            "return" | "rsi" | "ma_distance" | "ma" | "kdj" | "kdj_k" | "kdj_d" | "kdj_j"
         ) && column.period.is_some_and(|period| period == 0)
         {
             report.error(
                 "technicalColumns",
                 format!("{path}.period"),
                 "period must be greater than 0",
+            );
+        }
+        if column.metric == "kdj"
+            && column
+                .line
+                .as_deref()
+                .is_some_and(|line| !is_kdj_line(line))
+        {
+            report.error(
+                "technicalColumns",
+                format!("{path}.line"),
+                "kdj line must be one of k, d, or j",
             );
         }
         if column.metric == "ma_pair" {
@@ -6273,6 +6517,13 @@ fn validate_rule_config(
             "rule reason is empty; triggered reasons will be hard to explain",
         );
     }
+    if rule.line.as_deref().is_some_and(|line| !is_kdj_line(line)) {
+        report.error(
+            "rules",
+            format!("{path}.line"),
+            "KDJ line must be one of k, d, or j",
+        );
+    }
     validate_positive_period(rule.period, format!("{path}.period"), report);
     validate_positive_period(rule.left_period, format!("{path}.leftPeriod"), report);
     validate_positive_period(rule.right_period, format!("{path}.rightPeriod"), report);
@@ -6411,7 +6662,12 @@ async fn load_market_data(
                 }
             }
             if profile.market.eq_ignore_ascii_case("cn") {
-                match tokio::time::timeout(CHINA_PROVIDER_TIMEOUT, fetch_china_data_with_cache(profile)).await {
+                match tokio::time::timeout(
+                    CHINA_PROVIDER_TIMEOUT,
+                    fetch_china_data_with_cache(profile),
+                )
+                .await
+                {
                     Ok(Ok(data)) => return Ok(data),
                     Ok(Err(error)) => errors.push(format!("A股免费多源: {}", error.message)),
                     Err(_) => errors.push("A股免费多源: 请求超时".to_string()),
@@ -6884,7 +7140,10 @@ fn load_market_data_cache(profile: &AnalysisProfile) -> Result<LoadedMarketData,
         .map_err(|error| AppError::fetch(format!("market cache read failed: {error}")))?;
     let snapshot: MarketDataCacheSnapshot = serde_json::from_slice(&content)
         .map_err(|error| AppError::fetch(format!("market cache parse failed: {error}")))?;
-    if snapshot.version != 1 || snapshot.profile_key != profile.key || snapshot.data.source != "china" {
+    if snapshot.version != 1
+        || snapshot.profile_key != profile.key
+        || snapshot.data.source != "china"
+    {
         return Err(AppError::fetch("market cache identity mismatch"));
     }
     let latest = snapshot
@@ -6894,7 +7153,10 @@ fn load_market_data_cache(profile: &AnalysisProfile) -> Result<LoadedMarketData,
         .filter_map(|candles| candles.last().map(|candle| candle.date))
         .max()
         .ok_or_else(|| AppError::fetch("market cache has no daily rows"))?;
-    let age_days = Utc::now().date_naive().signed_duration_since(latest).num_days();
+    let age_days = Utc::now()
+        .date_naive()
+        .signed_duration_since(latest)
+        .num_days();
     if age_days < -1 {
         return Err(AppError::fetch(format!(
             "market cache date is in the future: {latest}"
@@ -6912,7 +7174,9 @@ fn load_market_data_cache(profile: &AnalysisProfile) -> Result<LoadedMarketData,
             .get(&item.symbol)
             .is_none_or(|candles| candles.len() < MIN_DAILY_BARS)
     }) {
-        return Err(AppError::fetch("market cache does not cover the full Profile"));
+        return Err(AppError::fetch(
+            "market cache does not cover the full Profile",
+        ));
     }
     Ok(snapshot.data)
 }
@@ -6930,7 +7194,13 @@ fn market_data_cache_path(profile_key: &str) -> PathBuf {
         .join("rportfolio");
     let safe_key = profile_key
         .chars()
-        .map(|char| if char.is_ascii_alphanumeric() || char == '-' { char } else { '_' })
+        .map(|char| {
+            if char.is_ascii_alphanumeric() || char == '-' {
+                char
+            } else {
+                '_'
+            }
+        })
         .collect::<String>();
     base.join(format!("market-{safe_key}-china.json"))
 }
@@ -6945,10 +7215,20 @@ async fn fetch_china_data(profile: &AnalysisProfile) -> Result<LoadedMarketData,
         .default_headers(eastmoney_headers())
         .build()
         .map_err(|error| AppError::internal(format!("Eastmoney client build failed: {error}")))?;
+    let sina_client = market_client_builder()
+        .user_agent(YAHOO_USER_AGENT)
+        .build()
+        .map_err(|error| AppError::internal(format!("Sina client build failed: {error}")))?;
     let mut yahoo_headers = HeaderMap::new();
-    yahoo_headers.insert(ACCEPT, HeaderValue::from_static("application/json,text/plain,*/*"));
+    yahoo_headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/json,text/plain,*/*"),
+    );
     yahoo_headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
-    yahoo_headers.insert(REFERER, HeaderValue::from_static("https://finance.yahoo.com/"));
+    yahoo_headers.insert(
+        REFERER,
+        HeaderValue::from_static("https://finance.yahoo.com/"),
+    );
     let yahoo_client = market_client_builder()
         .user_agent(YAHOO_USER_AGENT)
         .default_headers(yahoo_headers)
@@ -6957,22 +7237,47 @@ async fn fetch_china_data(profile: &AnalysisProfile) -> Result<LoadedMarketData,
 
     let mut series = HashMap::new();
     let mut domestic_count = 0usize;
+    let mut eastmoney_available = true;
+    let mut domestic_providers = HashMap::<String, String>::new();
+    let mut sina_fallbacks = Vec::new();
     for item in &profile.symbols {
         if let Some(secid) = eastmoney_secid_for_item(item) {
-            let candles = fetch_eastmoney_daily_symbol(&eastmoney_client, &secid, &item.symbol).await?;
+            let eastmoney_result = if eastmoney_available {
+                fetch_eastmoney_daily_symbol(&eastmoney_client, &secid, &item.symbol).await
+            } else {
+                Err(AppError::fetch(
+                    "Eastmoney disabled after an earlier request failure",
+                ))
+            };
+            let (candles, provider) = match eastmoney_result {
+                Ok(candles) if candles.len() >= MIN_DAILY_BARS => {
+                    (candles, "eastmoney".to_string())
+                }
+                Ok(_) | Err(_) => {
+                    eastmoney_available = false;
+                    let sina_symbol = sina_symbol_for_item(item).ok_or_else(|| {
+                        AppError::fetch(format!("{} has no Sina exchange mapping", item.symbol))
+                    })?;
+                    let candles =
+                        fetch_sina_daily_symbol(&sina_client, &sina_symbol, &item.symbol).await?;
+                    sina_fallbacks.push(item.symbol.clone());
+                    (candles, "sina".to_string())
+                }
+            };
             if candles.len() < MIN_DAILY_BARS {
                 return Err(AppError::fetch(format!(
-                    "{}={} returned only {} Eastmoney daily bars",
+                    "{}={} returned only {} China daily bars",
                     item.symbol,
                     secid,
                     candles.len()
                 )));
             }
             domestic_count += 1;
+            domestic_providers.insert(item.symbol.clone(), provider);
             series.insert(item.symbol.clone(), candles);
         } else {
             let yahoo_symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol);
-            let candles = fetch_yahoo_symbol(&yahoo_client, yahoo_symbol).await?;
+            let candles = fetch_yahoo_symbol_once(&yahoo_client, yahoo_symbol).await?;
             if candles.len() < MIN_DAILY_BARS {
                 return Err(AppError::fetch(format!(
                     "{} returned only {} Yahoo daily bars",
@@ -6989,13 +7294,27 @@ async fn fetch_china_data(profile: &AnalysisProfile) -> Result<LoadedMarketData,
         ));
     }
 
-    let cross_check = china_benchmark_cross_check(profile, &series, &yahoo_client).await;
+    let cross_check = china_benchmark_cross_check(
+        profile,
+        &series,
+        &domestic_providers,
+        &sina_client,
+        &yahoo_client,
+    )
+    .await;
+    let fallback_note = if sina_fallbacks.is_empty() {
+        "境内标的使用东方财富前复权日线。".to_string()
+    } else {
+        format!(
+            "东方财富不可用，{} 已降级到新浪未复权日线；涉及 {}。",
+            sina_fallbacks.len(),
+            sina_fallbacks.join(" / ")
+        )
+    };
     Ok(LoadedMarketData {
         source: "china".to_string(),
-        source_label: "东方财富 / Yahoo 校验".to_string(),
-        provider_note: format!(
-            "A股和境内 ETF 使用东方财富前复权日线，离岸标的使用 Yahoo。{cross_check}"
-        ),
+        source_label: "A股免费多源".to_string(),
+        provider_note: format!("{fallback_note} 离岸标的使用 Yahoo。{cross_check}"),
         series,
     })
 }
@@ -7018,13 +7337,18 @@ async fn fetch_eastmoney_daily_symbol(
         ])
         .send()
         .await
-        .map_err(|error| AppError::fetch(format!("Eastmoney request failed for {app_symbol}: {error}")))?
+        .map_err(|error| {
+            AppError::fetch(format!(
+                "Eastmoney request failed for {app_symbol}: {error}"
+            ))
+        })?
         .error_for_status()
-        .map_err(|error| AppError::fetch(format!("Eastmoney status failed for {app_symbol}: {error}")))?;
-    let value: Value = response
-        .json()
-        .await
-        .map_err(|error| AppError::fetch(format!("Eastmoney JSON failed for {app_symbol}: {error}")))?;
+        .map_err(|error| {
+            AppError::fetch(format!("Eastmoney status failed for {app_symbol}: {error}"))
+        })?;
+    let value: Value = response.json().await.map_err(|error| {
+        AppError::fetch(format!("Eastmoney JSON failed for {app_symbol}: {error}"))
+    })?;
     parse_eastmoney_daily_klines(&value, app_symbol)
 }
 
@@ -7032,7 +7356,11 @@ fn parse_eastmoney_daily_klines(value: &Value, app_symbol: &str) -> Result<Vec<C
     let rows = value
         .pointer("/data/klines")
         .and_then(Value::as_array)
-        .ok_or_else(|| AppError::fetch(format!("Eastmoney response missing klines for {app_symbol}")))?;
+        .ok_or_else(|| {
+            AppError::fetch(format!(
+                "Eastmoney response missing klines for {app_symbol}"
+            ))
+        })?;
     let mut by_date = BTreeMap::new();
     for row in rows {
         let Some(row) = row.as_str() else { continue };
@@ -7040,20 +7368,124 @@ fn parse_eastmoney_daily_klines(value: &Value, app_symbol: &str) -> Result<Vec<C
         if fields.len() < 6 {
             continue;
         }
-        let Ok(date) = NaiveDate::parse_from_str(fields[0], "%Y-%m-%d") else { continue };
-        let Some(open) = parse_csv_number(Some(fields[1])) else { continue };
-        let Some(close) = parse_csv_number(Some(fields[2])) else { continue };
-        let Some(high) = parse_csv_number(Some(fields[3])) else { continue };
-        let Some(low) = parse_csv_number(Some(fields[4])) else { continue };
-        let Some(volume) = parse_csv_number(Some(fields[5])) else { continue };
+        let Ok(date) = NaiveDate::parse_from_str(fields[0], "%Y-%m-%d") else {
+            continue;
+        };
+        let Some(open) = parse_csv_number(Some(fields[1])) else {
+            continue;
+        };
+        let Some(close) = parse_csv_number(Some(fields[2])) else {
+            continue;
+        };
+        let Some(high) = parse_csv_number(Some(fields[3])) else {
+            continue;
+        };
+        let Some(low) = parse_csv_number(Some(fields[4])) else {
+            continue;
+        };
+        let Some(volume) = parse_csv_number(Some(fields[5])) else {
+            continue;
+        };
         if open <= 0.0 || close <= 0.0 || high < open.max(close) || low > open.min(close) {
             continue;
         }
-        by_date.insert(date, Candle { date, open, high, low, close, volume, flow: None });
+        by_date.insert(
+            date,
+            Candle {
+                date,
+                open,
+                high,
+                low,
+                close,
+                volume,
+                flow: None,
+            },
+        );
     }
     if by_date.is_empty() {
         return Err(AppError::fetch(format!(
             "Eastmoney returned no usable daily rows for {app_symbol}"
+        )));
+    }
+    Ok(by_date.into_values().collect())
+}
+
+async fn fetch_sina_daily_symbol(
+    client: &reqwest::Client,
+    sina_symbol: &str,
+    app_symbol: &str,
+) -> Result<Vec<Candle>, AppError> {
+    let response = client
+        .get(SINA_KLINE_URL)
+        .query(&[
+            ("symbol", sina_symbol),
+            ("scale", "240"),
+            ("ma", "no"),
+            ("datalen", "1023"),
+        ])
+        .send()
+        .await
+        .map_err(|error| AppError::fetch(format!("Sina request failed for {app_symbol}: {error}")))?
+        .error_for_status()
+        .map_err(|error| {
+            AppError::fetch(format!("Sina status failed for {app_symbol}: {error}"))
+        })?;
+    let value: Value = response
+        .json()
+        .await
+        .map_err(|error| AppError::fetch(format!("Sina JSON failed for {app_symbol}: {error}")))?;
+    parse_sina_daily_klines(&value, app_symbol)
+}
+
+fn parse_sina_daily_klines(value: &Value, app_symbol: &str) -> Result<Vec<Candle>, AppError> {
+    let rows = value
+        .pointer("/result/data")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            AppError::fetch(format!("Sina response missing daily rows for {app_symbol}"))
+        })?;
+    let mut by_date = BTreeMap::new();
+    for row in rows {
+        let Some(date) = row
+            .get("day")
+            .and_then(Value::as_str)
+            .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        else {
+            continue;
+        };
+        let number = |key: &str| {
+            row.get(key)
+                .and_then(Value::as_str)
+                .and_then(|value| parse_csv_number(Some(value)))
+        };
+        let (Some(open), Some(high), Some(low), Some(close), Some(volume)) = (
+            number("open"),
+            number("high"),
+            number("low"),
+            number("close"),
+            number("volume"),
+        ) else {
+            continue;
+        };
+        if open <= 0.0 || close <= 0.0 || high < open.max(close) || low > open.min(close) {
+            continue;
+        }
+        by_date.insert(
+            date,
+            Candle {
+                date,
+                open,
+                high,
+                low,
+                close,
+                volume,
+                flow: None,
+            },
+        );
+    }
+    if by_date.is_empty() {
+        return Err(AppError::fetch(format!(
+            "Sina returned no usable daily rows for {app_symbol}"
         )));
     }
     Ok(by_date.into_values().collect())
@@ -7073,33 +7505,75 @@ fn eastmoney_secid_for_item(item: &ProfileSymbol) -> Option<String> {
     None
 }
 
+fn sina_symbol_for_item(item: &ProfileSymbol) -> Option<String> {
+    let symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol).trim();
+    let upper = symbol.to_ascii_uppercase();
+    for (suffix, market) in [(".SS", "sh"), (".SZ", "sz"), (".BJ", "bj")] {
+        if upper.ends_with(suffix) {
+            let code = &symbol[..symbol.len().saturating_sub(suffix.len())];
+            if code.len() == 6 && code.chars().all(|char| char.is_ascii_digit()) {
+                return Some(format!("{market}{code}"));
+            }
+        }
+    }
+    None
+}
+
 async fn china_benchmark_cross_check(
     profile: &AnalysisProfile,
     series: &HashMap<String, Vec<Candle>>,
+    domestic_providers: &HashMap<String, String>,
+    sina_client: &reqwest::Client,
     yahoo_client: &reqwest::Client,
 ) -> String {
-    let Some(item) = profile.symbols.iter().find(|item| item.symbol == profile.benchmark) else {
+    let Some(item) = profile
+        .symbols
+        .iter()
+        .find(|item| item.symbol == profile.benchmark)
+    else {
         return "交叉校验未完成：Profile 未配置基准标的。".to_string();
     };
     if eastmoney_secid_for_item(item).is_none() {
         return "交叉校验未完成：核心基准不是境内证券。".to_string();
     }
-    let yahoo_symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol);
-    let secondary = match fetch_yahoo_symbol(yahoo_client, yahoo_symbol).await {
-        Ok(candles) => candles,
-        Err(error) => return format!("交叉校验未完成：Yahoo 基准数据不可用（{}）。", error.message),
+    let primary_provider = domestic_providers
+        .get(&item.symbol)
+        .map(String::as_str)
+        .unwrap_or("unknown");
+    let (secondary_label, secondary) = if primary_provider == "eastmoney" {
+        let Some(sina_symbol) = sina_symbol_for_item(item) else {
+            return "交叉校验未完成：核心基准缺少新浪映射。".to_string();
+        };
+        match fetch_sina_daily_symbol(sina_client, &sina_symbol, &item.symbol).await {
+            Ok(candles) => ("新浪", candles),
+            Err(error) => {
+                return format!("交叉校验未完成：新浪基准数据不可用（{}）。", error.message)
+            }
+        }
+    } else {
+        let yahoo_symbol = item.yahoo_symbol.as_deref().unwrap_or(&item.symbol);
+        match fetch_yahoo_symbol_once(yahoo_client, yahoo_symbol).await {
+            Ok(candles) => ("Yahoo", candles),
+            Err(error) => {
+                return format!(
+                    "交叉校验未完成：Yahoo 基准数据不可用（{}）。",
+                    error.message
+                )
+            }
+        }
     };
     let Some(primary) = series.get(&item.symbol) else {
         return "一致性异常：东方财富基准序列缺失。".to_string();
     };
-    let Some((date, primary_close, secondary_close)) = latest_common_close(primary, &secondary) else {
+    let Some((date, primary_close, secondary_close)) = latest_common_close(primary, &secondary)
+    else {
         return "交叉校验未完成：两个来源没有共同交易日。".to_string();
     };
     let difference_pct = ((primary_close / secondary_close) - 1.0).abs() * 100.0;
     if difference_pct > 2.0 {
         format!(
-            "一致性异常：{} 在 {} 的东方财富/Yahoo 收盘价差 {:.2}%，已阻断风险加仓。",
-            item.symbol, date, difference_pct
+            "一致性异常：{} 在 {} 的境内主源/{} 收盘价差 {:.2}%，已阻断风险加仓。",
+            item.symbol, date, secondary_label, difference_pct
         )
     } else {
         format!(
@@ -7380,7 +7854,10 @@ struct FundHoldingsSnapshot {
 fn parse_fund_top_holdings(content: &str) -> FundHoldingsSnapshot {
     let as_of = first_iso_date(content);
     let Some(body_start) = content.find("<tbody>") else {
-        return FundHoldingsSnapshot { as_of, holdings: Vec::new() };
+        return FundHoldingsSnapshot {
+            as_of,
+            holdings: Vec::new(),
+        };
     };
     let after_start = &content[body_start + "<tbody>".len()..];
     let body = after_start
@@ -7419,7 +7896,10 @@ fn parse_fund_top_holdings(content: &str) -> FundHoldingsSnapshot {
 }
 
 fn parse_fund_redemption_fees(content: &str) -> Vec<FundRedemptionFeeTier> {
-    let Some(marker) = content.find("name=\"shfl\"").or_else(|| content.find("赎回费率")) else {
+    let Some(marker) = content
+        .find("name=\"shfl\"")
+        .or_else(|| content.find("赎回费率"))
+    else {
         return Vec::new();
     };
     let after_marker = &content[marker..];
@@ -7529,7 +8009,8 @@ fn parse_fund_transaction_status(content: &str) -> FundTransactionStatus {
         || plain.contains("封闭期")
     {
         Some(false)
-    } else if plain.contains("开放申购") || plain.contains("开放购买") || plain.contains("限大额") {
+    } else if plain.contains("开放申购") || plain.contains("开放购买") || plain.contains("限大额")
+    {
         Some(true)
     } else {
         None
@@ -8011,6 +8492,37 @@ async fn fetch_yahoo_symbol(
     })))
 }
 
+async fn fetch_yahoo_symbol_once(
+    client: &reqwest::Client,
+    yahoo_symbol: &str,
+) -> Result<Vec<Candle>, AppError> {
+    let encoded_symbol = encode_url_path_segment(yahoo_symbol);
+    let url = format!(
+        "https://{}/v8/finance/chart/{encoded_symbol}",
+        YAHOO_CHART_HOSTS[0]
+    );
+    let response = client
+        .get(&url)
+        .query(&[
+            ("range", HISTORY_RANGE),
+            ("interval", "1d"),
+            ("includePrePost", "false"),
+        ])
+        .send()
+        .await
+        .map_err(|error| {
+            AppError::fetch(format!("Yahoo request failed for {yahoo_symbol}: {error}"))
+        })?
+        .error_for_status()
+        .map_err(|error| {
+            AppError::fetch(format!("Yahoo status failed for {yahoo_symbol}: {error}"))
+        })?;
+    let value: Value = response.json().await.map_err(|error| {
+        AppError::fetch(format!("Yahoo JSON failed for {yahoo_symbol}: {error}"))
+    })?;
+    parse_yahoo_chart(&value, yahoo_symbol)
+}
+
 fn yahoo_source_label(profile: &AnalysisProfile) -> String {
     if profile
         .symbols
@@ -8245,7 +8757,8 @@ fn parse_yahoo_realtime_quote(
         });
     }
 
-    let last = field_f64(meta, "regularMarketPrice").or_else(|| points.last().map(|point| point.price));
+    let last =
+        field_f64(meta, "regularMarketPrice").or_else(|| points.last().map(|point| point.price));
     if points.is_empty() && last.is_none() {
         return Err(AppError::fetch(format!(
             "Yahoo returned no usable realtime prices for {yahoo_symbol}"
@@ -8273,7 +8786,9 @@ fn parse_yahoo_realtime_quote(
     if yahoo_symbol != symbol {
         warnings.push(format!("Yahoo 映射：{symbol}={yahoo_symbol}。"));
     }
-    warnings.push("Yahoo 图表接口不提供完整 Level-2 盘口；买一/卖一为最新价附近的保护性代理值。".to_string());
+    warnings.push(
+        "Yahoo 图表接口不提供完整 Level-2 盘口；买一/卖一为最新价附近的保护性代理值。".to_string(),
+    );
 
     Ok(RealtimeAssetQuoteSnapshot {
         accepted: true,
@@ -8385,7 +8900,11 @@ fn realtime_spread(last: Option<f64>, market: &str) -> (Option<f64>, Option<f64>
         _ => 5.0,
     };
     let half_spread = last * spread_bps / 20_000.0;
-    (Some(last - half_spread), Some(last + half_spread), Some(spread_bps))
+    (
+        Some(last - half_spread),
+        Some(last + half_spread),
+        Some(spread_bps),
+    )
 }
 
 fn number_at_optional(values: Option<&Vec<Value>>, index: usize) -> Option<f64> {
@@ -8635,6 +9154,8 @@ fn build_report(
     calibrate_opportunity_factor(&mut factor_scores, &opportunity_scores);
     let structure = structure_analysis(&profile, &snapshots, leader_confirmation.as_ref());
     let pattern_analysis = pattern_analysis(&profile, &loaded.series, &indexes);
+    let price_bars_by_symbol =
+        price_bars_by_symbol(&profile, &loaded.series, &indexes, PRICE_BAR_LOOKBACK);
     let market_state = market_state_for_with_context(
         &profile.calibration,
         &factor_scores,
@@ -8674,11 +9195,8 @@ fn build_report(
     let portfolio_profile = portfolio_profile_for(&profile, &snapshots, score);
     let profile_mandate = profile_mandate_for(&profile, &portfolio_profile);
     let profile_fund = profile_fund_for(&profile, as_of_date);
-    let profile_calibration_status = profile_calibration_status_for(
-        &profile,
-        &backtest.state_validation,
-        &loaded.source,
-    );
+    let profile_calibration_status =
+        profile_calibration_status_for(&profile, &backtest.state_validation, &loaded.source);
     let decision_frame = decision_frame_for(
         &market_state,
         &factor_scores,
@@ -8717,6 +9235,7 @@ fn build_report(
         opportunity_scores,
         structure,
         pattern_analysis,
+        price_bars_by_symbol,
         asset_statuses,
         technical_columns,
         technical_rows,
@@ -8806,6 +9325,8 @@ fn infer_dimension_factor(dimension: &DimensionConfig) -> String {
             "crowd",
             "overheat",
             "rsi_above",
+            "kdj_above",
+            "volume_ratio_above",
             "return_above",
             "distance_above_ma",
             "过热",
@@ -8845,6 +9366,10 @@ fn infer_dimension_factor(dimension: &DimensionConfig) -> String {
             "confirmation",
             "relative",
             "reversal",
+            "macd_bearish",
+            "macd_cross_down",
+            "kdj_bearish",
+            "kdj_cross_down",
             "supply_chain",
             "structure",
             "广度",
@@ -8861,6 +9386,10 @@ fn infer_dimension_factor(dimension: &DimensionConfig) -> String {
         &[
             "leader",
             "momentum",
+            "macd_bullish",
+            "macd_cross_up",
+            "kdj_bullish",
+            "kdj_cross_up",
             "growth",
             "divergence",
             "ai",
@@ -8912,13 +9441,42 @@ fn evaluate_rule(
                 snapshot.ma(rule.right_period.unwrap_or(50)),
             )
         }
+        "macd_bullish" => macd_bullish(snapshot()?),
         "macd_bearish" => macd_bearish(snapshot()?),
+        "macd_cross_up" => macd_cross_up(snapshot()?),
+        "macd_cross_down" => macd_cross_down(snapshot()?),
+        "kdj_bullish" => kdj_bullish(snapshot()?, rule),
+        "kdj_bearish" => kdj_bearish(snapshot()?, rule),
+        "kdj_cross_up" => kdj_cross_up(snapshot()?, rule),
+        "kdj_cross_down" => kdj_cross_down(snapshot()?, rule),
+        "kdj_above" => kdj_above(snapshot()?, rule),
+        "kdj_below" => kdj_below(snapshot()?, rule),
         "rsi_above" => {
             let snapshot = snapshot()?;
             let value = snapshot.rsi(rule.period.unwrap_or(14)).unwrap_or(0.0);
             value > rule.threshold.unwrap_or(70.0)
                 && rule.max_threshold.map(|max| value <= max).unwrap_or(true)
         }
+        "volume_ratio_above" => snapshot()?
+            .volume_ratio()
+            .map(|value| value > rule.threshold.unwrap_or(1.3))
+            .unwrap_or(false),
+        "volume_ratio_below" => snapshot()?
+            .volume_ratio()
+            .map(|value| value < rule.threshold.unwrap_or(0.65))
+            .unwrap_or(false),
+        "trend_continuation" => trend_continuation(snapshot()?),
+        "pullback_hold_ma" => pullback_hold_ma(snapshot()?, rule),
+        "volume_breakout" => volume_breakout(snapshot()?, rule),
+        "support_lost" => support_lost(snapshot()?, rule),
+        "range_compression" => range_compression(snapshot()?, rule),
+        "risk_proxy_cooling" => is_risk_proxy_symbol(symbol) && risk_proxy_cooling(snapshot()?),
+        "risk_proxy_heating" => {
+            is_risk_proxy_symbol(symbol) && risk_proxy_heating(snapshot()?, rule)
+        }
+        "momentum_exhaustion" => momentum_exhaustion(snapshot()?, rule),
+        "distribution_volume" => distribution_volume(snapshot()?, rule),
+        "macd_confirmation" => macd_confirmation(snapshot()?),
         "distance_above_ma" => {
             let snapshot = snapshot()?;
             ma_distance(snapshot, rule.period.unwrap_or(20))
@@ -9076,6 +9634,32 @@ fn render_reason(rule: &RuleConfig, snapshots: &HashMap<String, IndicatorSnapsho
         .and_then(|item| item.candle.flow)
         .map(|value| format_threshold(value))
         .unwrap_or_else(|| "-".to_string());
+    let macd = snapshot
+        .and_then(|item| item.macd)
+        .map(|value| format!("{value:.2}"))
+        .unwrap_or_else(|| "-".to_string());
+    let macd_signal = snapshot
+        .and_then(|item| item.macd_signal)
+        .map(|value| format!("{value:.2}"))
+        .unwrap_or_else(|| "-".to_string());
+    let macd_histogram = snapshot
+        .and_then(IndicatorSnapshot::macd_histogram)
+        .map(|value| format!("{value:+.2}"))
+        .unwrap_or_else(|| "-".to_string());
+    let volume_ratio = snapshot
+        .and_then(IndicatorSnapshot::volume_ratio)
+        .map(|value| format!("{value:.2}x"))
+        .unwrap_or_else(|| "-".to_string());
+    let kdj = snapshot.and_then(|item| item.kdj(rule.period.unwrap_or(9)));
+    let kdj_k = kdj
+        .map(|value| format!("{:.1}", value.k))
+        .unwrap_or_else(|| "-".to_string());
+    let kdj_d = kdj
+        .map(|value| format!("{:.1}", value.d))
+        .unwrap_or_else(|| "-".to_string());
+    let kdj_j = kdj
+        .map(|value| format!("{:.1}", value.j))
+        .unwrap_or_else(|| "-".to_string());
 
     for (token, value) in [
         ("{symbol}", symbol.to_string()),
@@ -9090,6 +9674,13 @@ fn render_reason(rule: &RuleConfig, snapshots: &HashMap<String, IndicatorSnapsho
         ("{periodPullback}", period_pullback),
         ("{breadth}", breadth),
         ("{flow}", flow),
+        ("{macd}", macd),
+        ("{macdSignal}", macd_signal),
+        ("{macdHistogram}", macd_histogram),
+        ("{volumeRatio}", volume_ratio),
+        ("{kdjK}", kdj_k),
+        ("{kdjD}", kdj_d),
+        ("{kdjJ}", kdj_j),
     ] {
         text = text.replace(token, &value);
     }
@@ -9140,12 +9731,57 @@ fn technical_rows(
                 ma_200: snapshot.ma(200).map(|value| round(value, 2)),
                 macd: snapshot.macd.map(|value| round(value, 2)),
                 macd_signal: snapshot.macd_signal.map(|value| round(value, 2)),
+                macd_histogram: snapshot.macd_histogram().map(|value| round(value, 2)),
+                kdj_k: snapshot.kdj(9).map(|value| round(value.k, 1)),
+                kdj_d: snapshot.kdj(9).map(|value| round(value.d, 1)),
+                kdj_j: snapshot.kdj(9).map(|value| round(value.j, 1)),
                 volume_ratio: snapshot.volume_ratio().map(|value| round(value, 2)),
                 status: status.to_string(),
                 note: technical_note(snapshot, item),
             })
         })
         .collect()
+}
+
+fn price_bars_by_symbol(
+    profile: &AnalysisProfile,
+    series: &HashMap<String, Vec<Candle>>,
+    indexes: &HashMap<String, usize>,
+    lookback: usize,
+) -> BTreeMap<String, Vec<PriceBar>> {
+    let mut bars_by_symbol = BTreeMap::new();
+    let window = lookback.max(1);
+
+    for item in &profile.symbols {
+        let Some(candles) = series.get(&item.symbol) else {
+            continue;
+        };
+        let Some(end_index) = indexes.get(&item.symbol).copied() else {
+            continue;
+        };
+        if candles.is_empty() || end_index >= candles.len() {
+            continue;
+        }
+
+        let start = (end_index + 1).saturating_sub(window);
+        let bars = candles[start..=end_index]
+            .iter()
+            .map(|candle| PriceBar {
+                date: candle.date.to_string(),
+                open: round(candle.open, 4),
+                high: round(candle.high, 4),
+                low: round(candle.low, 4),
+                close: round(candle.close, 4),
+                volume: (candle.volume > 0.0).then(|| round(candle.volume, 0)),
+            })
+            .collect::<Vec<_>>();
+
+        if !bars.is_empty() {
+            bars_by_symbol.insert(item.symbol.clone(), bars);
+        }
+    }
+
+    bars_by_symbol
 }
 
 fn technical_cells(
@@ -9221,6 +9857,26 @@ fn technical_cell_value(snapshot: &IndicatorSnapshot, column: &TechnicalColumnCo
         "macd_signal" => snapshot
             .macd_signal
             .map(CellValue::Number)
+            .unwrap_or(CellValue::Empty),
+        "macd_histogram" => snapshot
+            .macd_histogram()
+            .map(CellValue::Number)
+            .unwrap_or(CellValue::Empty),
+        "kdj" => snapshot
+            .kdj(column.period.unwrap_or(9))
+            .map(|value| CellValue::Number(kdj_line_value(value, column.line.as_deref())))
+            .unwrap_or(CellValue::Empty),
+        "kdj_k" => snapshot
+            .kdj(column.period.unwrap_or(9))
+            .map(|value| CellValue::Number(value.k))
+            .unwrap_or(CellValue::Empty),
+        "kdj_d" => snapshot
+            .kdj(column.period.unwrap_or(9))
+            .map(|value| CellValue::Number(value.d))
+            .unwrap_or(CellValue::Empty),
+        "kdj_j" => snapshot
+            .kdj(column.period.unwrap_or(9))
+            .map(|value| CellValue::Number(value.j))
             .unwrap_or(CellValue::Empty),
         "volume_ratio" => snapshot
             .volume_ratio()
@@ -10513,6 +11169,7 @@ fn state_validation_for(
         .map(|days| backtest_horizon_stat(benchmark_series, &samples, days))
         .collect::<Vec<_>>();
     let event_stats = backtest_event_stats(benchmark_series, &samples);
+    let replay_samples = state_replay_samples(benchmark_series, &samples, 20);
     let (tone, confidence, verdict) = validation_verdict(
         state,
         &horizon_stats,
@@ -10539,6 +11196,7 @@ fn state_validation_for(
         confidence,
         horizon_stats,
         event_stats,
+        replay_samples,
     }
 }
 
@@ -10920,6 +11578,32 @@ fn cluster_historical_samples(
         }
     }
     clustered
+}
+
+fn state_replay_samples(
+    benchmark_series: &[Candle],
+    samples: &[HistoricalStateSample],
+    horizon_days: usize,
+) -> Vec<StateReplaySample> {
+    samples
+        .iter()
+        .filter_map(|sample| {
+            let entry = benchmark_series.get(sample.index)?;
+            if entry.close <= 0.0 {
+                return None;
+            }
+            let end_index = sample.index.checked_add(horizon_days)?;
+            let path = benchmark_series.get(sample.index..=end_index)?;
+            Some(StateReplaySample {
+                date: entry.date.to_string(),
+                exact_state_match: sample.exact_state_match,
+                path_returns_pct: path
+                    .iter()
+                    .map(|candle| round(percent(candle.close / entry.close - 1.0), 4))
+                    .collect(),
+            })
+        })
+        .collect()
 }
 
 fn profile_validation_sample_allowed(
@@ -11622,6 +12306,21 @@ fn snapshot_at(candles: &[Candle], index: usize) -> IndicatorSnapshot {
         .into_iter()
         .filter_map(|period| rsi_at(candles, index, period as usize).map(|value| (period, value)))
         .collect::<HashMap<_, _>>();
+    let kdj_values = [9_u16, 14, 21]
+        .into_iter()
+        .filter_map(|period| kdj_at(candles, index, period as usize).map(|value| (period, value)))
+        .collect::<HashMap<_, _>>();
+    let previous_kdj_values = index
+        .checked_sub(1)
+        .map(|previous_index| {
+            [9_u16, 14, 21]
+                .into_iter()
+                .filter_map(|period| {
+                    kdj_at(candles, previous_index, period as usize).map(|value| (period, value))
+                })
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default();
     let highs = [20_u16, 60, 120]
         .into_iter()
         .filter_map(|period| high_at(candles, index, period as usize).map(|value| (period, value)))
@@ -11633,6 +12332,16 @@ fn snapshot_at(candles: &[Candle], index: usize) -> IndicatorSnapshot {
         rsi_14: rsi_values.get(&14).copied(),
         macd: macd_values.get(index).and_then(|value| *value),
         macd_signal: signal_values.get(index).and_then(|value| *value),
+        previous_macd: index
+            .checked_sub(1)
+            .and_then(|previous| macd_values.get(previous))
+            .and_then(|value| *value),
+        previous_macd_signal: index
+            .checked_sub(1)
+            .and_then(|previous| signal_values.get(previous))
+            .and_then(|value| *value),
+        kdj_values,
+        previous_kdj_values,
         volume_avg_20: sma_volume_at(candles, index, 20),
         high_60: highs.get(&60).copied(),
         highs,
@@ -11717,6 +12426,41 @@ fn rsi_at(candles: &[Candle], index: usize, period: usize) -> Option<f64> {
     }
     let rs = (gains / period as f64) / (losses / period as f64);
     Some(100.0 - (100.0 / (1.0 + rs)))
+}
+
+fn kdj_at(candles: &[Candle], index: usize, period: usize) -> Option<KdjValue> {
+    if period == 0 || index + 1 < period {
+        return None;
+    }
+
+    let mut k = 50.0;
+    let mut d = 50.0;
+    for item_index in period - 1..=index {
+        let start = item_index + 1 - period;
+        let window = &candles[start..=item_index];
+        let low = window
+            .iter()
+            .map(|candle| candle.low)
+            .fold(f64::INFINITY, f64::min);
+        let high = window
+            .iter()
+            .map(|candle| candle.high)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let range = high - low;
+        let rsv = if range.abs() <= f64::EPSILON {
+            50.0
+        } else {
+            ((candles[item_index].close - low) / range * 100.0).clamp(0.0, 100.0)
+        };
+        k = k * 2.0 / 3.0 + rsv / 3.0;
+        d = d * 2.0 / 3.0 + k / 3.0;
+    }
+
+    Some(KdjValue {
+        k,
+        d,
+        j: 3.0 * k - 2.0 * d,
+    })
 }
 
 fn macd_series(closes: &[f64]) -> (Vec<Option<f64>>, Vec<Option<f64>>) {
@@ -16167,6 +16911,14 @@ fn below_option(left: Option<f64>, right: Option<f64>) -> bool {
     }
 }
 
+fn close_above_ma(snapshot: &IndicatorSnapshot, period: u16) -> bool {
+    above(snapshot.candle.close, snapshot.ma(period))
+}
+
+fn close_below_ma(snapshot: &IndicatorSnapshot, period: u16) -> bool {
+    below(snapshot.candle.close, snapshot.ma(period))
+}
+
 fn ma_distance(snapshot: &IndicatorSnapshot, period: u16) -> Option<f64> {
     snapshot
         .ma(period)
@@ -16179,6 +16931,224 @@ fn macd_bearish(snapshot: &IndicatorSnapshot) -> bool {
         (Some(macd), Some(signal)) => macd < signal,
         _ => false,
     }
+}
+
+fn macd_bullish(snapshot: &IndicatorSnapshot) -> bool {
+    match (snapshot.macd, snapshot.macd_signal) {
+        (Some(macd), Some(signal)) => macd > signal,
+        _ => false,
+    }
+}
+
+fn macd_confirmation(snapshot: &IndicatorSnapshot) -> bool {
+    macd_bullish(snapshot) && snapshot.macd_histogram().is_some_and(|value| value > 0.0)
+}
+
+fn macd_cross_up(snapshot: &IndicatorSnapshot) -> bool {
+    match (
+        snapshot.previous_macd,
+        snapshot.previous_macd_signal,
+        snapshot.macd,
+        snapshot.macd_signal,
+    ) {
+        (Some(previous_macd), Some(previous_signal), Some(macd), Some(signal)) => {
+            previous_macd <= previous_signal && macd > signal
+        }
+        _ => false,
+    }
+}
+
+fn macd_cross_down(snapshot: &IndicatorSnapshot) -> bool {
+    match (
+        snapshot.previous_macd,
+        snapshot.previous_macd_signal,
+        snapshot.macd,
+        snapshot.macd_signal,
+    ) {
+        (Some(previous_macd), Some(previous_signal), Some(macd), Some(signal)) => {
+            previous_macd >= previous_signal && macd < signal
+        }
+        _ => false,
+    }
+}
+
+fn kdj_line_value(value: KdjValue, line: Option<&str>) -> f64 {
+    match line.unwrap_or("j").to_ascii_lowercase().as_str() {
+        "k" => value.k,
+        "d" => value.d,
+        _ => value.j,
+    }
+}
+
+fn is_kdj_line(line: &str) -> bool {
+    matches!(line.to_ascii_lowercase().as_str(), "k" | "d" | "j")
+}
+
+fn kdj_bullish(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let Some(value) = snapshot.kdj(rule.period.unwrap_or(9)) else {
+        return false;
+    };
+    if value.k <= value.d {
+        return false;
+    }
+    let selected = kdj_line_value(value, rule.line.as_deref());
+    rule.threshold.map(|min| selected >= min).unwrap_or(true)
+        && rule
+            .max_threshold
+            .map(|max| selected <= max)
+            .unwrap_or(true)
+}
+
+fn kdj_bearish(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let Some(value) = snapshot.kdj(rule.period.unwrap_or(9)) else {
+        return false;
+    };
+    if value.k >= value.d {
+        return false;
+    }
+    let selected = kdj_line_value(value, rule.line.as_deref());
+    rule.threshold.map(|max| selected <= max).unwrap_or(true)
+        && rule
+            .max_threshold
+            .map(|min| selected >= min)
+            .unwrap_or(true)
+}
+
+fn kdj_cross_up(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let period = rule.period.unwrap_or(9);
+    match (snapshot.previous_kdj(period), snapshot.kdj(period)) {
+        (Some(previous), Some(current)) => previous.k <= previous.d && current.k > current.d,
+        _ => false,
+    }
+}
+
+fn kdj_cross_down(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let period = rule.period.unwrap_or(9);
+    match (snapshot.previous_kdj(period), snapshot.kdj(period)) {
+        (Some(previous), Some(current)) => previous.k >= previous.d && current.k < current.d,
+        _ => false,
+    }
+}
+
+fn kdj_above(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    snapshot
+        .kdj(rule.period.unwrap_or(9))
+        .map(|value| kdj_line_value(value, rule.line.as_deref()) > rule.threshold.unwrap_or(80.0))
+        .unwrap_or(false)
+}
+
+fn kdj_below(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    snapshot
+        .kdj(rule.period.unwrap_or(9))
+        .map(|value| kdj_line_value(value, rule.line.as_deref()) < rule.threshold.unwrap_or(20.0))
+        .unwrap_or(false)
+}
+
+fn trend_continuation(snapshot: &IndicatorSnapshot) -> bool {
+    close_above_ma(snapshot, 20) && close_above_ma(snapshot, 50)
+}
+
+fn pullback_hold_ma(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let period = rule.period.unwrap_or(20);
+    ma_distance(snapshot, period)
+        .map(|distance| distance.abs() <= rule_tolerance_pct(rule, 2.2))
+        .unwrap_or(false)
+        && close_above_ma(snapshot, 50)
+}
+
+fn support_lost(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let period = rule.period.unwrap_or(50);
+    close_below_ma(snapshot, period)
+        || (ma_distance(snapshot, 20)
+            .map(|distance| distance < -rule_tolerance_pct(rule, 3.0))
+            .unwrap_or(false)
+            && close_below_ma(snapshot, 20))
+}
+
+fn volume_breakout(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    snapshot
+        .volume_ratio()
+        .map(|value| value >= rule_volume_threshold(rule, 1.45))
+        .unwrap_or(false)
+        && snapshot.change_1d().unwrap_or(0.0) >= rule.buffer.unwrap_or(0.0)
+        && close_above_ma(snapshot, rule.period.unwrap_or(20))
+}
+
+fn distribution_volume(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let volume_expanded = snapshot
+        .volume_ratio()
+        .map(|value| value >= rule_volume_threshold(rule, 1.45))
+        .unwrap_or(false);
+    let bearish_price = snapshot.change_1d().unwrap_or(0.0) < rule.change_lte.unwrap_or(0.0);
+    let overheated = snapshot.rsi(rule.period.unwrap_or(14)).unwrap_or(0.0)
+        >= rule.max_threshold.unwrap_or(78.0);
+
+    volume_expanded && (bearish_price || overheated)
+}
+
+fn range_compression(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let return_days = rule.days.unwrap_or(20);
+    let return_abs_ok = snapshot
+        .return_for(return_days)
+        .map(|value| value.abs() <= rule_return_abs_max(rule, 3.0))
+        .unwrap_or(false);
+    let volume_ok = snapshot
+        .volume_ratio()
+        .map(|value| value <= rule_volume_max(rule, 1.08))
+        .unwrap_or(true);
+
+    return_abs_ok && volume_ok && snapshot.ma(20).is_some() && snapshot.ma(50).is_some()
+}
+
+fn momentum_exhaustion(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    let rsi_overheated =
+        snapshot.rsi(rule.period.unwrap_or(14)).unwrap_or(0.0) >= rule.threshold.unwrap_or(75.0);
+    let kdj_overheated = snapshot
+        .kdj(9)
+        .map(|value| value.j >= rule.max_threshold.unwrap_or(90.0))
+        .unwrap_or(false);
+
+    rsi_overheated || kdj_overheated
+}
+
+fn risk_proxy_cooling(snapshot: &IndicatorSnapshot) -> bool {
+    close_below_ma(snapshot, 20) && close_below_ma(snapshot, 50)
+}
+
+fn risk_proxy_heating(snapshot: &IndicatorSnapshot, rule: &RuleConfig) -> bool {
+    close_above_ma(snapshot, 20)
+        || snapshot
+            .return_for(rule.days.unwrap_or(20))
+            .map(|value| value > rule.threshold.unwrap_or(8.0))
+            .unwrap_or(false)
+        || snapshot.change_1d().unwrap_or(0.0) > rule.buffer.unwrap_or(5.0)
+}
+
+fn rule_tolerance_pct(rule: &RuleConfig, default: f64) -> f64 {
+    rule.tolerance_pct.or(rule.threshold).unwrap_or(default)
+}
+
+fn rule_volume_threshold(rule: &RuleConfig, default: f64) -> f64 {
+    rule.volume_threshold
+        .or(rule.volume_ratio_gt)
+        .or(rule.threshold)
+        .unwrap_or(default)
+}
+
+fn rule_return_abs_max(rule: &RuleConfig, default: f64) -> f64 {
+    rule.return20d_abs_max.or(rule.threshold).unwrap_or(default)
+}
+
+fn rule_volume_max(rule: &RuleConfig, default: f64) -> f64 {
+    rule.volume_max.or(rule.max_threshold).unwrap_or(default)
+}
+
+fn is_risk_proxy_symbol(symbol: &str) -> bool {
+    let normalized = symbol.trim().trim_start_matches('^').to_ascii_uppercase();
+    matches!(
+        normalized.as_str(),
+        "VIX" | "VIXCLS" | "VVIX" | "VIXY" | "VXX" | "UVXY" | "MOVE"
+    )
 }
 
 fn long_bearish_volume_candle(snapshot: &IndicatorSnapshot) -> bool {
@@ -16287,6 +17257,24 @@ mod tests {
         };
 
         assert_eq!(eastmoney_secid_for_item(&item).as_deref(), Some("1.510300"));
+        assert_eq!(sina_symbol_for_item(&item).as_deref(), Some("sh510300"));
+    }
+
+    #[test]
+    fn parses_sina_daily_klines_in_ohlcv_order() {
+        let value = serde_json::json!({
+            "result": {
+                "data": [
+                    {"day":"2026-07-02","open":"4.955","high":"4.960","low":"4.835","close":"4.850","volume":"13691536"},
+                    {"day":"2026-07-03","open":"4.830","high":"4.927","low":"4.828","close":"4.876","volume":"19983308"}
+                ]
+            }
+        });
+        let candles = parse_sina_daily_klines(&value, "CSI300").expect("daily klines");
+
+        assert_eq!(candles.len(), 2);
+        assert_eq!(candles[1].date.to_string(), "2026-07-03");
+        assert!((candles[1].close - 4.876).abs() < 0.0001);
     }
 
     #[test]
@@ -16313,9 +17301,7 @@ mod tests {
 
     #[test]
     fn parses_suspended_fund_purchase() {
-        let status = parse_fund_transaction_status(
-            "交易状态：暂停申购 开放赎回 购买手续费",
-        );
+        let status = parse_fund_transaction_status("交易状态：暂停申购 开放赎回 购买手续费");
 
         assert_eq!(status.purchase_open, Some(false));
         assert_eq!(status.purchase_limit, None);
@@ -16444,8 +17430,14 @@ mod tests {
         );
 
         assert!(!report.valid);
-        assert!(report.errors.iter().any(|issue| issue.path == "executionPolicy.quoteWarnAgeSeconds"));
-        assert!(report.errors.iter().any(|issue| issue.path == "executionPolicy.etfWarnSpreadBps"));
+        assert!(report
+            .errors
+            .iter()
+            .any(|issue| issue.path == "executionPolicy.quoteWarnAgeSeconds"));
+        assert!(report
+            .errors
+            .iter()
+            .any(|issue| issue.path == "executionPolicy.etfWarnSpreadBps"));
     }
 
     #[test]
@@ -16477,7 +17469,41 @@ mod tests {
 
         let clustered = cluster_historical_samples(samples, 5);
 
-        assert_eq!(clustered.iter().map(|sample| sample.index).collect::<Vec<_>>(), vec![0, 5, 10]);
+        assert_eq!(
+            clustered
+                .iter()
+                .map(|sample| sample.index)
+                .collect::<Vec<_>>(),
+            vec![0, 5, 10]
+        );
+    }
+
+    #[test]
+    fn state_replay_samples_expose_real_relative_price_paths() {
+        let candles = [100.0, 95.0, 105.0]
+            .into_iter()
+            .enumerate()
+            .map(|(index, close)| Candle {
+                date: NaiveDate::from_ymd_opt(2025, 1, index as u32 + 1).unwrap(),
+                open: close,
+                high: close,
+                low: close,
+                close,
+                volume: 1.0,
+                flow: None,
+            })
+            .collect::<Vec<_>>();
+        let samples = vec![HistoricalStateSample {
+            index: 0,
+            exact_state_match: true,
+        }];
+
+        let replay = state_replay_samples(&candles, &samples, 2);
+
+        assert_eq!(replay.len(), 1);
+        assert_eq!(replay[0].date, "2025-01-01");
+        assert!(replay[0].exact_state_match);
+        assert_eq!(replay[0].path_returns_pct, vec![0.0, -5.0, 5.0]);
     }
 
     #[test]
@@ -16592,6 +17618,30 @@ mod tests {
     }
 
     #[test]
+    fn price_bars_by_symbol_respects_report_index_window() {
+        let profile = test_profile("price-bars-window");
+        let candles = synthetic_candles(&[(0, 100.0), (1, 101.0), (2, 102.0), (3, 103.0)]);
+        let mut series = HashMap::new();
+        series.insert("SPY".to_string(), candles.clone());
+        series.insert("SMH".to_string(), candles.clone());
+        series.insert("NVDA".to_string(), candles);
+        let indexes = HashMap::from([
+            ("SPY".to_string(), 2_usize),
+            ("SMH".to_string(), 2_usize),
+            ("NVDA".to_string(), 2_usize),
+        ]);
+
+        let bars = price_bars_by_symbol(&profile, &series, &indexes, 2);
+        let spy = bars.get("SPY").expect("SPY bars");
+
+        assert_eq!(spy.len(), 2);
+        assert_eq!(spy[0].date, "2025-01-02");
+        assert_eq!(spy[1].date, "2025-01-03");
+        assert_eq!(spy[1].close, 102.0);
+        assert!(spy.iter().all(|bar| bar.date != "2025-01-04"));
+    }
+
+    #[test]
     fn orders_storage_roundtrips_snapshot() {
         let path = temp_order_store_path("roundtrip");
         let orders = vec![
@@ -16665,10 +17715,12 @@ mod tests {
         let pending_outcomes = || {
             [5, 20, 60]
                 .into_iter()
-                .map(|horizon| serde_json::json!({
-                    "status": "pending",
-                    "horizonDays": horizon
-                }))
+                .map(|horizon| {
+                    serde_json::json!({
+                        "status": "pending",
+                        "horizonDays": horizon
+                    })
+                })
                 .collect::<Vec<_>>()
         };
         save_recommendations_to_path(
@@ -16707,7 +17759,9 @@ mod tests {
         let loaded = load_recommendations_from_path(&path).expect("load evaluated recommendations");
         let evaluated = loaded[0]["outcomes"].as_array().expect("outcomes array");
         assert_eq!(evaluated.len(), 3);
-        assert!(evaluated.iter().all(|outcome| outcome["status"] == "evaluated"));
+        assert!(evaluated
+            .iter()
+            .all(|outcome| outcome["status"] == "evaluated"));
         assert_eq!(evaluated[2]["horizonDays"], 60);
         assert!(evaluated[2]["evaluationPrice"].as_f64().is_some());
         assert!(evaluated[2]["signedReturnPct"].as_f64().is_some());
@@ -16802,8 +17856,14 @@ mod tests {
         let action = calibration_action_for(&profile, &performance);
 
         assert_eq!(action.key, "candidate");
-        assert!(action.proposals.iter().any(|item| item.path == "calibration.expansionStructureMin"));
-        assert!(action.proposals.iter().any(|item| item.path == "calibration.divergenceTradingCap"));
+        assert!(action
+            .proposals
+            .iter()
+            .any(|item| item.path == "calibration.expansionStructureMin"));
+        assert!(action
+            .proposals
+            .iter()
+            .any(|item| item.path == "calibration.divergenceTradingCap"));
         assert!(action.action.contains("walk-forward"));
     }
 
@@ -16979,7 +18039,10 @@ mod tests {
         let _ = fs::remove_dir(&export_dir);
 
         assert_eq!(payload["riskPolicy"]["maxDailyOrders"].as_i64(), Some(6));
-        assert_eq!(payload["riskPolicy"]["cooldownMinutes"].as_f64(), Some(45.0));
+        assert_eq!(
+            payload["riskPolicy"]["cooldownMinutes"].as_f64(),
+            Some(45.0)
+        );
     }
 
     #[test]
@@ -18039,6 +19102,146 @@ mod tests {
         }
     }
 
+    #[test]
+    fn kdj_rules_can_trigger_from_profile_snapshots() {
+        let candles = test_indicator_candles(36, |index| 10.0 + index as f64 * 0.8, |_| 1.0);
+        let snapshot = snapshot_at(&candles, candles.len() - 1);
+        let kdj = snapshot.kdj(9).expect("kdj value");
+        assert!(kdj.j > 80.0, "rising series should push KDJ J high");
+
+        let mut snapshots = HashMap::new();
+        snapshots.insert("SPY".to_string(), snapshot);
+        let rule = test_rule("kdj_above", "SPY", 8)
+            .with_threshold(80.0)
+            .with_line("j");
+
+        assert!(evaluate_rule(&rule, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+    }
+
+    #[test]
+    fn volume_ratio_rules_can_gate_execution_quality() {
+        let candles = test_indicator_candles(
+            25,
+            |index| 20.0 + index as f64 * 0.1,
+            |index| if index == 24 { 8.0 } else { 1.0 },
+        );
+        let snapshot = snapshot_at(&candles, candles.len() - 1);
+        assert!(snapshot.volume_ratio().unwrap_or_default() > 3.0);
+
+        let mut snapshots = HashMap::new();
+        snapshots.insert("ETF".to_string(), snapshot);
+        let rule = test_rule("volume_ratio_above", "ETF", 6).with_threshold(1.5);
+
+        assert!(evaluate_rule(&rule, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+    }
+
+    #[test]
+    fn price_action_trend_and_pullback_rules_use_indicator_snapshots() {
+        let candles =
+            test_indicator_candles(60, |index| if index == 59 { 101.0 } else { 100.0 }, |_| 1.0);
+        let snapshot = snapshot_at(&candles, candles.len() - 1);
+        assert!(snapshot.ma(20).is_some());
+        assert!(snapshot.ma(50).is_some());
+
+        let mut snapshots = HashMap::new();
+        snapshots.insert("SPY".to_string(), snapshot);
+        let trend_rule = test_rule("trend_continuation", "SPY", 7);
+        let pullback_rule = test_rule("pullback_hold_ma", "SPY", 8)
+            .with_period(20)
+            .with_tolerance_pct(2.2);
+
+        assert!(evaluate_rule(&trend_rule, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+        assert!(
+            evaluate_rule(&pullback_rule, &HashMap::new(), &HashMap::new(), &snapshots).unwrap()
+        );
+    }
+
+    #[test]
+    fn price_action_breakdown_and_range_rules_are_distinct() {
+        let breakdown_candles = test_indicator_candles(
+            60,
+            |index| {
+                if index < 30 {
+                    100.0
+                } else {
+                    100.0 - (index - 30) as f64
+                }
+            },
+            |_| 1.0,
+        );
+        let range_candles = test_indicator_candles(
+            60,
+            |index| 100.0 + ((index % 4) as f64 - 1.5) * 0.15,
+            |_| 1.0,
+        );
+        let mut snapshots = HashMap::new();
+        snapshots.insert(
+            "BROKEN".to_string(),
+            snapshot_at(&breakdown_candles, breakdown_candles.len() - 1),
+        );
+        snapshots.insert(
+            "RANGE".to_string(),
+            snapshot_at(&range_candles, range_candles.len() - 1),
+        );
+
+        let support_lost = test_rule("support_lost", "BROKEN", 10).with_period(50);
+        let compression = test_rule("range_compression", "RANGE", 5)
+            .with_return20d_abs_max(3.0)
+            .with_volume_max(1.08);
+
+        assert!(
+            evaluate_rule(&support_lost, &HashMap::new(), &HashMap::new(), &snapshots).unwrap()
+        );
+        assert!(evaluate_rule(&compression, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+    }
+
+    #[test]
+    fn price_action_volume_and_risk_proxy_rules_are_guarded() {
+        let breakout_candles = test_indicator_candles(
+            60,
+            |index| 100.0 + index as f64 * 0.1,
+            |index| if index == 59 { 6.0 } else { 1.0 },
+        );
+        let cooling_candles = test_indicator_candles(
+            60,
+            |index| {
+                if index < 30 {
+                    24.0
+                } else {
+                    24.0 - (index - 30) as f64 * 0.2
+                }
+            },
+            |_| 1.0,
+        );
+        let mut snapshots = HashMap::new();
+        snapshots.insert(
+            "SPY".to_string(),
+            snapshot_at(&breakout_candles, breakout_candles.len() - 1),
+        );
+        snapshots.insert(
+            "VIX".to_string(),
+            snapshot_at(&cooling_candles, cooling_candles.len() - 1),
+        );
+        snapshots.insert(
+            "RISKY".to_string(),
+            snapshot_at(&cooling_candles, cooling_candles.len() - 1),
+        );
+
+        let breakout = test_rule("volume_breakout", "SPY", 6).with_volume_threshold(1.45);
+        let cooling = test_rule("risk_proxy_cooling", "VIX", 6);
+        let non_proxy_cooling = test_rule("risk_proxy_cooling", "RISKY", 6);
+
+        assert!(evaluate_rule(&breakout, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+        assert!(evaluate_rule(&cooling, &HashMap::new(), &HashMap::new(), &snapshots).unwrap());
+        assert!(!evaluate_rule(
+            &non_proxy_cooling,
+            &HashMap::new(),
+            &HashMap::new(),
+            &snapshots
+        )
+        .unwrap());
+    }
+
     fn test_leader_confirmation(severe: bool) -> LeaderConfirmation {
         LeaderConfirmation {
             leader_count: 2,
@@ -18115,6 +19318,101 @@ mod tests {
             average_signed_return_pct: Some(average_signed_return_pct),
             average_excess_return_pct: None,
             average_max_adverse_pct: Some(-1.0),
+        }
+    }
+
+    fn test_indicator_candles(
+        count: usize,
+        mut close_for: impl FnMut(usize) -> f64,
+        mut volume_for: impl FnMut(usize) -> f64,
+    ) -> Vec<Candle> {
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1).expect("valid date");
+        (0..count)
+            .map(|index| {
+                let close = close_for(index);
+                Candle {
+                    date: start + Duration::days(index as i64),
+                    open: close * 0.995,
+                    high: close * 1.01,
+                    low: close * 0.99,
+                    close,
+                    volume: volume_for(index),
+                    flow: None,
+                }
+            })
+            .collect()
+    }
+
+    fn test_rule(rule_type: &str, symbol: &str, points: u8) -> RuleConfig {
+        RuleConfig {
+            rule_type: rule_type.to_string(),
+            symbol: Some(symbol.to_string()),
+            symbols: None,
+            other: None,
+            period: None,
+            left_period: None,
+            right_period: None,
+            days: None,
+            threshold: None,
+            max_threshold: None,
+            tolerance_pct: None,
+            return20d_abs_max: None,
+            volume_max: None,
+            volume_threshold: None,
+            buffer: None,
+            multiplier: None,
+            change_lte: None,
+            volume_ratio_gt: None,
+            line: None,
+            points,
+            reason: "{symbol} test".to_string(),
+        }
+    }
+
+    trait TestRuleExt {
+        fn with_threshold(self, value: f64) -> Self;
+        fn with_period(self, value: u16) -> Self;
+        fn with_line(self, value: &str) -> Self;
+        fn with_tolerance_pct(self, value: f64) -> Self;
+        fn with_return20d_abs_max(self, value: f64) -> Self;
+        fn with_volume_max(self, value: f64) -> Self;
+        fn with_volume_threshold(self, value: f64) -> Self;
+    }
+
+    impl TestRuleExt for RuleConfig {
+        fn with_threshold(mut self, value: f64) -> Self {
+            self.threshold = Some(value);
+            self
+        }
+
+        fn with_period(mut self, value: u16) -> Self {
+            self.period = Some(value);
+            self
+        }
+
+        fn with_line(mut self, value: &str) -> Self {
+            self.line = Some(value.to_string());
+            self
+        }
+
+        fn with_tolerance_pct(mut self, value: f64) -> Self {
+            self.tolerance_pct = Some(value);
+            self
+        }
+
+        fn with_return20d_abs_max(mut self, value: f64) -> Self {
+            self.return20d_abs_max = Some(value);
+            self
+        }
+
+        fn with_volume_max(mut self, value: f64) -> Self {
+            self.volume_max = Some(value);
+            self
+        }
+
+        fn with_volume_threshold(mut self, value: f64) -> Self {
+            self.volume_threshold = Some(value);
+            self
         }
     }
 

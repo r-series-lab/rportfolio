@@ -438,6 +438,15 @@ export interface StructureAnalysis {
   signals: StructureSignal[];
 }
 
+export interface PriceBar {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number | null;
+}
+
 export interface PatternPoint {
   label: string;
   date: string;
@@ -471,6 +480,62 @@ export interface PatternAnalysis {
   patterns: ChartPattern[];
 }
 
+export type PriceActionCategory = "trend" | "support" | "resistance" | "volume" | "momentum" | "risk" | string;
+export type PriceActionDirection = "bullish" | "bearish" | "neutral" | string;
+
+export interface PriceActionSignal {
+  key: string;
+  label: string;
+  symbol: string;
+  symbolLabel: string;
+  category: PriceActionCategory;
+  direction: PriceActionDirection;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  strength: number;
+  level: string;
+  condition: string;
+  invalidation: string;
+  detail: string;
+  ruleType: string;
+}
+
+export interface PriceActionSnapshot {
+  symbol: string;
+  label: string;
+  phase:
+    | "trend-continuation"
+    | "pullback-hold"
+    | "breakout-watch"
+    | "range-compression"
+    | "breakdown"
+    | "exhaustion"
+    | "risk-cooling"
+    | "risk-heating"
+    | "unknown"
+    | string;
+  phaseLabel: string;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  score: number;
+  structureScore: number;
+  momentumScore: number;
+  riskScore: number;
+  support: string;
+  resistance: string;
+  invalidation: string;
+  entryTrigger: string;
+  summary: string;
+  signals: PriceActionSignal[];
+}
+
+export interface PriceActionAnalysis {
+  score: number;
+  label: string;
+  tone: "positive" | "neutral" | "caution" | "negative" | string;
+  summary: string;
+  primarySignal: PriceActionSignal | null;
+  snapshots: PriceActionSnapshot[];
+}
+
 export interface AssetStatus {
   symbol: string;
   label: string;
@@ -496,6 +561,10 @@ export interface TechnicalRow {
   ma200: number | null;
   macd: number | null;
   macdSignal: number | null;
+  macdHistogram: number | null;
+  kdjK: number | null;
+  kdjD: number | null;
+  kdjJ: number | null;
   volumeRatio: number | null;
   status: LightStatus;
   note: string;
@@ -674,6 +743,12 @@ export interface BacktestEventStat {
   detail: string;
 }
 
+export interface StateReplaySample {
+  date: string;
+  exactStateMatch: boolean;
+  pathReturnsPct: number[];
+}
+
 export interface StateValidation {
   stateKey: string;
   stateLabel: string;
@@ -692,6 +767,7 @@ export interface StateValidation {
   confidence: string;
   horizonStats: BacktestHorizonStat[];
   eventStats: BacktestEventStat[];
+  replaySamples?: StateReplaySample[];
 }
 
 export interface ProtocolValidationRow {
@@ -774,6 +850,8 @@ export interface MarketAnalysisReport {
   opportunityScores: OpportunityScore[];
   structure: StructureAnalysis;
   patternAnalysis: PatternAnalysis;
+  priceBarsBySymbol?: Record<string, PriceBar[]>;
+  priceAction?: PriceActionAnalysis;
   profileKey: string;
   profileName: string;
   profileMarket: string;

@@ -5,6 +5,7 @@ import type {
   IntelligenceDriver,
   MarketAnalysisReport,
   MarketInternals,
+  PriceActionAnalysis,
   PositionAdvice,
   RiskVectorItem,
   SignalQuality,
@@ -12,11 +13,14 @@ import type {
   StateTransitionMatrix,
   StateTransitionOutcome,
 } from "./types";
+import { derivePatternAnalysis } from "./chart-patterns";
+import { analyzePriceAction } from "./price-action";
 
 type IntelligenceTone = IntelligenceDriver["tone"];
 
 export type EnhancedMarketAnalysisReport = MarketAnalysisReport & {
   damageScore: DamageScore;
+  priceAction: PriceActionAnalysis;
   riskVector: RiskVectorItem[];
   signalQuality: SignalQuality;
   stateConfidence: StateConfidence;
@@ -24,18 +28,28 @@ export type EnhancedMarketAnalysisReport = MarketAnalysisReport & {
 };
 
 export function enhanceMarketAnalysisReport(report: MarketAnalysisReport): EnhancedMarketAnalysisReport {
-  const riskVector = hasRiskVector(report.riskVector) ? report.riskVector : deriveRiskVector(report);
-  const baseStateConfidence = report.stateConfidence ?? deriveStateConfidence(report, riskVector);
-  const signalQuality = report.signalQuality ?? deriveSignalQuality(report, baseStateConfidence, riskVector);
+  const priceAction = report.priceAction ?? analyzePriceAction({
+    assetStatuses: report.assetStatuses,
+    structure: report.structure,
+    technicalRows: report.technicalRows,
+  });
+  const reportWithPriceAction = { ...report, priceAction };
+  const patternAnalysis = derivePatternAnalysis(reportWithPriceAction, priceAction);
+  const reportWithSignals = { ...reportWithPriceAction, patternAnalysis };
+  const riskVector = hasRiskVector(report.riskVector) ? report.riskVector : deriveRiskVector(reportWithSignals);
+  const baseStateConfidence = report.stateConfidence ?? deriveStateConfidence(reportWithSignals, riskVector);
+  const signalQuality = report.signalQuality ?? deriveSignalQuality(reportWithSignals, baseStateConfidence, riskVector);
   const stateConfidence = calibrateStateConfidence(baseStateConfidence, signalQuality);
-  const damageScore = report.damageScore ?? deriveDamageScore(report, riskVector);
-  const stateTransitionMatrix = report.stateTransitionMatrix ?? deriveStateTransitionMatrix(report, stateConfidence, damageScore, riskVector);
+  const damageScore = report.damageScore ?? deriveDamageScore(reportWithSignals, riskVector);
+  const stateTransitionMatrix = report.stateTransitionMatrix ?? deriveStateTransitionMatrix(reportWithSignals, stateConfidence, damageScore, riskVector);
   const positionAdvice = report.positionAdvice.map((advice) =>
     adjustPositionAdviceForIntelligence(advice, stateConfidence, damageScore, riskVector, signalQuality),
   );
 
   return {
     ...report,
+    priceAction,
+    patternAnalysis,
     riskVector,
     signalQuality,
     stateConfidence,
@@ -183,6 +197,10 @@ export function deriveSignalQuality(
   const riskScores = riskVector.map((item) => item.score);
   const riskSpread = riskScores.length ? Math.max(...riskScores) - Math.min(...riskScores) : 0;
   const consistency = clamp(Math.round(stateConfidence.score * 0.74 + Math.max(0, 78 - riskSpread) * 0.26), 0, 100);
+  const priceAction = report.priceAction;
+  const priceActionScore = priceAction
+    ? clamp(Math.round(priceAction.score - (priceAction.primarySignal?.tone === "negative" ? 8 : 0)), 0, 100)
+    : 44;
 
   const drivers: IntelligenceDriver[] = [
     driver("profile_coverage", "Profile 覆盖", profileCoverage, `已配置 ${weightedHoldings.length} 个带权重资产，总权重 ${Math.round(totalWeight)}%。`, "confidence"),
@@ -190,9 +208,10 @@ export function deriveSignalQuality(
     driver("backtest_depth", "回测样本", backtestDepth, `有效状态样本 n=${stateSamples || "—"} / 原始 ${rawStateSamples || "—"}，协议样本 n=${protocolSamples || "—"}。`, "confidence"),
     driver("rule_completeness", "规则完整度", ruleCompleteness, `规则 ${ruleCount} 条，动作门 ${gateCount} 个，阻断 ${blockedGates} 个。`, "confidence"),
     driver("signal_consistency", "信号一致性", consistency, `状态置信 ${stateConfidence.score}/100，风险向量分歧 ${riskSpread}。`, "confidence"),
+    driver("price_action", "价格行为", priceActionScore, priceAction?.summary ?? "价格行为分析尚未生成。", "confidence"),
   ];
   const score = clamp(
-    Math.round(profileCoverage * 0.24 + dataCoverage * 0.18 + backtestDepth * 0.22 + ruleCompleteness * 0.18 + consistency * 0.18),
+    Math.round(profileCoverage * 0.2 + dataCoverage * 0.16 + backtestDepth * 0.2 + ruleCompleteness * 0.16 + consistency * 0.16 + priceActionScore * 0.12),
     0,
     100,
   );

@@ -13,6 +13,8 @@
     "tauri": "tauri",
     "web:dev": "vite",
     "web:build": "tsc && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "cli:build": "cargo build --manifest-path ./src-tauri/Cargo.toml --release --no-default-features",
     "cli:build:linux": "sh ./scripts/build-linux-cli.sh",
     "rust-check": "cargo check --manifest-path ./src-tauri/Cargo.toml",
@@ -52,6 +54,7 @@
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.3.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^4.1.9"
   }
 }

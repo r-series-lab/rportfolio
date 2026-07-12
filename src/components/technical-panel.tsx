@@ -12,13 +12,15 @@ import {
 import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { useDragScroll } from "../hooks/use-drag-scroll";
-import type { SectorStrengthRow, TechnicalColumn, TechnicalRow } from "../lib/types";
+import { topPriceActionSignals } from "../lib/price-action";
+import type { PriceActionAnalysis, SectorStrengthRow, TechnicalColumn, TechnicalRow } from "../lib/types";
 import { formatPercent } from "../lib/utils";
 
 type IndicatorFilter = "all" | "core" | "overheat" | "weak" | "risk";
 
 type TechnicalPanelProps = {
   columns: TechnicalColumn[];
+  priceAction?: PriceActionAnalysis | null;
   rows: TechnicalRow[];
   strength: SectorStrengthRow[];
   profileMarket?: string;
@@ -32,11 +34,12 @@ const FILTERS: Array<{ key: IndicatorFilter; label: string }> = [
   { key: "risk", label: "风险资产" },
 ];
 
-export function TechnicalPanel({ columns, rows, strength, profileMarket }: TechnicalPanelProps) {
+export function TechnicalPanel({ columns, priceAction, rows, strength, profileMarket }: TechnicalPanelProps) {
   const [filter, setFilter] = useState<IndicatorFilter>("all");
   const tableDragScroll = useDragScroll();
   const strengthDragScroll = useDragScroll();
   const filteredRows = useMemo(() => rows.filter((row, index) => matchesFilter(row, filter, index)), [filter, rows]);
+  const actionSignals = useMemo(() => topPriceActionSignals(priceAction, 5), [priceAction]);
   const activeFilter = FILTERS.find((item) => item.key === filter) ?? FILTERS[0];
   const benchmarkLabel = relativeBenchmarkLabel(profileMarket);
 
@@ -115,6 +118,25 @@ export function TechnicalPanel({ columns, rows, strength, profileMarket }: Techn
           </TableBody>
         </Table>
       </TableContainer>
+
+      {priceAction ? (
+        <div className={`price-action-strip is-${priceAction.tone}`} aria-label="价格行为摘要">
+          <div className="price-action-summary">
+            <span>价格行为</span>
+            <strong>{priceAction.label} · {priceAction.score}/100</strong>
+            <p>{priceAction.summary}</p>
+          </div>
+          <div className="price-action-signal-list">
+            {actionSignals.map((signal) => (
+              <article key={signal.key} className={`is-${signal.tone}`}>
+                <span>{signal.symbol} · {signal.label}</span>
+                <strong>{signal.level}</strong>
+                <p>{signal.condition}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="strength-scroll-wrap">
         <div className="strength-strip drag-scroll" {...strengthDragScroll}>

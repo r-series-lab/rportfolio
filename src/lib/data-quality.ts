@@ -112,12 +112,15 @@ function assessment(checks: DataQualityCheck[]): DataQualityAssessment {
   const severity: DataQualitySeverity = blocks.length ? "block" : warnings.length ? "warn" : "pass";
   const score = Math.max(0, 100 - blocks.length * 45 - warnings.length * 14);
   const firstIssue = blocks[0] ?? warnings[0];
+  const sourceNeedsConfirmation = checks.some((check) =>
+    check.key === "source.fallback" || check.key === "source.cross-check.warn"
+  );
   return {
     blocksExecution: blocks.length > 0,
     checks,
     detail: firstIssue?.detail ?? "来源、日期和关键字段完整性均通过。",
     label: severity === "block" ? "数据阻断" : severity === "warn" ? "数据待确认" : "数据可信",
-    riskIncreaseAllowed: blocks.length === 0,
+    riskIncreaseAllowed: blocks.length === 0 && !sourceNeedsConfirmation,
     score,
     severity,
   };

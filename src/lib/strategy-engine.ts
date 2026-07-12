@@ -1,10 +1,22 @@
 import type { PositionPlan, PositionPlanTone } from "./position-plan";
+import { priceActionForSymbol } from "./price-action";
 import type { TradeHabit } from "./trades";
 import type { DecisionAxis, MarketAnalysisReport } from "./types";
 import { formatMoney } from "./utils";
+import {
+  DEFAULT_STRATEGY_POLICY_CONFIG,
+  evaluateScalingPolicy,
+  normalizeStrategyPolicyConfig,
+  scalingPolicyDefinition,
+  type ScalingDecision,
+  type StrategyPolicyBundle,
+  type StrategyPolicyConfig,
+  type StrategyScalingRuntime,
+} from "./strategy-policies";
 
 export type LabTone = "positive" | "neutral" | "caution" | "negative";
-export type StrategyKey = "risk-gated-trend" | "reversion-probe" | "rebalance-band" | "defense-first";
+export type BuiltInStrategyKey = "risk-gated-trend" | "reversion-probe" | "rebalance-band" | "defense-first";
+export type StrategyKey = BuiltInStrategyKey | (string & {});
 export type QbotPresetKey = "rsi-single-factor" | "roc-momentum" | "boll-reversion" | "multi-factor-top1" | "btc-grid";
 
 export type StrategyDefinition = {
@@ -14,6 +26,7 @@ export type StrategyDefinition = {
   mode: string;
   benchmark: string;
   detail: string;
+  policies: StrategyPolicyBundle;
 };
 
 export type QbotPreset = {
@@ -53,6 +66,7 @@ export type OrderIntent = {
   weight: string;
   detail: string;
   replacementLink?: ReplacementOrderLink;
+  scaling?: ScalingDecision;
 };
 
 export type ReplacementOrderLink = {
@@ -73,6 +87,8 @@ export type StrategyEngineInput = {
   riskOverride: boolean;
   strategyKey: StrategyKey;
   tradeHabit: TradeHabit;
+  policyConfig?: StrategyPolicyConfig;
+  runtimeBySymbol?: Record<string, StrategyScalingRuntime>;
 };
 
 export type StrategyEvaluation = {
@@ -80,6 +96,7 @@ export type StrategyEvaluation = {
   score: StrategyScore;
   signals: StrategySignal[];
   strategy: StrategyDefinition;
+  policyConfig: StrategyPolicyConfig;
 };
 
 export type RegisteredStrategy = {
@@ -97,6 +114,7 @@ export const STRATEGIES: StrategyDefinition[] = [
     mode: "顺势",
     benchmark: "趋势 / 风险 / 赔率",
     detail: "Profile 风险门通过后才排入分批模拟单。",
+    policies: policyBundle("trend-confirmation", "profile-invalidation"),
   },
   {
     key: "reversion-probe",
@@ -105,6 +123,7 @@ export const STRATEGIES: StrategyDefinition[] = [
     mode: "试探",
     benchmark: "损伤 / 样本 / 支撑",
     detail: "只给小额试探单，验证回撤后的结构修复。",
+    policies: policyBundle("reversion-confirmation", "profile-invalidation"),
   },
   {
     key: "rebalance-band",
@@ -113,6 +132,7 @@ export const STRATEGIES: StrategyDefinition[] = [
     mode: "再平衡",
     benchmark: "现金 / 目标带 / 上限",
     detail: "围绕目标带生成再平衡队列。",
+    policies: policyBundle("profile-decision", "target-band"),
   },
   {
     key: "defense-first",
@@ -121,6 +141,7 @@ export const STRATEGIES: StrategyDefinition[] = [
     mode: "防守",
     benchmark: "风险 / 损伤 / 止损",
     detail: "风险升高时只保留减速和降仓动作。",
+    policies: policyBundle("profile-decision", "defense-first"),
   },
 ];
 
@@ -172,7 +193,7 @@ export const QBOT_PRESETS: QbotPreset[] = [
   },
 ];
 
-export const STRATEGY_REGISTRY: Record<StrategyKey, RegisteredStrategy> = STRATEGIES.reduce(
+export const STRATEGY_REGISTRY: Record<string, RegisteredStrategy> = STRATEGIES.reduce(
   (registry, definition) => ({
     ...registry,
     [definition.key]: {
@@ -182,17 +203,32 @@ export const STRATEGY_REGISTRY: Record<StrategyKey, RegisteredStrategy> = STRATE
       score: scoreStrategy,
     },
   }),
-  {} as Record<StrategyKey, RegisteredStrategy>,
+  {} as Record<string, RegisteredStrategy>,
 );
+
+export function registerStrategy(strategy: RegisteredStrategy, replace = false) {
+  if (STRATEGY_REGISTRY[strategy.definition.key] && !replace) return false;
+  STRATEGY_REGISTRY[strategy.definition.key] = strategy;
+  const index = STRATEGIES.findIndex((item) => item.key === strategy.definition.key);
+  if (index >= 0) STRATEGIES[index] = strategy.definition;
+  else STRATEGIES.push(strategy.definition);
+  return true;
+}
 
 export function evaluateStrategy(input: StrategyEngineInput): StrategyEvaluation {
   const strategy = STRATEGY_REGISTRY[input.strategyKey] ?? STRATEGY_REGISTRY["risk-gated-trend"];
   const score = strategy.score(input);
+  const policyConfig = normalizeStrategyPolicyConfig(input.policyConfig ?? {
+    ...DEFAULT_STRATEGY_POLICY_CONFIG,
+    scalingPolicyKey: strategy.definition.policies.scaling,
+  });
+  const policyInput = { ...input, policyConfig };
   return {
     strategy: strategy.definition,
     score,
-    signals: strategy.buildSignals(input),
-    orderIntents: strategy.buildOrders(input, score),
+    policyConfig,
+    signals: strategy.buildSignals(policyInput),
+    orderIntents: strategy.buildOrders(policyInput, score),
   };
 }
 
@@ -233,18 +269,19 @@ function scoreStrategy({
   const signal = report.signalQuality?.score ?? report.decisionFrame.signalQuality?.score ?? 55;
   const confidence = report.stateConfidence?.score ?? report.decisionFrame.stateConfidence?.score ?? 55;
   const damage = report.damageScore?.score ?? report.decisionFrame.damageScore?.score ?? 45;
+  const priceAction = report.priceAction?.score ?? 55;
   const shortOpportunity = report.opportunityScores.find((item) => item.horizonKey === "short")?.score ?? 50;
   const mediumOpportunity = report.opportunityScores.find((item) => item.horizonKey === "medium")?.score ?? 50;
   const portfolioHealth = positionPlan.decision.profileHealth.valid ? 76 : 42;
   const cashDeploy = positionPlan.decision.executableBudget > 0 ? 82 : positionPlan.cashWeight > positionPlan.policy.minCashWeight ? 62 : 38;
   const habitScore = tradeHabit.tone === "negative" ? 35 : tradeHabit.tone === "caution" ? 55 : tradeHabit.tone === "positive" ? 76 : 62;
   const raw = strategyKey === "risk-gated-trend"
-    ? trend * 0.28 + edge * 0.22 + signal * 0.18 + confidence * 0.14 + riskBudget * 0.12 + shortOpportunity * 0.06
+    ? trend * 0.24 + edge * 0.2 + signal * 0.16 + priceAction * 0.16 + confidence * 0.12 + riskBudget * 0.08 + shortOpportunity * 0.04
     : strategyKey === "reversion-probe"
-      ? mediumOpportunity * 0.24 + (100 - damage) * 0.22 + confidence * 0.18 + riskBudget * 0.16 + edge * 0.12 + habitScore * 0.08
+      ? mediumOpportunity * 0.2 + priceAction * 0.18 + (100 - damage) * 0.18 + confidence * 0.16 + riskBudget * 0.14 + edge * 0.08 + habitScore * 0.06
       : strategyKey === "rebalance-band"
-        ? portfolioHealth * 0.28 + cashDeploy * 0.24 + riskBudget * 0.18 + habitScore * 0.12 + signal * 0.1 + confidence * 0.08
-        : report.score * 0.34 + damage * 0.24 + (100 - riskBudget) * 0.16 + (100 - signal) * 0.1 + (100 - trend) * 0.08 + habitScore * 0.08;
+        ? portfolioHealth * 0.24 + cashDeploy * 0.22 + riskBudget * 0.16 + priceAction * 0.14 + habitScore * 0.1 + signal * 0.08 + confidence * 0.06
+        : report.score * 0.3 + damage * 0.22 + (100 - priceAction) * 0.16 + (100 - riskBudget) * 0.14 + (100 - signal) * 0.08 + (100 - trend) * 0.06 + habitScore * 0.04;
   const score = Math.round(clamp(raw, 0, 100));
   const defensive = strategyKey === "defense-first";
   const blocked = positionPlan.riskGate?.blocked || report.decisionFrame.permissionTone === "negative";
@@ -295,11 +332,19 @@ function buildStrategySignals({
   const gateBlocks = primaryAdvice?.gates.filter((item) => item.status === "block").length ?? 0;
   const habitTone = tradeHabit.tone === "negative" ? "negative" : tradeHabit.tone === "caution" ? "caution" : tradeHabit.tone === "positive" ? "positive" : "neutral";
   const defenseMode = strategyKey === "defense-first";
+  const priceAction = report.priceAction;
 
   return [
     axisSignal(report.decisionFrame.trend, "趋势"),
     axisSignal(report.decisionFrame.risk, "风险"),
     axisSignal(report.decisionFrame.edge, "赔率"),
+    {
+      key: "price-action",
+      label: "价格行为",
+      value: priceAction ? `${priceAction.score}/100` : "—",
+      tone: toneFromText(priceAction?.tone),
+      detail: priceAction?.summary ?? "等待价格行为分析。",
+    },
     {
       key: "sample",
       label: "样本",
@@ -325,9 +370,19 @@ function buildStrategySignals({
 }
 
 function buildPositionPlanOrderIntents(
-  { budgetWeight, positionPlan, riskOverride, strategyKey }: StrategyEngineInput,
+  {
+    budgetWeight,
+    policyConfig: rawPolicyConfig,
+    positionPlan,
+    report,
+    riskOverride,
+    runtimeBySymbol = {},
+    strategyKey,
+  }: StrategyEngineInput,
   score: StrategyScore,
 ): OrderIntent[] {
+  const policyConfig = normalizeStrategyPolicyConfig(rawPolicyConfig);
+  const scalingPolicy = scalingPolicyDefinition(policyConfig.scalingPolicyKey);
   const buyBlocked = !riskOverride && score.tone === "negative" && strategyKey !== "defense-first";
   const maxBudget = positionPlan.totalValue > 0 ? (positionPlan.totalValue * budgetWeight) / 100 : 0;
   const actions = positionPlan.actions.filter((action) => {
@@ -338,22 +393,89 @@ function buildPositionPlanOrderIntents(
 
   return actions.slice(0, 5).map((action) => {
     const isBuy = action.weightDelta > 0;
-    const blocked = buyBlocked && isBuy;
-    const cappedAmount = action.amount > 0 && maxBudget > 0 && isBuy
+    const priceAction = report.priceAction ? priceActionForSymbol(report.priceAction, action.symbol) : null;
+    const strategyBudget = action.amount > 0 && maxBudget > 0 && isBuy
       ? Math.min(action.amount, maxBudget)
       : action.amount;
+    const runtime = runtimeBySymbol[symbolKey(action.symbol)];
+    const currentPrice = currentPriceFor(report, action.symbol);
+    const scaling = isBuy
+      ? evaluateScalingPolicy({
+        assetType: action.assetType,
+        config: policyConfig,
+        currentPrice,
+        marketRiskScore: report.score,
+        permissionBlocked: buyBlocked || Boolean(positionPlan.riskGate?.blocked),
+        profileKey: report.profileKey,
+        runDate: report.asOf,
+        runtime,
+        strategyKey,
+        symbol: action.symbol,
+      })
+      : runtime?.instanceKey
+        ? {
+          allowed: true,
+          policyKey: policyConfig.scalingPolicyKey,
+          policyLabel: scalingPolicy.label,
+          instanceKey: runtime.instanceKey,
+          trancheIndex: 0,
+          maxTranches: policyConfig.maxTranches,
+          budgetFraction: 1,
+          stateLabel: "退出",
+          detail: `${scalingPolicy.label}持仓退出。`,
+          nextTriggerLabel: "本轮结束",
+        }
+        : undefined;
+    const priceActionBlocked = isBuy && priceAction?.tone === "negative";
+    const blocked = isBuy && (buyBlocked || !scaling?.allowed || priceActionBlocked);
+    const amount = isBuy && scaling ? strategyBudget * scaling.budgetFraction : strategyBudget;
+    const priceActionDetail = priceAction
+      ? `价格行为：${priceAction.phaseLabel}；触发 ${priceAction.entryTrigger}；失效 ${priceAction.invalidation}`
+      : "";
+    const detail = [action.reason || action.detail, priceActionDetail, scaling?.detail, scaling?.nextTriggerLabel]
+      .filter(Boolean)
+      .join(" · ");
     return {
-      key: action.key,
+      key: scaling?.instanceKey
+        ? `${action.key}:${scaling.instanceKey}:t${scaling.trancheIndex}`
+        : action.key,
       symbol: action.symbol,
       name: action.name,
       side: isBuy ? "BUY" : "SELL",
-      state: blocked ? "已阻断" : isBuy ? "待买入" : "待减仓",
+      state: blocked ? scaling?.stateLabel || "已阻断" : isBuy ? scaling?.stateLabel || "待买入" : "待减仓",
       tone: blocked ? "negative" : normalizePlanTone(action.tone),
-      amount: cappedAmount > 0 ? formatMoney(cappedAmount, positionPlan.currency) : action.amountLabel,
+      amount: amount > 0 ? formatMoney(amount, positionPlan.currency) : action.amountLabel,
       weight: action.weightLabel,
-      detail: action.reason || action.detail,
+      detail,
+      scaling,
     };
   });
+}
+
+function policyBundle(
+  signal: StrategyPolicyBundle["signal"],
+  exit: StrategyPolicyBundle["exit"],
+): StrategyPolicyBundle {
+  return {
+    signal,
+    sizing: "plan-budget",
+    scaling: "single-entry",
+    exit,
+    risk: "profile-guard",
+    execution: "market-aware",
+    evaluation: "closed-rounds",
+  };
+}
+
+function currentPriceFor(report: MarketAnalysisReport, symbol: string) {
+  const technical = report.technicalRows.find((row) => symbolKey(row.symbol) === symbolKey(symbol));
+  if (technical?.close && technical.close > 0) return technical.close;
+  const asset = report.assetStatuses.find((row) => symbolKey(row.symbol) === symbolKey(symbol));
+  return asset?.close && asset.close > 0 ? asset.close : null;
+}
+
+function symbolKey(value: string) {
+  return value.trim().toUpperCase();
 }
 
 function axisSignal(axis: DecisionAxis, label: string): StrategySignal {

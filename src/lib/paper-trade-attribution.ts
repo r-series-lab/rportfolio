@@ -1,8 +1,9 @@
 import {
   normalizePaperSimState,
   paperTradePerformanceFor,
+  paperTradeRoundTripsFor,
   type PaperSimState,
-  type PaperSimTrade,
+  type PaperTradeRoundTrip,
 } from "./paper-sim";
 import type { LabTone } from "./strategy-engine";
 
@@ -15,6 +16,7 @@ export type PaperTradeAttributionRow = {
   feeDrag: number;
   slippageDrag: number;
   returnPct: number;
+  holdingDays: number;
   positionSharePct: number;
   decisionDetail: string;
 };
@@ -39,15 +41,14 @@ export type PaperTradeAttributionSummary = {
 export function paperTradeAttributionFor(state: PaperSimState): PaperTradeAttributionSummary {
   const normalized = normalizePaperSimState(state);
   const performance = paperTradePerformanceFor(normalized);
-  const rows = normalized.trades
-    .filter(isRealizedExit)
-    .map((trade) => attributionRow(trade, normalized.initialCapital));
+  const rounds = paperTradeRoundTripsFor(normalized).rounds.filter((round) => round.complete);
+  const rows = rounds.map((round) => attributionRow(round, normalized.initialCapital));
   const netPnl = sum(rows.map((row) => row.netPnl));
   const holdingPnl = sum(rows.map((row) => row.holdingPnl));
   const feeDrag = sum(rows.map((row) => row.feeDrag));
   const slippageDrag = sum(rows.map((row) => row.slippageDrag));
-  const averageFeeBps = average(normalized.trades.filter(isRealizedExit).map((trade) => bps(trade.fee, trade.notional)));
-  const averageSlippageBps = average(normalized.trades.filter(isRealizedExit).map((trade) => bps(trade.slippage, trade.notional)));
+  const averageFeeBps = average(rounds.map((round) => bps(round.entryFees + round.exitFees, round.entryNotional + round.exitNotional)));
+  const averageSlippageBps = average(rounds.map((round) => bps(round.slippage, round.entryNotional + round.exitNotional)));
   const totalLoss = Math.abs(sum(rows.filter((row) => row.netPnl < 0).map((row) => row.netPnl)));
   const largeLoss = Math.abs(sum(rows.filter((row) => row.netPnl < 0 && row.positionSharePct >= 15).map((row) => row.netPnl)));
   const largeLossSharePct = totalLoss > 0 ? (largeLoss / totalLoss) * 100 : 0;
@@ -76,20 +77,21 @@ export function paperTradeAttributionFor(state: PaperSimState): PaperTradeAttrib
   };
 }
 
-function attributionRow(trade: PaperSimTrade, initialCapital: number): PaperTradeAttributionRow {
-  const holdingPnl = trade.realizedPnl + trade.fee + trade.slippage;
-  const costBasis = Math.max(0.01, trade.notional - (trade.realizedPnl + trade.fee));
+function attributionRow(round: PaperTradeRoundTrip, initialCapital: number): PaperTradeAttributionRow {
+  const fee = round.entryFees + round.exitFees;
+  const holdingPnl = round.netPnl + fee + round.slippage;
   return {
-    id: trade.id,
-    symbol: trade.symbol,
-    runDate: trade.runDate,
-    netPnl: trade.realizedPnl,
+    id: round.id,
+    symbol: round.symbol,
+    runDate: round.closedRunDate,
+    netPnl: round.netPnl,
     holdingPnl,
-    feeDrag: -trade.fee,
-    slippageDrag: -trade.slippage,
-    returnPct: (trade.realizedPnl / costBasis) * 100,
-    positionSharePct: initialCapital > 0 ? (trade.notional / initialCapital) * 100 : 0,
-    decisionDetail: trade.decisionDetail || trade.ruleNote || trade.ruleLabel,
+    feeDrag: -fee,
+    slippageDrag: -round.slippage,
+    returnPct: round.returnPct,
+    holdingDays: round.holdingDays,
+    positionSharePct: initialCapital > 0 ? (round.entryNotional / initialCapital) * 100 : 0,
+    decisionDetail: round.decisionDetail,
   };
 }
 
@@ -157,10 +159,6 @@ function attributionVerdict({
     recommendation: "保持当前规则并继续扩样，不提高单笔仓位；达到下一可信度等级后再调整策略参数。",
     tone: "positive",
   };
-}
-
-function isRealizedExit(trade: PaperSimTrade) {
-  return trade.side === "SELL" && trade.quantity > 0 && trade.notional > 0 && Number.isFinite(trade.realizedPnl);
 }
 
 function bps(value: number, notional: number) {

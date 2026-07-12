@@ -10,6 +10,7 @@ import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import { Button } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { exportProfileConfig, importProfileConfig, lookupFundProfileSeed, validateProfileConfig } from "../lib/analysis";
 import type { FundProfileSeed, MandateConstraint, MarketAnalysisReport, ProfileCalibrationAction, ProfileCalibrationStatus, ProfileFund, ProfileSummary, ProfileValidationReport, RecommendationPerformanceSummary } from "../lib/types";
 
@@ -77,6 +78,26 @@ type RuleDraft = {
   factor: string;
   dimensionWeight: number;
   rule: JsonObject;
+};
+
+type RulePresetPreview = {
+  benchmark: string;
+  totalCount: number;
+  addCount: number;
+  duplicateCount: number;
+  dimensions: string[];
+  ruleTypes: string[];
+  rules: RulePresetPreviewItem[];
+};
+
+type RulePresetPreviewItem = {
+  key: string;
+  dimension: string;
+  type: string;
+  symbol: string;
+  points: number;
+  reason: string;
+  options: string;
 };
 
 type FundHoldingsImport = {
@@ -174,11 +195,15 @@ export function ProfileConfigPanel({
   const [fundLookupBusy, setFundLookupBusy] = useState(false);
   const [fundLookupStatus, setFundLookupStatus] = useState("先读取基金资料，再应用为草稿；保存后才会进入 Profile 库。");
   const [fundSeed, setFundSeed] = useState<FundProfileSeed | null>(null);
+  const [selectedRulePreset, setSelectedRulePreset] = useState<RulePreset | null>(null);
   const previewJson = useMemo(() => {
     return JSON.stringify(buildDraftPreview(draft, report, baseProfile), null, 2);
   }, [baseProfile, draft, report]);
   const portfolioDraftStats = useMemo(() => portfolioStats(draft), [draft]);
   const ruleDraftStats = useMemo(() => ruleStats(draft), [draft]);
+  const rulePresetPreview = useMemo<RulePresetPreview | null>(() => (
+    selectedRulePreset ? buildRulePresetPreview(selectedRulePreset, draft, report) : null
+  ), [draft, report, selectedRulePreset]);
   const draftKey = draft.key.trim() || "未命名";
   const draftName = draft.name.trim() || current?.name || report.profileName;
   const draftSavedInList = profiles.some((item) => item.key === draftKey && !item.builtin);
@@ -203,6 +228,7 @@ export function ProfileConfigPanel({
     setPendingRecipe(null);
     setFundLookupCode("");
     setFundSeed(null);
+    setSelectedRulePreset(null);
     setFundLookupStatus("先读取基金资料，再应用为草稿；保存后才会进入 Profile 库。");
     setBuilderStatus("从当前模板派生一个自定义 Profile，不覆盖内置模板。");
   }, [current, profile, report]);
@@ -475,6 +501,32 @@ export function ProfileConfigPanel({
     setPendingImport(null);
     setPendingRecipe(null);
     setBuilderStatus(`已套用 ${preset.label} 的导入质检阈值，可继续手动微调。`);
+  }
+
+  function applyRulePreset(preset: RulePreset) {
+    const latestDraft = draftFromForm(draft, builderFormRef.current);
+    const addition = rulePresetToText(preset, latestDraft, report);
+    const addedLines = ruleLinesToAdd(latestDraft.rulesText, addition);
+    const nextRulesText = mergeRuleText(latestDraft.rulesText, addition);
+
+    setDraft({
+      ...latestDraft,
+      rulesText: nextRulesText,
+    });
+    setValidationReport(null);
+    setPendingImport(null);
+    setPendingRecipe(null);
+    setBuilderStatus(
+      addedLines.length > 0
+        ? `已追加 ${preset.label}：新增 ${addedLines.length} 条指标规则，建议先校验再保存。`
+        : `${preset.label} 的规则已存在，未重复追加。`,
+    );
+  }
+
+  function handleConfirmRulePreset() {
+    if (!selectedRulePreset) return;
+    applyRulePreset(selectedRulePreset);
+    setSelectedRulePreset(null);
   }
 
   async function handleCopyRecipePrompt() {
@@ -1018,7 +1070,19 @@ export function ProfileConfigPanel({
                           spellCheck={false}
                           onChange={(event) => updateDraft("rulesText", event.target.value)}
                         />
-                        <em>格式：dimension | label | factor | weight | type | symbol | points | reason | key=value;...</em>
+                        <div className="import-quality-presets rule-preset-strip" aria-label="指标规则预设">
+                          {RULE_PRESETS.map((preset) => (
+                            <button
+                              key={preset.key}
+                              type="button"
+                              title={preset.description}
+                              onClick={() => setSelectedRulePreset(preset)}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                        <em>格式：dimension | label | factor | weight | type | symbol | points | reason | key=value;...。常用 type：macd_cross_down、kdj_above、volume_ratio_below、pullback_hold_ma、support_lost。</em>
                       </label>
                     </div>
                   </section>
@@ -1238,6 +1302,78 @@ export function ProfileConfigPanel({
             </div>
           </div>
         ) : null}
+
+        <Dialog
+          open={Boolean(selectedRulePreset)}
+          onOpenChange={(open) => {
+            if (!open) setSelectedRulePreset(null);
+          }}
+        >
+          <DialogContent className="rule-preset-dialog" showCloseButton>
+            <DialogHeader className="rule-preset-dialog-head">
+              <DialogDescription>指标规则预设</DialogDescription>
+              <DialogTitle>{selectedRulePreset?.label ?? "规则预设"}</DialogTitle>
+              <p>{selectedRulePreset?.description}</p>
+            </DialogHeader>
+
+            {rulePresetPreview ? (
+              <div className="rule-preset-preview">
+                <div className="rule-preset-preview-summary" aria-label="预设摘要">
+                  <article>
+                    <span>基准</span>
+                    <strong>{rulePresetPreview.benchmark}</strong>
+                  </article>
+                  <article>
+                    <span>新增/总数</span>
+                    <strong>{rulePresetPreview.addCount}/{rulePresetPreview.totalCount}</strong>
+                  </article>
+                  <article>
+                    <span>跳过重复</span>
+                    <strong>{rulePresetPreview.duplicateCount}</strong>
+                  </article>
+                </div>
+
+                <div className="rule-preset-preview-meta">
+                  <span>维度：{rulePresetPreview.dimensions.join(" / ") || "未识别"}</span>
+                  <span>类型：{rulePresetPreview.ruleTypes.join(" / ") || "未识别"}</span>
+                </div>
+
+                {rulePresetPreview.addCount === 0 ? (
+                  <p className="rule-preset-preview-note">这组规则已在草稿中，本次确认不会重复追加。</p>
+                ) : null}
+
+                <div className="rule-preset-preview-list" aria-label="规则预览">
+                  {rulePresetPreview.rules.map((item) => (
+                    <article key={item.key}>
+                      <div>
+                        <span>{item.dimension}</span>
+                        <em>{item.type} · {item.points} 分</em>
+                      </div>
+                      <strong>{item.symbol}</strong>
+                      <p>{item.reason}</p>
+                      {item.options ? <small>{item.options}</small> : null}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <DialogFooter className="rule-preset-dialog-footer">
+              <button type="button" data-slot="button" onClick={() => setSelectedRulePreset(null)}>
+                取消
+              </button>
+              <button
+                type="button"
+                data-slot="button"
+                className="is-primary"
+                onClick={handleConfirmRulePreset}
+                disabled={!rulePresetPreview?.addCount}
+              >
+                追加到草稿
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );
@@ -1977,8 +2113,10 @@ function fundSeedRulesText(seed: FundProfileSeed) {
     `fund_trend | 基金基准趋势 | trend | 35 | close_below_ma | CSI300 | 8 | 沪深300 跌破 MA20，${seed.name} 新增申购需要等待修复 | period=20`,
     `fund_trend | 基金基准趋势 | trend | 35 | close_below_ma | CSI300 | 12 | 沪深300 跌破 MA50，中期趋势承压 | period=50`,
     `theme_heat | 主题拥挤 | heat | 25 | rsi_above | ${themeSymbol} | 9 | ${themeLabel} RSI {rsi}，主题短线过热 | period=14;threshold=75`,
+    `theme_heat | 主题拥挤 | heat | 25 | kdj_above | ${themeSymbol} | 6 | ${themeLabel} KDJ-J {kdjJ}，短线情绪偏热 | period=9;line=j;threshold=90`,
     `theme_heat | 主题拥挤 | heat | 25 | return_above | ${themeSymbol} | 8 | ${themeLabel} 20 日涨幅过快，新增追高赔率下降 | days=20;threshold=18`,
     "market_breadth | 市场宽度 | structure | 20 | relative_strength_declined | CSI1000 | 8 | 中证1000 相对沪深300 连续走弱，风险偏好收缩 | other=CSI300;days=5",
+    "market_breadth | 市场宽度 | structure | 20 | volume_ratio_below | CSI300 | 5 | 沪深300 量比 {volumeRatio} 偏低，突破确认不足 | threshold=0.65",
     "systemic_guard | 系统压力 | systemic | 20 | close_below_ma | ASHR | 7 | 海外A股ETF 跌破 MA50，外部确认不足 | period=50",
   ].join("\n");
 }
@@ -2522,6 +2660,13 @@ type ImportQualityPreset = {
   values: ImportQualityConfig;
 };
 
+type RulePreset = {
+  key: string;
+  label: string;
+  description: string;
+  lines: string[];
+};
+
 const IMPORT_QUALITY_DEFAULTS: ImportQualityConfig = {
   fullWeightMin: 95,
   partialWeightMin: 50,
@@ -2594,6 +2739,52 @@ const IMPORT_QUALITY_PRESETS: ImportQualityPreset[] = [
       staleCautionDays: 90,
       staleDangerDays: 150,
     },
+  },
+];
+
+const RULE_PRESETS: RulePreset[] = [
+  {
+    key: "a_share_confirm",
+    label: "A股确认",
+    description: "用 MACD、KDJ 和量能过滤短线追涨；适合 A 股主题基金和宽基观察。",
+    lines: [
+      "a_share_momentum | A股趋势确认 | trend | 32 | macd_cross_up | {benchmark} | 7 | {benchmark} MACD 金叉，趋势动能改善 |",
+      "a_share_momentum | A股趋势确认 | trend | 32 | macd_cross_down | {benchmark} | 9 | {benchmark} MACD 死叉，新增仓位先暂停 |",
+      "a_share_heat | A股过热过滤 | heat | 24 | kdj_above | {benchmark} | 6 | {benchmark} KDJ-J {kdjJ} 偏热，追涨赔率下降 | period=9;line=j;threshold=88",
+      "a_share_volume | A股量能确认 | structure | 24 | volume_ratio_below | {benchmark} | 6 | {benchmark} 量比 {volumeRatio} 偏低，突破确认不足 | threshold=0.7",
+    ],
+  },
+  {
+    key: "etf_execution",
+    label: "ETF执行",
+    description: "把 ETF 买入前的趋势、过热和成交确认做成通用执行过滤器。",
+    lines: [
+      "etf_trend_filter | ETF趋势过滤 | trend | 35 | close_below_ma | {benchmark} | 8 | {benchmark} 跌破 MA50，ETF 新增买入等待修复 | period=50",
+      "etf_execution_heat | ETF追高过滤 | heat | 25 | rsi_above | {benchmark} | 7 | {benchmark} RSI {rsi} 偏热，ETF 不追高 | period=14;threshold=75",
+      "etf_liquidity | ETF成交确认 | structure | 20 | volume_ratio_below | {benchmark} | 8 | {benchmark} 量比 {volumeRatio} 偏低，限价小单或等待 | threshold=0.65",
+    ],
+  },
+  {
+    key: "fund_theme_guard",
+    label: "基金主题",
+    description: "面向主动/主题基金的基准趋势、主题拥挤和异常放量检查。",
+    lines: [
+      "fund_benchmark_guard | 基金基准保护 | trend | 35 | close_below_ma | {benchmark} | 10 | {benchmark} 跌破 MA50，基金新增申购等待修复 | period=50",
+      "fund_theme_heat | 基金主题拥挤 | heat | 25 | kdj_above | {benchmark} | 6 | {benchmark} KDJ-J {kdjJ} 偏热，短线不追高 | period=9;line=j;threshold=90",
+      "fund_volume_guard | 基金主题量能 | structure | 20 | volume_ratio_above | {benchmark} | 5 | {benchmark} 量比 {volumeRatio} 放大，确认是否高位放量 | threshold=1.6",
+    ],
+  },
+  {
+    key: "price_action",
+    label: "价格行为",
+    description: "把突破、回踩、箱体和破位作为通用交易动作门；适合未来接入 K 线和 OHLC 数据。",
+    lines: [
+      "pa_trend | 价格行为趋势 | trend | 32 | trend_continuation | {benchmark} | 7 | {benchmark} 价格保持在 MA20/MA50 上方，趋势延续可跟踪 |",
+      "pa_pullback | 回踩确认 | structure | 28 | pullback_hold_ma | {benchmark} | 8 | {benchmark} 回踩 MA20 不破，进入试探观察 | period=20;threshold=2.2",
+      "pa_breakout | 突破质量 | edge | 22 | volume_breakout | {benchmark} | 6 | {benchmark} 放量突破关键压力位，突破可信度提高 | threshold=1.45",
+      "pa_failed | 假突破/破位 | risk | 30 | support_lost | {benchmark} | 10 | {benchmark} 跌破 MA50 或关键支撑，新增买入等待修复 | period=50",
+      "pa_compression | 箱体压缩 | edge | 18 | range_compression | {benchmark} | 5 | {benchmark} 波动收敛，等待放量突破或跌破后再行动 | threshold=3;maxThreshold=1.08",
+    ],
   },
 ];
 
@@ -2691,6 +2882,87 @@ function importQualityFieldFor(value: string) {
     normalizeHeader(field.key) === normalized
     || normalizeHeader(field.label) === normalized
   ));
+}
+
+function rulePresetToText(preset: RulePreset, draft: ProfileDraft, report: MarketAnalysisReport) {
+  const benchmark = rulePresetBenchmark(draft, report);
+  return preset.lines
+    .map((line) => line.split("{benchmark}").join(benchmark))
+    .join("\n");
+}
+
+function buildRulePresetPreview(preset: RulePreset, draft: ProfileDraft, report: MarketAnalysisReport): RulePresetPreview {
+  const text = rulePresetToText(preset, draft, report);
+  const allLines = cleanConfigLines(text);
+  const addedLines = ruleLinesToAdd(draft.rulesText, text);
+  const previewLines = addedLines.length ? addedLines : allLines;
+  const ruleDrafts = parseRuleLines(previewLines.join("\n"));
+  const rules = ruleDrafts.map((item, index) => ({
+    key: `${item.dimensionKey}-${String(item.rule.type)}-${index}`,
+    dimension: item.dimensionLabel || item.dimensionKey,
+    type: textFrom(item.rule.type, "unknown"),
+    symbol: ruleSymbolLabel(item.rule) || rulePresetBenchmark(draft, report),
+    points: numberFrom(item.rule.points, 0),
+    reason: textFrom(item.rule.reason, "等待规则说明"),
+    options: ruleOptionsToText(item.rule),
+  }));
+
+  return {
+    benchmark: rulePresetBenchmark(draft, report),
+    totalCount: allLines.length,
+    addCount: addedLines.length,
+    duplicateCount: Math.max(0, allLines.length - addedLines.length),
+    dimensions: uniqueLabels(rules.map((item) => item.dimension)),
+    ruleTypes: uniqueLabels(rules.map((item) => item.type)),
+    rules,
+  };
+}
+
+function mergeRuleText(existing: string, addition: string) {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const line of [...cleanConfigLines(existing), ...cleanConfigLines(addition)]) {
+    const signature = ruleLineSignature(line);
+    if (!signature || seen.has(signature)) continue;
+    seen.add(signature);
+    lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+function ruleLinesToAdd(existing: string, addition: string) {
+  const seen = new Set(cleanConfigLines(existing).map(ruleLineSignature));
+  const lines: string[] = [];
+  for (const line of cleanConfigLines(addition)) {
+    const signature = ruleLineSignature(line);
+    if (!signature || seen.has(signature)) continue;
+    seen.add(signature);
+    lines.push(line);
+  }
+  return lines;
+}
+
+function rulePresetBenchmark(draft: ProfileDraft, report: MarketAnalysisReport) {
+  return normalizeSymbol(draft.benchmarkSymbol || report.backtest.benchmarkSymbol || "CSI300") || "CSI300";
+}
+
+function cleanConfigLines(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function ruleLineSignature(line: string) {
+  return line
+    .split("|")
+    .slice(0, 8)
+    .map((part) => part.trim())
+    .join("|");
+}
+
+function uniqueLabels(values: string[]) {
+  return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)));
 }
 
 type ImportAnalysisTemplateKey =

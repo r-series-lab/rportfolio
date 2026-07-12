@@ -51,7 +51,6 @@ import {
   normalizeOrderRecords,
   orderCommandErrorResult,
   orderLatestEvent,
-  orderSourceLabel,
   orderStatusLabel,
   routeOrderErrorResult,
   summarizeOrderCenter,
@@ -97,6 +96,7 @@ import {
   paperSimCompactReturn,
   paperSimMetricLabel,
   paperSimRunButtonLabel,
+  paperReplacementCostFor,
   paperTradePerformanceFor,
   paperTradePerformanceGroupsFor,
   pausePaperSimState,
@@ -114,14 +114,29 @@ import { formatMoney, formatNumber, formatPercent } from "../lib/utils";
 import type { FundExecutionPolicy } from "../lib/fund-execution-policy";
 import { paperTradeAttributionFor } from "../lib/paper-trade-attribution";
 import { paperStrategyExperimentFor } from "../lib/paper-strategy-experiment";
+import { useLocalStorageState } from "../hooks/use-local-storage-state";
 import { useMonitorStore } from "../hooks/use-monitor-store";
 import { useOrderStore } from "../hooks/use-order-store";
 import { usePaperSimStore } from "../hooks/use-paper-sim-store";
 import { useRiskPolicy } from "../hooks/use-risk-policy";
 import { exportOrderAudit, type OrderAuditExportFormat } from "../lib/order-persistence";
 import { normalizeRiskGuardPolicy } from "../lib/risk-policy";
+import {
+  DEFAULT_STRATEGY_POLICY_CONFIG,
+  normalizeStrategyPolicyConfig,
+  SCALING_POLICIES,
+  scalingPolicyDefinition,
+  strategyScalingRuntimeBySymbol,
+  type ScalingPolicyKey,
+  type StrategyPolicyConfig,
+} from "../lib/strategy-policies";
+import {
+  compareScalingPolicies,
+  type ScalingReplayComparison,
+} from "../lib/strategy-scaling-replay";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { ProgressiveDisclosure } from "./progressive-disclosure";
 
 type QuantLabWorkspaceProps = {
   fundExecutionPolicy: FundExecutionPolicy;
@@ -139,7 +154,7 @@ type QuantLabWorkspaceProps = {
 
 type EngineMode = "scenario" | "paper";
 type ExecutionMode = "manual" | "simulation" | "auto";
-type QuantDialogKey = "strategy" | "bridge" | "risk" | "signals" | "replacement" | null;
+type QuantDialogKey = "strategy" | "bridge" | "risk" | "signals" | "replacement" | "account" | "backtest" | "logs" | null;
 
 type LabLog = {
   key: string;
@@ -211,6 +226,10 @@ export function QuantLabWorkspace({
   const monitorRoutingKeyRef = useRef("");
   const paperSettlementKeyRef = useRef("");
   const [activeStrategyKey, setActiveStrategyKey] = useState<StrategyKey>("risk-gated-trend");
+  const [storedStrategyPolicyConfig, setStoredStrategyPolicyConfig] = useLocalStorageState<StrategyPolicyConfig>(
+    "rportfolio.quant.strategy-policy.v1",
+    DEFAULT_STRATEGY_POLICY_CONFIG,
+  );
   const [engineMode, setEngineMode] = useState<EngineMode>("paper");
   const [executionMode, setExecutionMode] = useState<ExecutionMode>("manual");
   const [brokerMode, setBrokerMode] = useState<BrokerMode>("local-paper");
@@ -218,7 +237,6 @@ export function QuantLabWorkspace({
   const [eventLogs, setEventLogs] = useState<LabLog[]>([]);
   const [activeDialog, setActiveDialog] = useState<QuantDialogKey>(null);
   const [controlPanelOpen, setControlPanelOpen] = useState(false);
-  const [advancedRailOpen, setAdvancedRailOpen] = useState(false);
   const [bridgeError, setBridgeError] = useState("");
   const [bridgeLoading, setBridgeLoading] = useState(false);
   const [bridgeStatuses, setBridgeStatuses] = useState<BrokerBridgeStatus[]>([]);
@@ -242,6 +260,18 @@ export function QuantLabWorkspace({
   const [marketQuoteSyncing, setMarketQuoteSyncing] = useState("");
   const fundStatusSyncKeyRef = useRef("");
   const strategy = STRATEGIES.find((item) => item.key === activeStrategyKey) ?? STRATEGIES[0];
+  const strategyPolicyConfig = useMemo(
+    () => normalizeStrategyPolicyConfig(storedStrategyPolicyConfig),
+    [storedStrategyPolicyConfig],
+  );
+  const activeScalingPolicy = scalingPolicyDefinition(strategyPolicyConfig.scalingPolicyKey);
+  const scalingReplay = useMemo(
+    () => compareScalingPolicies({
+      activeConfig: strategyPolicyConfig,
+      samples: report?.backtest.stateValidation.replaySamples ?? [],
+    }),
+    [report, strategyPolicyConfig],
+  );
   const qbotPreset = QBOT_PRESETS.find((item) => item.key === qbotPresetKey) ?? QBOT_PRESETS[0];
   const broker = BROKER_OPTIONS.find((item) => item.key === brokerMode) ?? BROKER_OPTIONS[0];
   const activeAdapterPlan = useMemo(
@@ -251,6 +281,10 @@ export function QuantLabWorkspace({
   const activeBridgeKind = activeAdapterPlan.bridge;
   const bridgeReady = activeAdapterPlan.ready;
   const paperSimSummary = useMemo(() => summarizePaperSimState(paperSim), [paperSim]);
+  const scalingRuntimeBySymbol = useMemo(
+    () => strategyScalingRuntimeBySymbol(paperSim.trades, strategy.key, strategyPolicyConfig.scalingPolicyKey),
+    [paperSim.trades, strategy.key, strategyPolicyConfig.scalingPolicyKey],
+  );
   const executionLabel = executionModeLabel(executionMode);
   const executionRouteLabel = executionMode === "manual" ? "手动执行" : executionMode === "simulation" ? "模拟实验" : broker.label;
   const recommendationReadiness = recommendationReadinessFor({ plan: positionPlan, report, reportIsCurrent });
@@ -268,6 +302,8 @@ export function QuantLabWorkspace({
       positionPlan,
       report,
       riskOverride,
+      policyConfig: strategyPolicyConfig,
+      runtimeBySymbol: executionMode === "simulation" ? scalingRuntimeBySymbol : {},
       strategyKey: strategy.key,
       tradeHabit,
     })
@@ -563,6 +599,16 @@ export function QuantLabWorkspace({
     pushLog("positive", `载入 Qbot 预设 · ${preset.strategy} · ${preset.platform}`);
   };
 
+  const handleScalingPolicyChange = (key: ScalingPolicyKey) => {
+    const policy = scalingPolicyDefinition(key);
+    setStoredStrategyPolicyConfig(policy.defaultConfig);
+    pushLog("neutral", `仓位方法切换为 ${policy.label} · ${policy.detail}`);
+  };
+
+  const updateStrategyPolicyConfig = (patch: Partial<StrategyPolicyConfig>) => {
+    setStoredStrategyPolicyConfig((current) => normalizeStrategyPolicyConfig({ ...current, ...patch }));
+  };
+
   const handleRunBacktest = () => {
     if (!report || !reportIsCurrent) {
       onOpenAnalysis();
@@ -581,6 +627,35 @@ export function QuantLabWorkspace({
     setEngineMode("scenario");
     setLastRun(result);
     pushLog(result.tone, `情景试算完成 · ${result.presetLabel} · 投影 ${formatPercent(result.pnlPct)} · ${result.simulatedOrders.length} 单`);
+  };
+
+  const revealExecutionSection = (sectionId: string) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+
+        const rail = section.closest<HTMLElement>(".quant-execution-rail");
+        if (rail) {
+          const railRect = rail.getBoundingClientRect();
+          const sectionRect = section.getBoundingClientRect();
+          const targetTop = rail.scrollTop + sectionRect.top - railRect.top - 10;
+          rail.scrollTo({ behavior: "smooth", top: Math.max(0, targetTop) });
+        } else {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        section.classList.remove("is-revealed-section");
+        void section.offsetWidth;
+        section.classList.add("is-revealed-section");
+        window.setTimeout(() => section.classList.remove("is-revealed-section"), 1200);
+      });
+    });
+  };
+
+  const handleRunBacktestAndOpen = () => {
+    handleRunBacktest();
+    setActiveDialog("backtest");
   };
 
   const handleToggleMonitor = () => {
@@ -989,6 +1064,16 @@ export function QuantLabWorkspace({
     );
   };
 
+  const handleRecommendationAction = (order: OrderIntent, index: number, guard?: RiskGuardResult) => {
+    if (guard?.blocked) {
+      setSelectedSymbol(order.symbol);
+      pushLog("caution", `${order.symbol} 暂不执行 · ${guard.summary}`);
+      revealExecutionSection("quant-execution-ticket");
+      return;
+    }
+    void handleQueuePlanOrder(order, index);
+  };
+
   const handleQueueActiveOrder = async () => {
     if (!activeWatch) {
       pushLog("neutral", "没有选中的交易标的，先从标的池选择一个资产。");
@@ -1195,9 +1280,11 @@ export function QuantLabWorkspace({
     try {
       const result = await exportOrderAudit(format);
       pushLog("positive", `${result.summary} · ${result.format.toUpperCase()} · ${result.path}`);
+      revealExecutionSection("quant-execution-log");
     } catch (error) {
       const message = error instanceof Error ? error.message : "订单审计导出失败";
       pushLog("negative", message);
+      revealExecutionSection("quant-execution-log");
     } finally {
       setOrderAuditExporting("");
     }
@@ -1445,7 +1532,7 @@ export function QuantLabWorkspace({
                   <div>
                     <span>执行方式</span>
                     <strong>{executionLabel}</strong>
-                    <em>{strategy.label} · {executionRouteLabel}</em>
+                    <em>{strategy.label} · {activeScalingPolicy.label} · {executionRouteLabel}</em>
                   </div>
                   <button type="button" onClick={() => setActiveDialog("bridge")}>调整</button>
                 </section>
@@ -1582,7 +1669,7 @@ export function QuantLabWorkspace({
                 <article>
                   <span>组合市值</span>
                   <strong>{formatMoney(totalValue, positionPlan.currency)}</strong>
-                  <small>真实持仓，不含代理与观察</small>
+                  <small>真实持仓</small>
                 </article>
                 <article className={!positionPlan.hasCashInstrument ? "is-caution" : undefined}>
                   <span>现金健康</span>
@@ -1592,7 +1679,7 @@ export function QuantLabWorkspace({
                 <article className={orders.length ? "is-negative" : "is-positive"}>
                   <span>待处理</span>
                   <strong>{orders.length}</strong>
-                  <small>{orders.length ? "建议待复核" : "组合无需动作"}</small>
+                  <small>{orders.length ? "待复核" : "无需动作"}</small>
                 </article>
                 <article className={`is-${normalizePlanTone(recommendationReadiness.tone)}`}>
                   <span>交易就绪</span>
@@ -1604,7 +1691,7 @@ export function QuantLabWorkspace({
               <div className="quant-suggestion-head">
                 <div>
                   <strong>组合建议账本</strong>
-                  <span>按仓位偏离、风险、数据质量和真实结果证据排序</span>
+                  <span>按优先级生成可执行建议</span>
                 </div>
                 <div className="quant-ledger-toolbar">
                   <button type="button" onClick={() => setActiveDialog("risk")}>
@@ -1642,39 +1729,43 @@ export function QuantLabWorkspace({
                   <span className="is-positive">可执行 <strong>{decisionCoverage.executable}</strong></span>
                   <span>继续持有 <strong>{decisionCoverage.hold}</strong></span>
                   <span className={decisionCoverage.waiting ? "is-caution" : undefined}>等待/阻断 <strong>{decisionCoverage.waiting}</strong></span>
-                  <em
-                    className={recommendationReadiness.dataQuality.severity === "block" ? "is-blocked" : recommendationReadiness.dataQuality.severity === "warn" ? "is-caution" : undefined}
-                    title={recommendationReadiness.dataQuality.detail}
-                  >
-                    {report?.source === "sample" ? "演示数据 · 禁止实盘" : `${report?.sourceLabel ?? "—"} · ${recommendationReadiness.dataQuality.label}`}
-                  </em>
                 </div>
-                <p>
+                <p className="quant-coverage-primary">
                   {decisionCoverage.executable === 1
-                    ? `当前只有 1 条同时满足目标带、预算、策略和风险门；其余 ${Math.max(0, decisionCoverage.analyzed - 1)} 条不是遗漏。`
+                    ? `1 条可执行，其余 ${Math.max(0, decisionCoverage.analyzed - 1)} 条等待条件。`
                     : decisionCoverage.executable > 1
-                      ? `当前 ${decisionCoverage.executable} 条满足执行条件，账本按优先级最多展示 5 条。`
-                      : "当前没有标的同时满足目标带、预算、策略和风险门。"}
+                      ? `${decisionCoverage.executable} 条可执行，已按优先级排序。`
+                      : "暂无可执行建议，保持观察。"}
                 </p>
-                {portfolioOverlap.pairs.length || portfolioOverlap.clusters.length ? (
-                  <p className="quant-overlap-note">
-                    <strong>{portfolioOverlap.pairs.length ? "持仓穿透：" : "规则型重叠："}</strong>{portfolioOverlap.summary}。新增同主题基金前，优先替换低质量持仓，不继续叠加。
-                  </p>
-                ) : null}
-                {fundSubstitution.primary ? (
-                  <p className="quant-overlap-note is-actionable">
-                    <strong>{fundSubstitution.primary.label}：</strong>{fundSubstitution.primary.summary}
-                  </p>
-                ) : null}
                 {primaryReplacementPlan ? (
                   <p className="quant-overlap-note is-actionable">
                     <strong>{primaryReplacementPlan.label}：</strong>{primaryReplacementPlan.summary}
                     <button type="button" onClick={() => setActiveDialog("replacement")}>查看计划</button>
                   </p>
                 ) : null}
-                {decisionCoverage.skipped.length ? (
-                  <details>
-                    <summary>查看未生成交易票原因</summary>
+                <ProgressiveDisclosure
+                  label="依据与未生成原因"
+                  badge={`${decisionCoverage.skipped.length + (portfolioOverlap.pairs.length || portfolioOverlap.clusters.length ? 1 : 0) + (fundSubstitution.primary ? 1 : 0)} 项`}
+                >
+                  <div className="quant-evidence-summary">
+                    <span>
+                      <strong>数据</strong>
+                      <em>{report?.source === "sample" ? "演示数据 · 禁止实盘" : `${report?.sourceLabel ?? "—"} · ${recommendationReadiness.dataQuality.label}`}</em>
+                    </span>
+                    {portfolioOverlap.pairs.length || portfolioOverlap.clusters.length ? (
+                      <span>
+                        <strong>{portfolioOverlap.pairs.length ? "持仓穿透" : "规则型重叠"}</strong>
+                        <em>{portfolioOverlap.summary}</em>
+                      </span>
+                    ) : null}
+                    {fundSubstitution.primary ? (
+                      <span>
+                        <strong>{fundSubstitution.primary.label}</strong>
+                        <em>{fundSubstitution.primary.summary}</em>
+                      </span>
+                    ) : null}
+                  </div>
+                  {decisionCoverage.skipped.length ? (
                     <div className="quant-coverage-reasons">
                       {decisionCoverage.skipped.map((item) => (
                         <span key={item.key}>
@@ -1684,8 +1775,8 @@ export function QuantLabWorkspace({
                         </span>
                       ))}
                     </div>
-                  </details>
-                ) : null}
+                  ) : null}
+                </ProgressiveDisclosure>
               </section>
 
               <div className="quant-ledger-columns" aria-hidden="true">
@@ -1722,14 +1813,13 @@ export function QuantLabWorkspace({
                       <strong className="quant-ledger-amount">{order.amount}</strong>
                       <span className={`quant-ledger-priority is-${ranking.tone}`} title={`${ranking.reason}；${ranking.evidence}`}>
                         <strong>{ranking.priority === "BLOCKED" ? "阻断" : `${ranking.priority} ${ranking.score}`} · {ranking.priorityLabel}</strong>
-                        <small>{ranking.evidence}</small>
                       </span>
                     </button>
                     <button
                       type="button"
                       className="quant-ledger-quick-action"
                       title={orderGuard?.blocked ? orderGuard.summary : ""}
-                      onClick={() => handleQueuePlanOrder(order, index)}
+                      onClick={() => handleRecommendationAction(order, index, orderGuard)}
                     >
                       {orderGuard?.blocked ? "查看阻断" : executionMode === "manual" ? "生成票" : executionMode === "simulation" ? "模拟" : "排队"}
                     </button>
@@ -1744,12 +1834,11 @@ export function QuantLabWorkspace({
                 )}
               </div>
               <div className="quant-ledger-more-actions" aria-label="更多操作">
-                <span>更多操作</span>
-                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "strategy"} onClick={() => setActiveDialog("strategy")}>策略与规则</button>
-                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "bridge"} onClick={() => setActiveDialog("bridge")}>交易渠道</button>
-                <button type="button" aria-expanded={advancedRailOpen} onClick={() => setAdvancedRailOpen(true)}>账户管理</button>
-                <button type="button" onClick={handleRunBacktest}>模拟与试算</button>
-                <button type="button" aria-expanded={advancedRailOpen} onClick={() => setAdvancedRailOpen(true)}>日志</button>
+                <span>工具</span>
+                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "strategy"} onClick={() => setActiveDialog("strategy")}>策略</button>
+                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "account"} onClick={() => setActiveDialog("account")}>账户</button>
+                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "backtest"} onClick={handleRunBacktestAndOpen}>试算</button>
+                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "logs"} onClick={() => setActiveDialog("logs")}>日志</button>
               </div>
             </section>
 
@@ -1812,12 +1901,12 @@ export function QuantLabWorkspace({
             </section>
           </main>
 
-          <aside className={`decision-rail quant-execution-rail workspace-inspector-rail ${advancedRailOpen ? "is-advanced-open" : ""}`} aria-label="委托执行">
+          <aside className="decision-rail quant-execution-rail workspace-inspector-rail" aria-label="委托执行">
             <div className="quant-rail-head">
               <PanelTitle icon={<ReceiptLongRoundedIcon fontSize="inherit" />} eyebrow="执行" title="委托执行" />
             </div>
 
-            <section className="quant-ledger-ticket" aria-label="交易票">
+            <section id="quant-execution-ticket" className="quant-ledger-ticket" aria-label="交易票">
                 <header>
                   <div>
                     <span>交易票</span>
@@ -1900,14 +1989,25 @@ export function QuantLabWorkspace({
                       {activeRiskPassed ? "风控通过" : activeRecommendation ? "需要复核" : "等待建议"}
                     </span>
                   </div>
-                  <ul>
-                    <li className={activeRecommendation ? "is-positive" : "is-neutral"}><ShieldRoundedIcon fontSize="inherit" />建议方向与交易票一致</li>
-                    <li className={recommendationReadiness.dataQuality.severity === "pass" ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{recommendationReadiness.dataQuality.detail}</li>
-                    <li className={activePlanAction ? "is-positive" : "is-neutral"}><ShieldRoundedIcon fontSize="inherit" />目标带与仓位变化已校验</li>
-                    <li className={activeRecommendationAllowed ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{activeRecommendationAllowed ? "当前方向满足执行门槛" : recommendationReadiness.detail}</li>
-                    <li className={executionReady ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{executionMode === "auto" && !recommendationReadiness.autoExecutionAllowed ? `${recommendationReadiness.validationLabel}，仅允许模拟` : executionReady ? "执行路由可用" : "执行通道需要检查"}</li>
-                    <li className={activeQuote ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{activeQuote ? "行情已同步" : "排队前自动同步行情"}</li>
-                  </ul>
+                  <p className={`quant-ticket-risk-summary ${activeRiskPassed ? "is-positive" : "is-caution"}`}>
+                    {activeOrderGuard?.blocked
+                      ? activeOrderGuard.summary
+                      : activeRiskPassed
+                        ? "目标带、预算与执行路由均已通过。"
+                        : activeRecommendation
+                          ? recommendationReadiness.detail
+                          : "选择建议后检查执行条件。"}
+                  </p>
+                  <ProgressiveDisclosure label="完整检查" badge="6 项">
+                    <ul>
+                      <li className={activeRecommendation ? "is-positive" : "is-neutral"}><ShieldRoundedIcon fontSize="inherit" />建议方向与交易票一致</li>
+                      <li className={recommendationReadiness.dataQuality.severity === "pass" ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{recommendationReadiness.dataQuality.detail}</li>
+                      <li className={activePlanAction ? "is-positive" : "is-neutral"}><ShieldRoundedIcon fontSize="inherit" />目标带与仓位变化已校验</li>
+                      <li className={activeRecommendationAllowed ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{activeRecommendationAllowed ? "当前方向满足执行门槛" : recommendationReadiness.detail}</li>
+                      <li className={executionReady ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{executionMode === "auto" && !recommendationReadiness.autoExecutionAllowed ? `${recommendationReadiness.validationLabel}，仅允许模拟` : executionReady ? "执行路由可用" : "执行通道需要检查"}</li>
+                      <li className={activeQuote ? "is-positive" : "is-caution"}><ShieldRoundedIcon fontSize="inherit" />{activeQuote ? "行情已同步" : "排队前自动同步行情"}</li>
+                    </ul>
+                  </ProgressiveDisclosure>
                 </div>
 
                 <button
@@ -1964,7 +2064,7 @@ export function QuantLabWorkspace({
                 onRun={paperSimSummary.active ? handleRunPaperSimulation : handleStartPaperSimulation}
               />
 
-              <Card size="sm" className="rail-card quant-order-blotter" role="region" aria-label="委托队列">
+              <Card id="quant-order-center" size="sm" className="rail-card quant-order-blotter" role="region" aria-label="委托队列">
                 <div className="quant-section-head">
                   <div>
                     <span>委托队列</span>
@@ -2031,7 +2131,6 @@ export function QuantLabWorkspace({
                           <em>{order.route}</em>
                         </div>
                         <p>{order.quantity} @ {order.limit} · {latestEvent?.label ?? order.state}</p>
-                        <small>{latestEvent ? `${latestEvent.time} · ${latestEvent.detail}` : orderSourceLabel(order)}</small>
                         <div className="quant-order-actions" aria-label={`${order.symbol} 委托动作`}>
                           {manualOrder && manualOrderCanAdvance(order) ? (
                             <Button
@@ -2092,7 +2191,7 @@ export function QuantLabWorkspace({
                 </div>
               </Card>
 
-              <Card size="sm" className="rail-card quant-account-sync" role="region" aria-label="账户同步">
+              <Card id="quant-account-center" size="sm" className="rail-card quant-account-sync" role="region" aria-label="账户同步">
                 <div className="quant-section-head">
                   <div>
                     <span>账户</span>
@@ -2177,7 +2276,7 @@ export function QuantLabWorkspace({
                 )}
               </Card>
 
-              <Card size="sm" className="rail-card quant-log-panel" role="region" aria-label="运行日志">
+              <Card id="quant-execution-log" size="sm" className="rail-card quant-log-panel" role="region" aria-label="运行日志">
                 <div className="quant-section-head">
                   <div>
                     <span>日志</span>
@@ -2185,22 +2284,24 @@ export function QuantLabWorkspace({
                   </div>
                   <CandlestickChartRoundedIcon fontSize="inherit" />
                 </div>
-                {logs.map((item) => (
+                {logs.slice(0, 3).map((item) => (
                   <article key={item.key} className={`is-${item.tone}`}>
                     <span>{item.time}</span>
                     <p>{item.text}</p>
                   </article>
                 ))}
+                {logs.length > 3 ? (
+                  <ProgressiveDisclosure className="quant-log-disclosure" label="更早日志" badge={`${logs.length - 3} 条`}>
+                    {logs.slice(3).map((item) => (
+                      <article key={item.key} className={`is-${item.tone}`}>
+                        <span>{item.time}</span>
+                        <p>{item.text}</p>
+                      </article>
+                    ))}
+                  </ProgressiveDisclosure>
+                ) : null}
               </Card>
 
-              <button
-                type="button"
-                className="quant-advanced-toggle"
-                aria-expanded={advancedRailOpen}
-                onClick={() => setAdvancedRailOpen((current) => !current)}
-            >
-              {advancedRailOpen ? "收起高级执行区" : "展开队列、账户与日志"}
-            </button>
           </aside>
         </div>
       )}
@@ -2244,8 +2345,77 @@ export function QuantLabWorkspace({
                   </div>
                 </div>
 
+                <div className="quant-qbot-presets quant-scaling-policy-panel" aria-label="仓位递进方法">
+                  <div className="quant-mini-head">
+                    <span>仓位方法</span>
+                    <strong>{activeScalingPolicy.label} · {activeScalingPolicy.riskLabel}</strong>
+                  </div>
+                  <div className="quant-qbot-list quant-scaling-policy-list">
+                    {SCALING_POLICIES.map((policy) => (
+                      <button
+                        key={policy.key}
+                        type="button"
+                        className={policy.key === strategyPolicyConfig.scalingPolicyKey ? "is-active" : undefined}
+                        onClick={() => handleScalingPolicyChange(policy.key)}
+                      >
+                        <strong>{policy.label}</strong>
+                        <span>{policy.riskLabel}</span>
+                        <em>{policy.detail}</em>
+                      </button>
+                    ))}
+                  </div>
+                  {activeScalingPolicy.triggerDirection !== "none" ? (
+                    <div className="quant-policy-controls" aria-label="仓位方法参数">
+                      <label>
+                        <span>最多批次</span>
+                        <strong>{strategyPolicyConfig.maxTranches}</strong>
+                        <input
+                          type="range"
+                          min="2"
+                          max="5"
+                          step="1"
+                          value={strategyPolicyConfig.maxTranches}
+                          onChange={(event) => updateStrategyPolicyConfig({ maxTranches: Number(event.target.value) })}
+                        />
+                      </label>
+                      {activeScalingPolicy.triggerDirection === "down" || activeScalingPolicy.triggerDirection === "up" ? (
+                        <label>
+                          <span>{activeScalingPolicy.triggerDirection === "down" ? "回撤触发" : "上涨触发"}</span>
+                          <strong>{formatNumber(strategyPolicyConfig.triggerPct, 1)}%</strong>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="10"
+                            step="0.5"
+                            value={strategyPolicyConfig.triggerPct}
+                            onChange={(event) => updateStrategyPolicyConfig({ triggerPct: Number(event.target.value) })}
+                          />
+                        </label>
+                      ) : null}
+                      <label>
+                        <span>冷却时间</span>
+                        <strong>{strategyPolicyConfig.cooldownDays} 天</strong>
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="1"
+                          value={strategyPolicyConfig.cooldownDays}
+                          onChange={(event) => updateStrategyPolicyConfig({ cooldownDays: Number(event.target.value) })}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+
+                <ScalingReplayPanel
+                  comparison={scalingReplay}
+                  activePolicyKey={strategyPolicyConfig.scalingPolicyKey}
+                />
+
                 <div className="quant-parameter-grid" aria-label="情景试算参数">
                   <Param label="标的池" value={report.profileKey} />
+                  <Param label="仓位方法" value={activeScalingPolicy.label} />
                   <Param label="周期" value="1D" />
                   <Param label="成交" value="次日收盘" />
                   <Param label="费用" value="10 bps" />
@@ -2318,6 +2488,118 @@ export function QuantLabWorkspace({
                   {bridgeError ? <p className="quant-dialog-error">{bridgeError}</p> : null}
                   {bridgeStatuses.map((item) => <BridgeStatusCard key={item.bridge} status={item} />)}
                 </div>
+              </div>
+            ) : null}
+
+            {activeDialog === "account" ? (
+              <div className="quant-dialog-stack quant-account-dialog">
+                <div className="quant-order-center-summary" aria-label="账户同步摘要">
+                  <span>权益 <strong>{formatBookMoney(accountBook.equity, accountBook.currency, positionPlan.currency)}</strong></span>
+                  <span>现金 <strong>{formatBookMoney(accountBook.cash, accountBook.currency, positionPlan.currency)}</strong></span>
+                  <span>持仓 <strong>{accountBook.positionCount}</strong></span>
+                </div>
+                <div className="quant-dialog-actions">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!actionableReconcileRows.some((row) => row.status === "extra" || row.status === "drift")}
+                    onClick={handleApplyReconcileDiffs}
+                  >
+                    应用差异
+                  </Button>
+                  <Button type="button" disabled={accountSyncing} onClick={() => void handleSyncAccount()}>
+                    {accountSyncing ? "同步中" : "同步账户"}
+                  </Button>
+                </div>
+                {accountBook.accounts.length ? (
+                  <div className="quant-account-list" aria-label="已同步账户">
+                    {accountBook.accounts.map((account) => (
+                      <article key={account.key} className={account.accepted ? "is-positive" : "is-negative"}>
+                        <div>
+                          <strong>{account.accountName}</strong>
+                          <span>{account.route || account.bridge}</span>
+                        </div>
+                        <em>{formatBookMoney(account.equity, account.currency || accountBook.currency, positionPlan.currency)}</em>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="quant-dialog-empty">
+                    <strong>尚未同步账户</strong>
+                    <span>点击“同步账户”读取持仓、委托和成交回报。</span>
+                  </div>
+                )}
+                {accountReconcile.rows.some((row) => row.status !== "matched") ? (
+                  <div className="quant-reconcile-list" aria-label="持仓差异">
+                    {actionableReconcileRows.map((row) => (
+                      <article key={row.key} className={`is-${row.tone}`}>
+                        <div>
+                          <strong>{row.symbol}</strong>
+                          <span>{row.name}</span>
+                        </div>
+                        <em>{reconcileStatusLabel(row.status)}</em>
+                        <small>{row.summary}</small>
+                        <Button type="button" variant="outline" size="xs" onClick={() => handleApplyReconcileRow(row)}>
+                          {reconcileActionLabel(row.status)}
+                        </Button>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {activeDialog === "backtest" ? (
+              <div className="quant-dialog-stack quant-backtest-dialog">
+                {lastRun ? (
+                  <>
+                    <article className={`quant-backtest-summary is-${lastRun.tone}`}>
+                      <span>当前情景结果</span>
+                      <strong>{lastRun.summary}</strong>
+                      <p>{lastRun.methodology}</p>
+                    </article>
+                    <div className="quant-parameter-grid" aria-label="情景试算结果">
+                      <Param label="净收益" value={formatPercent(lastRun.pnlPct)} tone={lastRun.tone} />
+                      <Param label="最大回撤" value={formatPercent(lastRun.maxDrawdownPct)} tone={lastRun.maxDrawdownPct <= -18 ? "negative" : "caution"} />
+                      <Param label="胜率" value={formatPercent(lastRun.winRatePct)} />
+                      <Param label="Sharpe" value={formatNumber(lastRun.sharpe, 2)} />
+                      <Param label="模拟委托" value={`${lastRun.simulatedOrders.length} 单`} />
+                      <Param label="换手" value={formatPercent(lastRun.turnoverPct)} />
+                    </div>
+                    {lastRun.simulatedOrders.length ? (
+                      <div className="quant-backtest-orders" aria-label="模拟委托明细">
+                        {lastRun.simulatedOrders.map((order) => (
+                          <article key={order.key} className={order.blocked ? "is-negative" : "is-neutral"}>
+                            <strong>{order.symbol}</strong>
+                            <span>{sideLabel(order.side)} · {formatMoney(order.notional, positionPlan.currency)}</span>
+                            <em>{order.blocked ? "已阻断" : `净贡献 ${formatPercent(order.netPnlPct)}`}</em>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="quant-dialog-empty">
+                    <strong>暂无试算结果</strong>
+                    <span>请先生成可执行建议后重新运行试算。</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {activeDialog === "logs" ? (
+              <div className="quant-dialog-stack quant-log-dialog" role="log" aria-label="运行日志">
+                {logs.length ? logs.map((item) => (
+                  <article key={item.key} className={`is-${item.tone}`}>
+                    <span>{item.time}</span>
+                    <p>{item.text}</p>
+                  </article>
+                )) : (
+                  <div className="quant-dialog-empty">
+                    <strong>暂无运行日志</strong>
+                    <span>运行试算、同步账户或生成委托后会记录在这里。</span>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -2533,6 +2815,68 @@ export function QuantLabWorkspace({
   );
 }
 
+function ScalingReplayPanel({
+  activePolicyKey,
+  comparison,
+}: {
+  activePolicyKey: ScalingPolicyKey;
+  comparison: ScalingReplayComparison;
+}) {
+  return (
+    <section className="quant-scaling-replay" aria-label="仓位方法历史回放对照">
+      <header>
+        <div>
+          <span>历史回放对照</span>
+          <strong>{comparison.horizonDays} 日 · 基准路径代理</strong>
+        </div>
+        <em className={`is-${comparison.evidence}`}>n={comparison.sampleCount} · {comparison.evidenceLabel}</em>
+      </header>
+      {comparison.sampleCount ? (
+        <>
+          <div className="quant-scaling-replay-head" aria-hidden="true">
+            <span>方法</span>
+            <span>净收益中位</span>
+            <span>回撤中位</span>
+            <span>尾部均值</span>
+            <span>资金占用</span>
+          </div>
+          <div className="quant-scaling-replay-list">
+            {comparison.metrics.map((metric) => (
+              <article
+                key={metric.policyKey}
+                className={metric.policyKey === activePolicyKey ? "is-active" : undefined}
+              >
+                <div>
+                  <strong>{metric.label}</strong>
+                  <small>{metric.averageTranches} 批</small>
+                </div>
+                <span className={replayTone(metric.medianNetReturnPct)}>{formatReplayMetric(metric.medianNetReturnPct)}</span>
+                <span className="is-negative">{formatReplayMetric(metric.medianMaxDrawdownPct)}</span>
+                <span className="is-negative">{formatReplayMetric(metric.tailAverageReturnPct)}</span>
+                <span>{formatNumber(metric.averageCapitalUtilizationPct, 0)}%</span>
+                {comparison.winnerKey === metric.policyKey ? <b>稳健领先</b> : null}
+              </article>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="quant-scaling-replay-empty">
+          当前报告没有可回放的历史路径；刷新市场数据后再比较，系统不会用均值伪造回放。
+        </div>
+      )}
+      <p>{comparison.methodology}</p>
+    </section>
+  );
+}
+
+function formatReplayMetric(value: number) {
+  return `${value > 0 ? "+" : ""}${formatNumber(value, 2)}%`;
+}
+
+function replayTone(value: number) {
+  return value > 0 ? "is-positive" : value < 0 ? "is-negative" : undefined;
+}
+
 function PanelTitle({ eyebrow, icon, title }: { eyebrow: string; icon: ReactNode; title: string }) {
   return (
     <div className="quant-panel-title">
@@ -2602,6 +2946,7 @@ function PaperSimulationCard({
   const tradePerformanceGroups = paperTradePerformanceGroupsFor(paperSim);
   const tradeAttribution = paperTradeAttributionFor(paperSim);
   const strategyExperiment = paperStrategyExperimentFor(paperSim);
+  const replacementCost = paperReplacementCostFor(paperSim);
   return (
     <Card size="sm" className={`rail-card quant-paper-sim-card is-${summary.tone}`} role="region" aria-label="自动模拟交易">
       <div className="quant-section-head">
@@ -2646,7 +2991,14 @@ function PaperSimulationCard({
         <span>成交 <strong>{summary.tradeCount}</strong></span>
         <span>待确认 <strong>{summary.pendingFundOrderCount}</strong></span>
       </div>
-      {latestSnapshot ? (
+      <div className={`quant-paper-evidence-strip is-${tradePerformance.tone}`}>
+        <span>{tradePerformance.ready ? "交易质量" : "已平仓样本"}</span>
+        <strong>{tradePerformance.ready ? tradePerformance.verdict : `${tradePerformance.sampleCount}/${tradePerformance.requiredSamples}`}</strong>
+        <small>{tradePerformance.ready ? tradePerformance.confidenceLabel : "满 10 笔后输出胜率与盈亏比"}</small>
+      </div>
+      <ProgressiveDisclosure label="指标、归因与规则" badge={`${summary.tradeCount} 笔`}>
+        <div className="quant-paper-detail-stack">
+        {latestSnapshot ? (
         <section className="quant-paper-performance" aria-label="基准与费用评估">
           <span>策略<strong>{formatPercent(summary.pnlPct)}</strong></span>
           <span title={summary.benchmarkSymbol || "未配置基准"}>
@@ -2669,7 +3021,8 @@ function PaperSimulationCard({
           <div className="quant-paper-trade-metrics">
             <span>胜率<strong>{tradePerformance.winRatePct === null ? "—" : formatPercent(tradePerformance.winRatePct)}</strong></span>
             <span>盈亏比<strong>{tradePerformance.payoffRatio === null ? "—" : `${formatNumber(tradePerformance.payoffRatio, 2)} : 1`}</strong></span>
-            <span>单笔期望<strong>{tradePerformance.expectancy === null ? "—" : formatSignedMoney(tradePerformance.expectancy, paperSim.currency)}</strong></span>
+            <span>单回合期望<strong>{tradePerformance.expectancy === null ? "—" : formatSignedMoney(tradePerformance.expectancy, paperSim.currency)}</strong></span>
+            <span>平均持有<strong>{tradePerformance.averageHoldingDays === null ? "—" : `${formatNumber(tradePerformance.averageHoldingDays, 1)} 天`}</strong></span>
           </div>
         ) : (
           <div className="quant-paper-trade-progress" aria-hidden="true">
@@ -2698,6 +3051,20 @@ function PaperSimulationCard({
           </div>
         ) : null}
       </section>
+      {replacementCost.tradeCount ? (
+        <section className="quant-paper-exit-attribution is-neutral" aria-label="基金替换执行成本">
+          <header>
+            <span>基金替换成本</span>
+            <strong>{replacementCost.completedWorkflowCount}/{replacementCost.workflowCount} 条已闭环</strong>
+          </header>
+          <div>
+            <span>费用<strong>{formatMoney(replacementCost.fees, paperSim.currency)}</strong></span>
+            <span>滑点<strong>{formatMoney(replacementCost.slippage, paperSim.currency)}</strong></span>
+            <span>总摩擦<strong>{formatMoney(replacementCost.totalCost, paperSim.currency)}</strong></span>
+          </div>
+          <p>占关联成交额 {formatPercent(replacementCost.costPct)}；只统计已发生费用与模拟滑点，不把等待期机会成本伪装成确定损失。</p>
+        </section>
+      ) : null}
       {tradeAttribution.sampleCount ? (
         <section className={`quant-paper-exit-attribution is-${tradeAttribution.tone}`} aria-label="交易结果归因">
           <header>
@@ -2763,15 +3130,6 @@ function PaperSimulationCard({
         <p>启动后会按交易日记录净值、现金、成交和回撤。</p>
       )}
       <p className="quant-paper-sim-policy">A 股默认：官方交易日、T+1、申报手数、涨跌停校验；场外基金分开处理净值确认、赎回到账和限购分批。</p>
-      {latestPendingFundOrder ? (
-        <article className="quant-paper-sim-latest is-pending">
-          <div>
-            <strong>{latestPendingFundOrder.symbol}</strong>
-            <span>{latestPendingFundOrder.side === "BUY" ? "申购" : "赎回"} · {paperFundOrderStatusLabel(latestPendingFundOrder)}</span>
-          </div>
-          <em>{paperFundOrderNextDate(latestPendingFundOrder)}</em>
-        </article>
-      ) : null}
       {latestTrade ? (
         <article className="quant-paper-sim-latest">
           <div>
@@ -2779,6 +3137,17 @@ function PaperSimulationCard({
             <span title={latestTrade.ruleNote}>{latestTrade.side === "BUY" ? "买入" : "卖出"} · {latestTrade.ruleLabel}</span>
           </div>
           <em>{formatNumber(latestTrade.quantity, latestTrade.quantity >= 100 ? 0 : 4)} @ {formatNumber(latestTrade.price, 2)} · 费 {formatMoney(latestTrade.fee, paperSim.currency)}</em>
+        </article>
+      ) : null}
+        </div>
+      </ProgressiveDisclosure>
+      {latestPendingFundOrder ? (
+        <article className="quant-paper-sim-latest is-pending">
+          <div>
+            <strong>{latestPendingFundOrder.symbol}</strong>
+            <span>{latestPendingFundOrder.side === "BUY" ? "申购" : "赎回"} · {paperFundOrderStatusLabel(latestPendingFundOrder)}</span>
+          </div>
+          <em>{paperFundOrderNextDate(latestPendingFundOrder)}</em>
         </article>
       ) : null}
     </Card>
@@ -2897,6 +3266,9 @@ function dialogEyebrow(key: Exclude<QuantDialogKey, null>) {
   if (key === "bridge") return "执行通道";
   if (key === "risk") return "风控";
   if (key === "replacement") return "基金替换";
+  if (key === "account") return "账户中心";
+  if (key === "backtest") return "情景验证";
+  if (key === "logs") return "运行记录";
   return "信号明细";
 }
 
@@ -2905,6 +3277,9 @@ function dialogTitle(key: Exclude<QuantDialogKey, null>) {
   if (key === "bridge") return "执行通道";
   if (key === "risk") return "风控开关";
   if (key === "replacement") return "关联模拟计划";
+  if (key === "account") return "账户与持仓同步";
+  if (key === "backtest") return "情景试算结果";
+  if (key === "logs") return "运行日志";
   return "信号闸门";
 }
 

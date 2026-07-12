@@ -1132,6 +1132,40 @@ select {
     rgba(0, 0, 0, 0.26);
 }
 
+.rule-preset-strip {
+  margin-top: 2px;
+}
+
+.rule-preset-strip button {
+  border-color: rgba(var(--blue-rgb), 0.18);
+  background:
+    linear-gradient(180deg, rgba(var(--blue-rgb), 0.09), rgba(255, 255, 255, 0.016)),
+    rgba(0, 0, 0, 0.18);
+}
+
+.rule-preset-strip button:hover {
+  border-color: rgba(var(--blue-rgb), 0.28);
+  background:
+    linear-gradient(180deg, rgba(var(--blue-rgb), 0.15), rgba(var(--blue-rgb), 0.04)),
+    rgba(0, 0, 0, 0.24);
+}
+
+html[data-rportfolio-style="light"] .rule-preset-strip button {
+  color: var(--text-secondary);
+  border-color: rgba(var(--blue-rgb), 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(var(--blue-rgb), 0.055)),
+    rgba(249, 252, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .rule-preset-strip button:hover {
+  color: var(--text-primary);
+  border-color: rgba(var(--blue-rgb), 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(var(--blue-rgb), 0.09)),
+    rgba(249, 252, 255, 0.86);
+}
+
 .profile-generate-tools {
   display: grid;
   gap: 10px;
