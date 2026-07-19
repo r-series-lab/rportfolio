@@ -7,7 +7,8 @@ import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { createPortal } from "react-dom";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import "../styles/pages/quant-lab.css";
 import {
   buildBrokerAdapterPlan,
   cancelOrderThroughAdapter,
@@ -20,8 +21,15 @@ import {
   type BrokerMode,
 } from "../lib/broker-adapter";
 import {
+  buildExecutionReadiness,
+  buildQuantDeskSummary,
+  createTradeTicketFromRecommendation,
+  parseMoneyLabel,
+  sideLabel,
+  type ExecutionModeKey,
+} from "../lib/quant-desk-view";
+import {
   probeBrokerBridge,
-  type BrokerAccountSnapshot,
   type BrokerBridgeStatus,
   type MarketQuoteSnapshot,
   type OrderCommandAction,
@@ -32,7 +40,6 @@ import { executionGuidanceFor } from "../lib/execution-guidance";
 import type { HoldingRecord } from "../lib/holdings";
 import {
   accountBookFromSnapshots,
-  mergeAccountSnapshot,
   reconcileAccountBookWithHoldings,
   summarizeAccountBook,
   type AccountBookPosition,
@@ -40,11 +47,16 @@ import {
   type PortfolioReconcileRow,
 } from "../lib/account-book";
 import {
+  accountIdForBrokerSnapshot,
+  summarizeAccounts,
+  upsertBrokerAccountSnapshot,
+  type AccountStoreSnapshot,
+} from "../lib/accounts";
+import {
   applyOrderCommandResult,
   applyOrderRouteResult,
   applyBrokerAccountSnapshotToOrders,
   applyPreSubmitGuardResult,
-  brokerRouteLabel,
   createOrderEvent,
   createOrderRecordFromIntent,
   mergeOrderRecords,
@@ -57,7 +69,7 @@ import {
   type OrderRecord,
   type OrderSourceKind,
 } from "../lib/order-store";
-import { isCashHolding, type PositionPlan, type PositionPlanTone } from "../lib/position-plan";
+import { isCashHolding, type PositionPlan, type PositionPlanAction, type PositionPlanTone } from "../lib/position-plan";
 import { recommendationReadinessFor, type RecommendationReadiness } from "../lib/recommendation-readiness";
 import { assessPortfolioOverlap } from "../lib/portfolio-overlap";
 import { assessFundSubstitutions } from "../lib/fund-substitution";
@@ -89,6 +101,8 @@ import {
   type StrategyScore,
 } from "../lib/strategy-engine";
 import { analyzeTradeHabit, type TradeHabit, type TradeRecord } from "../lib/trades";
+import { decisionIdForOrderIntent } from "../lib/today-inbox";
+import { handleTabListKeyDown } from "../lib/tab-keyboard";
 import {
   activatePaperSimState,
   paperFundOrderNextDate,
@@ -139,9 +153,13 @@ import { Card } from "./ui/card";
 import { ProgressiveDisclosure } from "./progressive-disclosure";
 
 type QuantLabWorkspaceProps = {
+  accountStore: AccountStoreSnapshot;
+  decisionRecords: RecommendationRecord[];
+  focusedDecisionId: string;
   fundExecutionPolicy: FundExecutionPolicy;
   holdings: HoldingRecord[];
   loading: boolean;
+  onAccountStoreChange: Dispatch<SetStateAction<AccountStoreSnapshot>>;
   onHoldingsChange: Dispatch<SetStateAction<HoldingRecord[]>>;
   onOpenAnalysis: () => void;
   onOpenHoldings: () => void;
@@ -154,7 +172,8 @@ type QuantLabWorkspaceProps = {
 
 type EngineMode = "scenario" | "paper";
 type ExecutionMode = "manual" | "simulation" | "auto";
-type QuantDialogKey = "strategy" | "bridge" | "risk" | "signals" | "replacement" | "account" | "backtest" | "logs" | null;
+type ExecutionRailTab = "ticket" | "orders" | "account" | "simulation" | "logs";
+type QuantDialogKey = "strategy" | "bridge" | "risk" | "replacement" | "backtest" | null;
 
 type LabLog = {
   key: string;
@@ -185,11 +204,6 @@ type BrokerOption = {
   detail: string;
 };
 
-type ManualOrderDraft = OrderIntent & {
-  limit: string;
-  quantity: string;
-};
-
 type WatchFilter = "tradable" | "signals" | "all";
 
 const MANUAL_BROKER_MODE = "manual-ticket";
@@ -209,10 +223,30 @@ const EXECUTION_MODE_OPTIONS: Array<{ key: ExecutionMode; label: string; detail:
   { key: "auto", label: "通道自动", detail: "桥接提交" },
 ];
 
+const EXECUTION_RAIL_TABS: Array<{ key: ExecutionRailTab; label: string }> = [
+  { key: "ticket", label: "交易票" },
+  { key: "orders", label: "委托" },
+  { key: "account", label: "账户" },
+  { key: "simulation", label: "模拟" },
+  { key: "logs", label: "日志" },
+];
+
+const QUANT_DIALOG_META: Record<Exclude<QuantDialogKey, null>, { eyebrow: string; title: string }> = {
+  strategy: { eyebrow: "策略参数", title: "策略与参数" },
+  bridge: { eyebrow: "执行通道", title: "执行通道" },
+  risk: { eyebrow: "风控", title: "风控开关" },
+  replacement: { eyebrow: "基金替换", title: "关联模拟计划" },
+  backtest: { eyebrow: "情景验证", title: "情景试算结果" },
+};
+
 export function QuantLabWorkspace({
+  accountStore,
+  decisionRecords,
+  focusedDecisionId,
   fundExecutionPolicy,
   holdings,
   loading,
+  onAccountStoreChange,
   onHoldingsChange,
   onOpenAnalysis,
   onOpenHoldings,
@@ -237,6 +271,7 @@ export function QuantLabWorkspace({
   const [eventLogs, setEventLogs] = useState<LabLog[]>([]);
   const [activeDialog, setActiveDialog] = useState<QuantDialogKey>(null);
   const [controlPanelOpen, setControlPanelOpen] = useState(false);
+  const [executionRailTab, setExecutionRailTab] = useState<ExecutionRailTab>("ticket");
   const [bridgeError, setBridgeError] = useState("");
   const [bridgeLoading, setBridgeLoading] = useState(false);
   const [bridgeStatuses, setBridgeStatuses] = useState<BrokerBridgeStatus[]>([]);
@@ -254,7 +289,7 @@ export function QuantLabWorkspace({
   const [watchFilter, setWatchFilter] = useState<WatchFilter>("tradable");
   const [activeOrderCommandKey, setActiveOrderCommandKey] = useState("");
   const [orderAuditExporting, setOrderAuditExporting] = useState<OrderAuditExportFormat | "">("");
-  const [accountSnapshots, setAccountSnapshots] = useState<BrokerAccountSnapshot[]>([]);
+  const [executionAccountId, setExecutionAccountId] = useState("");
   const [accountSyncing, setAccountSyncing] = useState(false);
   const [marketQuotes, setMarketQuotes] = useState<Record<string, MarketQuoteSnapshot>>({});
   const [marketQuoteSyncing, setMarketQuoteSyncing] = useState("");
@@ -293,9 +328,19 @@ export function QuantLabWorkspace({
     || (bridgeReady && recommendationReadiness.autoExecutionAllowed);
   const executionTone: LabTone = executionMode === "manual" ? "caution" : executionMode === "simulation" ? paperSimSummary.tone : bridgeReady ? "positive" : "caution";
   const orderBrokerMode = executionMode === "manual" ? MANUAL_BROKER_MODE : executionMode === "simulation" ? PAPER_SIM_BROKER_MODE : brokerMode;
+  const quantDeskSummary = buildQuantDeskSummary({
+    asOf: report?.asOf ?? "",
+    executionMode: executionMode as ExecutionModeKey,
+    readiness: recommendationReadiness,
+    routeLabel: executionRouteLabel,
+    strategyLabel: strategy.label,
+  });
   const realHoldings = useMemo(() => holdings.filter((item) => item.role === "real"), [holdings]);
-  const totalValue = positionPlan.totalValue || totalMarketValue(realHoldings);
-  const tradeHabit = analyzeTradeHabit(trades, holdings, totalValue);
+  const totalValue = positionPlan.totalValue;
+  const paperSimulationCurrencyReady = realHoldings.every(
+    (holding) => holding.currency.toUpperCase() === positionPlan.currency,
+  );
+  const tradeHabit = analyzeTradeHabit(trades, holdings, totalValue, positionPlan.valuation.settings);
   const strategyEvaluation = report && reportIsCurrent
     ? evaluateStrategy({
       budgetWeight,
@@ -309,11 +354,20 @@ export function QuantLabWorkspace({
     })
     : null;
   const score = strategyEvaluation?.score ?? emptyStrategyScore(loading);
-  const watchRows = useMemo(() => (report && reportIsCurrent ? watchRowsFor(report, holdings, totalValue) : []), [holdings, report, reportIsCurrent, totalValue]);
+  const watchRows = useMemo(
+    () => (report && reportIsCurrent ? watchRowsFor(report, holdings, positionPlan) : []),
+    [holdings, positionPlan, report, reportIsCurrent],
+  );
   const watchCounts = useMemo(() => summarizeWatchRows(watchRows), [watchRows]);
   const filteredWatchRows = useMemo(() => filterWatchRows(watchRows, watchFilter), [watchRows, watchFilter]);
-  const signals = strategyEvaluation?.signals ?? [];
-  const orders = strategyEvaluation?.orderIntents ?? [];
+  const orders = (strategyEvaluation?.orderIntents ?? []).map((order) => ({
+    ...order,
+    decisionId: decisionIdForOrderIntent(order, decisionRecords, {
+      asOf: report?.asOf ?? "",
+      profileKey: report?.profileKey ?? "",
+      preferredDecisionId: focusedDecisionId,
+    }),
+  }));
   const orderRows = useMemo(() => normalizeOrderRecords(queuedOrders), [queuedOrders]);
   const orderRiskResults = report && reportIsCurrent
     ? orders.map((order) => guardOrderIntent({
@@ -340,8 +394,8 @@ export function QuantLabWorkspace({
       strategyScore: score,
     })
     : [];
-  const decisionCoverage = summarizeDecisionCoverage(positionPlan, orders);
-  const portfolioOverlap = assessPortfolioOverlap(realHoldings, totalValue);
+  const decisionCoverage = summarizeDecisionCoverage(positionPlan, orders, orderRiskResults);
+  const portfolioOverlap = assessPortfolioOverlap(realHoldings, totalValue, positionPlan.valuation.settings);
   const fundSubstitution = assessFundSubstitutions(realHoldings, portfolioOverlap.pairs);
   const fundReplacementPlans = buildFundReplacementPlans({
     asOf: report?.asOf ?? "",
@@ -369,18 +423,20 @@ export function QuantLabWorkspace({
     : null;
   const activeWatchRegistered = Boolean(activeWatch && holdings.some((item) => symbolKey(item.symbol) === symbolKey(activeWatch.symbol)));
   const activeQuote = activeWatch ? marketQuotes[symbolKey(activeWatch.symbol)] ?? null : null;
-  const activeTicketReady = Boolean(
-    activeWatch?.tradable
-    && activeRecommendation
-    && !activeOrderGuard?.blocked
-    && (executionMode !== "auto" || recommendationReadiness.autoExecutionAllowed)
-    && (executionMode === "simulation" || recommendationAllowed(activeRecommendation, recommendationReadiness)),
-  );
+  const activeExecutionReadiness = buildExecutionReadiness({
+    executionMode,
+    guardSummary: activeOrderGuard?.blocked ? activeOrderGuard.summary : undefined,
+    recommendation: activeRecommendation,
+    recommendationAllowed: Boolean(activeRecommendation && recommendationAllowed(activeRecommendation, recommendationReadiness)),
+    readiness: recommendationReadiness,
+    watch: activeWatch,
+  });
+  const activeTicketReady = !activeExecutionReadiness.disabled;
   const activeTargetWeight = activeWatch?.weight != null && activePlanAction
     ? Math.max(0, activeWatch.weight + activePlanAction.weightDelta)
     : null;
   const activeTicketQuantity = activeRecommendation && activeWatch?.close
-    ? parseMoneyLabel(activeRecommendation.amount) / activeWatch.close
+    ? (activeRecommendation.notional ?? parseMoneyLabel(activeRecommendation.amount)) / activeWatch.close
     : 0;
   const activeRecommendationAllowed = Boolean(activeRecommendation && recommendationAllowed(activeRecommendation, recommendationReadiness));
   const activeRiskPassed = Boolean(activeRecommendationAllowed && !positionPlan.riskGate?.blocked);
@@ -401,10 +457,31 @@ export function QuantLabWorkspace({
       : activeWatch.tradeBlockReason
     : "选择标的";
   const orderCenter = useMemo(() => summarizeOrderCenter(orderRows), [orderRows]);
+  useEffect(() => {
+    if (!focusedDecisionId) return;
+    const decision = decisionRecords.find((record) => record.decisionId === focusedDecisionId);
+    if (!decision) return;
+    setWatchFilter("all");
+    setSelectedSymbol(decision.symbol);
+    setExecutionRailTab("ticket");
+  }, [decisionRecords, focusedDecisionId]);
   const blockedOrderCount = orderRows.filter((order) => order.status === "blocked").length;
+  const accountSnapshots = accountStore.brokerSnapshots;
+  const activeAccounts = useMemo(
+    () => accountStore.accounts.filter((account) => account.status === "active"),
+    [accountStore.accounts],
+  );
   const accountBook = useMemo(() => accountBookFromSnapshots(accountSnapshots, realHoldings), [accountSnapshots, realHoldings]);
+  const accountPortfolio = useMemo(
+    () => summarizeAccounts(activeAccounts, positionPlan.valuation.settings),
+    [activeAccounts, positionPlan.valuation.settings],
+  );
   const accountReconcile = useMemo(() => reconcileAccountBookWithHoldings(accountBook, realHoldings), [accountBook, realHoldings]);
   const actionableReconcileRows = useMemo(() => accountReconcile.rows.filter((row) => row.status !== "matched"), [accountReconcile.rows]);
+  useEffect(() => {
+    if (executionAccountId && activeAccounts.some((account) => account.id === executionAccountId)) return;
+    setExecutionAccountId(activeAccounts[0]?.id ?? "");
+  }, [activeAccounts, executionAccountId]);
   const monitorSnapshot = monitorStore.snapshot;
   const monitorEvaluation = report && reportIsCurrent
     ? evaluateProfileMonitor({
@@ -422,17 +499,6 @@ export function QuantLabWorkspace({
   useEffect(() => {
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
-
-  useEffect(() => {
-    if (!controlPanelOpen && !activeDialog) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setControlPanelOpen(false);
-      setActiveDialog(null);
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeDialog, controlPanelOpen]);
 
   useEffect(() => {
     const cleanup = blockNonTradableActiveOrders(orderRows, realHoldings);
@@ -682,6 +748,10 @@ export function QuantLabWorkspace({
       onOpenAnalysis();
       return null;
     }
+    if (!paperSimulationCurrencyReady) {
+      pushLog("caution", `模拟账户暂不跨币种结算；请将基准币种切换为持仓币种，或使用手动交易票。`);
+      return null;
+    }
     paperSettlementKeyRef.current = `${stateOverride.accountId}:${report.asOf}`;
     const fundSymbols = new Set([
       ...stateOverride.pendingFundOrders.map((order) => symbolKey(order.symbol)),
@@ -806,8 +876,14 @@ export function QuantLabWorkspace({
       onOpenAnalysis();
       return;
     }
+    if (!paperSimulationCurrencyReady) {
+      setExecutionRailTab("simulation");
+      pushLog("caution", "模拟账户暂不跨币种结算，未创建可能失真的实验账户。");
+      return;
+    }
     const started = activatePaperSimState(paperSim, { holdings, positionPlan, preset: qbotPreset, report, strategy });
     setExecutionMode("simulation");
+    setExecutionRailTab("simulation");
     if (!monitorEnabled) {
       setMonitorEnabled(true);
       setMonitorLastRun(shortTimeLabel());
@@ -819,6 +895,7 @@ export function QuantLabWorkspace({
   };
 
   const handleRunPaperSimulation = () => {
+    setExecutionRailTab("simulation");
     runPaperSimulationForIntents(orders, "手动运行");
   };
 
@@ -867,6 +944,7 @@ export function QuantLabWorkspace({
       ? paperSim
       : activatePaperSimState(paperSim, { holdings, positionPlan, preset: qbotPreset, report, strategy });
     setExecutionMode("simulation");
+    setExecutionRailTab("simulation");
     setActiveDialog(null);
     void runPaperSimulationForIntents([intent], "关联基金替换", started);
   };
@@ -889,6 +967,16 @@ export function QuantLabWorkspace({
       strategyKey: strategy.key,
       strategyName: strategy.label,
     };
+  };
+
+  const accountIdForIntent = (intent: OrderIntent) => {
+    const matching = Array.from(new Set(
+      realHoldings
+        .filter((holding) => symbolKey(holding.symbol) === symbolKey(intent.symbol))
+        .map((holding) => holding.accountId)
+        .filter((accountId): accountId is string => Boolean(accountId)),
+    ));
+    return matching.length === 1 ? matching[0] : executionAccountId;
   };
 
   const mergeIntoOrderCenter = (incoming: OrderRecord[]) => {
@@ -969,19 +1057,22 @@ export function QuantLabWorkspace({
   ) => {
     const guard = guardOverride === undefined ? guardIntent(order) : guardOverride;
     const guardedIntent = guard?.intent ?? order;
-    const previewOrder = createOrderRecordFromIntent({
-      brokerMode: orderBrokerMode,
-      index,
-      intent: guardedIntent,
-      limit: guard?.limitHint,
-      preset: qbotPreset,
-      quantity: guard?.quantityHint,
-      riskBlocked: guard?.blocked,
-      riskBlockedReason: guard?.blocked ? guard.summary : "",
-      riskOverride,
-      riskWarnings: guard?.warnings,
-      source: orderSourceFor(sourceKind),
-    });
+    const previewOrder = {
+      ...createOrderRecordFromIntent({
+        brokerMode: orderBrokerMode,
+        index,
+        intent: guardedIntent,
+        limit: guard?.limitHint,
+        preset: qbotPreset,
+        quantity: guard?.quantityHint,
+        riskBlocked: guard?.blocked,
+        riskBlockedReason: guard?.blocked ? guard.summary : "",
+        riskOverride,
+        riskWarnings: guard?.warnings,
+        source: orderSourceFor(sourceKind),
+      }),
+      accountId: accountIdForIntent(guardedIntent),
+    };
     if (previewOrder.status === "blocked") return previewOrder;
     if (executionMode === "manual") return prepareManualExecutionOrder(previewOrder);
     const routeResult = await routeOrder(previewOrder);
@@ -994,6 +1085,7 @@ export function QuantLabWorkspace({
       return;
     }
     if (executionMode === "simulation") {
+      setExecutionRailTab("simulation");
       handleRunPaperSimulation();
       return;
     }
@@ -1017,11 +1109,12 @@ export function QuantLabWorkspace({
     const executableOrders = routedResults.map((item) => item.routedOrder);
     if (!executableOrders.length) {
       setEngineMode("paper");
-      pushLog("neutral", "当前目标带没有生成可执行委托，先观察信号和仓位差。");
+      pushLog("neutral", "当前目标带没有生成可建票委托，先观察信号和仓位差。");
       return;
     }
     setEngineMode("paper");
     const merged = mergeIntoOrderCenter(executableOrders);
+    setExecutionRailTab("orders");
     const accepted = executableOrders.filter((item) => item.status !== "blocked" && item.status !== "error").length;
     const acceptedRoutes = merged.accepted ? Math.min(accepted, merged.accepted) : 0;
     const duplicateText = merged.duplicates ? `，过滤 ${merged.duplicates} 条重复` : "";
@@ -1033,45 +1126,15 @@ export function QuantLabWorkspace({
     );
   };
 
-  const handleQueuePlanOrder = async (order: OrderIntent, index: number) => {
-    if (!report || !reportIsCurrent) {
-      onOpenAnalysis();
-      return;
-    }
-    if (executionMode === "simulation") {
-      runPaperSimulationForIntents([order], "单笔模拟");
-      return;
-    }
-    if (executionMode === "auto" && !recommendationReadiness.autoExecutionAllowed) {
-      pushLog("caution", `${recommendationReadiness.validationLabel} · 通道自动已阻断，请先使用模拟验证。`);
-      return;
-    }
-    if (!recommendationAllowed(order, recommendationReadiness)) {
-      pushLog("caution", `${recommendationReadiness.label} · ${recommendationReadiness.detail}`);
-      return;
-    }
-    const quote = await quoteForExecution(order, { silent: true });
-    const guard = guardIntent(order, quote);
-    const routedOrder = await routePlanOrder(order, index, "strategy", guard);
-    recordRecommendations([order], "ticket");
-    setEngineMode("paper");
-    const merged = mergeIntoOrderCenter([routedOrder]);
-    pushLog(
-      merged.accepted ? routedOrder.tone : "neutral",
-      merged.accepted
-        ? `${routedOrder.state} · ${routedOrder.side} ${routedOrder.symbol} · ${guard?.summary ?? routedOrder.amount}`
-        : `已存在活跃委托 · ${routedOrder.symbol} · ${routedOrder.amount}`,
-    );
-  };
-
-  const handleRecommendationAction = (order: OrderIntent, index: number, guard?: RiskGuardResult) => {
+  const handleRecommendationAction = (order: OrderIntent, guard?: RiskGuardResult) => {
+    setSelectedSymbol(order.symbol);
+    setExecutionRailTab("ticket");
     if (guard?.blocked) {
-      setSelectedSymbol(order.symbol);
       pushLog("caution", `${order.symbol} 暂不执行 · ${guard.summary}`);
       revealExecutionSection("quant-execution-ticket");
       return;
     }
-    void handleQueuePlanOrder(order, index);
+    revealExecutionSection("quant-execution-ticket");
   };
 
   const handleQueueActiveOrder = async () => {
@@ -1095,31 +1158,35 @@ export function QuantLabWorkspace({
       pushLog("caution", `${recommendationReadiness.validationLabel} · 通道自动已阻断，请先使用模拟验证。`);
       return;
     }
-    const draft = executableOrderFromTicket({
+    const draft = createTradeTicketFromRecommendation({
       brokerMode: orderBrokerMode,
       preset: qbotPreset,
       recommendation: activeRecommendation,
       watch: activeWatch,
     });
     if (executionMode === "simulation") {
+      setExecutionRailTab("simulation");
       runPaperSimulationForIntents([draft], "手动模拟票");
       return;
     }
     const quote = await quoteForExecution(draft, { silent: true });
     const guard = guardIntent(draft, quote);
-    const previewOrder = createOrderRecordFromIntent({
-      brokerMode: orderBrokerMode,
-      index: 0,
-      intent: guard?.intent ?? draft,
-      limit: guard?.limitHint ?? draft.limit,
-      preset: qbotPreset,
-      quantity: guard?.quantityHint ?? draft.quantity,
-      riskBlocked: guard?.blocked,
-      riskBlockedReason: guard?.blocked ? guard.summary : "",
-      riskOverride,
-      riskWarnings: guard?.warnings,
-      source: orderSourceFor("manual"),
-    });
+    const previewOrder = {
+      ...createOrderRecordFromIntent({
+        brokerMode: orderBrokerMode,
+        index: 0,
+        intent: guard?.intent ?? draft,
+        limit: guard?.limitHint ?? draft.limit,
+        preset: qbotPreset,
+        quantity: guard?.quantityHint ?? draft.quantity,
+        riskBlocked: guard?.blocked,
+        riskBlockedReason: guard?.blocked ? guard.summary : "",
+        riskOverride,
+        riskWarnings: guard?.warnings,
+        source: orderSourceFor("manual"),
+      }),
+      accountId: accountIdForIntent(guard?.intent ?? draft),
+    };
     const order = previewOrder.status === "blocked"
       ? previewOrder
       : executionMode === "manual"
@@ -1128,6 +1195,7 @@ export function QuantLabWorkspace({
     recordRecommendations([draft], "ticket");
     setEngineMode("paper");
     mergeIntoOrderCenter([order]);
+    setExecutionRailTab(order.status === "blocked" || order.status === "error" ? "ticket" : "orders");
     pushLog(order.tone, `${order.state} · ${order.side} ${order.symbol} · ${guard?.summary ?? order.amount} · ${order.route}`);
   };
 
@@ -1147,7 +1215,7 @@ export function QuantLabWorkspace({
     });
     setWatchFilter("signals");
     setSelectedSymbol(nextHolding.symbol);
-    pushLog("positive", `${nextHolding.symbol} 已加入观察资产；转为真实持仓后才会进入委托队列。`);
+    pushLog("positive", `${nextHolding.symbol} 已加入观察资产；转为本地持仓后才会进入委托队列。`);
   };
 
   const routeOrder = async (order: OrderRecord) => {
@@ -1254,8 +1322,10 @@ export function QuantLabWorkspace({
         preset: qbotPreset,
         riskOverride,
       });
-      setAccountSnapshots((current) => mergeAccountSnapshot(current, snapshot));
-      const reconciled = applyBrokerAccountSnapshotToOrders(orderRows, snapshot);
+      const accountStoreId = accountIdForBrokerSnapshot(snapshot);
+      onAccountStoreChange((current) => upsertBrokerAccountSnapshot(current, snapshot));
+      setExecutionAccountId(accountStoreId);
+      const reconciled = applyBrokerAccountSnapshotToOrders(orderRows, { ...snapshot, accountStoreId });
       if (reconciled.matched) {
         setQueuedOrders(reconciled.orders);
       }
@@ -1449,6 +1519,16 @@ export function QuantLabWorkspace({
 
   const tradingHeader = (
     <header className="quant-trading-header quant-command-bar" aria-label="量化交易快捷操作">
+      <div className="quant-trading-title">
+        <strong>量化交易 · 决策账本</strong>
+        <span>基于组合目标与风控规则，生成可建票建议</span>
+      </div>
+      <div className={`quant-environment-capsule is-${normalizePlanTone(recommendationReadiness.tone)}`} aria-label="交易环境">
+        <span>{quantDeskSummary.environmentLabel}</span>
+        <span>{quantDeskSummary.strategyLabel}</span>
+        <span>{quantDeskSummary.dataLabel}</span>
+        <strong>{quantDeskSummary.riskLabel}</strong>
+      </div>
       <div className="quant-run-controls" aria-label="策略运行控制">
         <button
           type="button"
@@ -1504,29 +1584,15 @@ export function QuantLabWorkspace({
         </main>
       ) : (
         <div className="quant-trading-grid is-decision-ledger">
-          {controlPanelOpen ? createPortal(
-            <>
-              <button
-                type="button"
-                className="quant-control-backdrop"
-                aria-label="关闭交易参数"
-                onClick={() => setControlPanelOpen(false)}
-              />
-              <aside className="quant-control-panel quant-control-sheet is-open" role="dialog" aria-modal="true" aria-label="交易设置">
-                <div className="quant-control-drawer-head">
-                  <PanelTitle icon={<TuneRoundedIcon fontSize="inherit" />} eyebrow="交易参数" title="执行条件" />
-                  <button
-                    type="button"
-                    className="quant-layer-close"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setControlPanelOpen(false);
-                    }}
-                  >
-                    关闭
-                  </button>
-                </div>
+          <Dialog open={controlPanelOpen} onOpenChange={setControlPanelOpen}>
+            <DialogContent className="quant-control-panel quant-control-sheet" mobileMode="sheet" showCloseButton size="sm">
+              <DialogHeader className="quant-control-drawer-head">
+                <DialogTitle className="sr-only">执行条件</DialogTitle>
+                <DialogDescription className="sr-only">交易参数、执行方式、策略配置和标的池</DialogDescription>
+                <PanelTitle icon={<TuneRoundedIcon fontSize="inherit" />} eyebrow="交易参数" title="执行条件" />
+              </DialogHeader>
+
+              <DialogBody className="quant-control-body">
 
                 <section className="quant-execution-source-card" aria-label="执行来源">
                   <div>
@@ -1537,13 +1603,14 @@ export function QuantLabWorkspace({
                   <button type="button" onClick={() => setActiveDialog("bridge")}>调整</button>
                 </section>
 
-                <div className="quant-execution-mode-switch" role="tablist" aria-label="执行方式">
+                <div className="quant-execution-mode-switch" role="tablist" aria-label="执行方式" onKeyDown={handleTabListKeyDown}>
                   {EXECUTION_MODE_OPTIONS.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       role="tab"
                       aria-selected={executionMode === item.key}
+                      tabIndex={executionMode === item.key ? 0 : -1}
                       className={executionMode === item.key ? "is-active" : undefined}
                       disabled={item.key === "auto" && !recommendationReadiness.autoExecutionAllowed}
                       title={item.key === "auto" && !recommendationReadiness.autoExecutionAllowed ? `${recommendationReadiness.validationLabel}：先完成样本外验证` : item.detail}
@@ -1604,11 +1671,12 @@ export function QuantLabWorkspace({
                     <span>标的池</span>
                     <strong>{filteredWatchRows.length}/{watchRows.length} 标的</strong>
                   </div>
-                  <div className="quant-watch-filter" role="tablist" aria-label="标的范围">
+                  <div className="quant-watch-filter" role="tablist" aria-label="标的范围" onKeyDown={handleTabListKeyDown}>
                     <button
                       type="button"
                       role="tab"
                       aria-selected={watchFilter === "tradable"}
+                      tabIndex={watchFilter === "tradable" ? 0 : -1}
                       className={watchFilter === "tradable" ? "is-active" : undefined}
                       onClick={() => setWatchFilter("tradable")}
                     >
@@ -1619,6 +1687,7 @@ export function QuantLabWorkspace({
                       type="button"
                       role="tab"
                       aria-selected={watchFilter === "signals"}
+                      tabIndex={watchFilter === "signals" ? 0 : -1}
                       className={watchFilter === "signals" ? "is-active" : undefined}
                       onClick={() => setWatchFilter("signals")}
                     >
@@ -1629,6 +1698,7 @@ export function QuantLabWorkspace({
                       type="button"
                       role="tab"
                       aria-selected={watchFilter === "all"}
+                      tabIndex={watchFilter === "all" ? 0 : -1}
                       className={watchFilter === "all" ? "is-active" : undefined}
                       onClick={() => setWatchFilter("all")}
                     >
@@ -1652,15 +1722,14 @@ export function QuantLabWorkspace({
                     )) : (
                       <div className="quant-watchlist-empty">
                         <strong>没有可交易持仓</strong>
-                        <span>先在持仓管理里记录真实仓位和目标带。</span>
+                        <span>先在持仓管理里记录本地仓位和目标带。</span>
                       </div>
                     )}
                   </div>
                 </div>
-              </aside>
-            </>,
-            document.body,
-          ) : null}
+              </DialogBody>
+            </DialogContent>
+          </Dialog>
 
           <main className="quant-market-stage quant-execution-stage" aria-label="交易执行">
             {tradingHeader}
@@ -1669,7 +1738,7 @@ export function QuantLabWorkspace({
                 <article>
                   <span>组合市值</span>
                   <strong>{formatMoney(totalValue, positionPlan.currency)}</strong>
-                  <small>真实持仓</small>
+                  <small>本地持仓</small>
                 </article>
                 <article className={!positionPlan.hasCashInstrument ? "is-caution" : undefined}>
                   <span>现金健康</span>
@@ -1682,7 +1751,7 @@ export function QuantLabWorkspace({
                   <small>{orders.length ? "待复核" : "无需动作"}</small>
                 </article>
                 <article className={`is-${normalizePlanTone(recommendationReadiness.tone)}`}>
-                  <span>交易就绪</span>
+                  <span>建票状态</span>
                   <strong>{recommendationReadiness.label}</strong>
                   <small>{recommendationReadiness.dataQuality.label} · {recommendationReadiness.confidenceLabel} {recommendationReadiness.confidenceScore}/100</small>
                 </article>
@@ -1691,7 +1760,7 @@ export function QuantLabWorkspace({
               <div className="quant-suggestion-head">
                 <div>
                   <strong>组合建议账本</strong>
-                  <span>按优先级生成可执行建议</span>
+                  <span>按优先级生成可建票建议</span>
                 </div>
                 <div className="quant-ledger-toolbar">
                   <button type="button" onClick={() => setActiveDialog("risk")}>
@@ -1726,16 +1795,16 @@ export function QuantLabWorkspace({
               <section className="quant-decision-coverage" aria-label="建议覆盖说明">
                 <div className="quant-coverage-stats">
                   <span>已分析 <strong>{decisionCoverage.analyzed}</strong></span>
-                  <span className="is-positive">可执行 <strong>{decisionCoverage.executable}</strong></span>
+                  <span className="is-positive">可建票 <strong>{decisionCoverage.executable}</strong></span>
                   <span>继续持有 <strong>{decisionCoverage.hold}</strong></span>
                   <span className={decisionCoverage.waiting ? "is-caution" : undefined}>等待/阻断 <strong>{decisionCoverage.waiting}</strong></span>
                 </div>
                 <p className="quant-coverage-primary">
                   {decisionCoverage.executable === 1
-                    ? `1 条可执行，其余 ${Math.max(0, decisionCoverage.analyzed - 1)} 条等待条件。`
+                    ? `1 条可建票，其余 ${Math.max(0, decisionCoverage.analyzed - 1)} 条等待条件。`
                     : decisionCoverage.executable > 1
-                      ? `${decisionCoverage.executable} 条可执行，已按优先级排序。`
-                      : "暂无可执行建议，保持观察。"}
+                      ? `${decisionCoverage.executable} 条可建票，已按优先级排序。`
+                      : "暂无可建票建议，保持观察。"}
                 </p>
                 {primaryReplacementPlan ? (
                   <p className="quant-overlap-note is-actionable">
@@ -1789,7 +1858,9 @@ export function QuantLabWorkspace({
                 <span>操作</span>
               </div>
               <div className="quant-suggestion-list">
-                {rankedRecommendations.length ? rankedRecommendations.map((ranking, index) => {
+                {rankedRecommendations.length || decisionCoverage.skipped.length ? (
+                  <>
+                {rankedRecommendations.map((ranking) => {
                   const order = ranking.order;
                   const orderGuard = orderRiskResults.find((item) => item.intent.key === order.key);
                   return (
@@ -1801,7 +1872,10 @@ export function QuantLabWorkspace({
                       type="button"
                       className="quant-suggestion-select"
                       aria-label={`选择 ${order.symbol} ${sideLabel(order.side)}建议`}
-                      onClick={() => setSelectedSymbol(order.symbol)}
+                      onClick={() => {
+                        setSelectedSymbol(order.symbol);
+                        setExecutionRailTab("ticket");
+                      }}
                     >
                       <span className="quant-ledger-asset">
                         <strong>{order.symbol}</strong>
@@ -1819,13 +1893,42 @@ export function QuantLabWorkspace({
                       type="button"
                       className="quant-ledger-quick-action"
                       title={orderGuard?.blocked ? orderGuard.summary : ""}
-                      onClick={() => handleRecommendationAction(order, index, orderGuard)}
+                      onClick={() => handleRecommendationAction(order, orderGuard)}
                     >
-                      {orderGuard?.blocked ? "查看阻断" : executionMode === "manual" ? "生成票" : executionMode === "simulation" ? "模拟" : "排队"}
+                      {orderGuard?.blocked ? "查看阻断" : "选择"}
                     </button>
                   </article>
                   );
-                }) : (
+                })}
+                {decisionCoverage.skipped.map((item) => (
+                  <article key={`skipped-${item.key}`} className={`is-${item.tone} is-readonly`}>
+                    <button
+                      type="button"
+                      className="quant-suggestion-select"
+                      aria-label={`${item.symbol} ${item.action}暂不建票`}
+                      title={item.reason}
+                      disabled
+                    >
+                      <span className="quant-ledger-asset">
+                        <strong>{item.symbol}</strong>
+                        <small>{item.name}</small>
+                      </span>
+                      <span className="quant-ledger-weight">{item.weightLabel}</span>
+                      <span>{item.targetBandLabel}</span>
+                      <span className={`quant-ledger-side ${item.sideClass}`}>{item.sideLabel}</span>
+                      <strong className="quant-ledger-amount">{item.amountLabel}</strong>
+                      <span className={`quant-ledger-priority is-${item.tone}`} title={item.reason}>
+                        <strong>{item.priorityLabel}</strong>
+                        <small>{item.reason}</small>
+                      </span>
+                    </button>
+                    <button type="button" className="quant-ledger-quick-action" title={item.reason} disabled>
+                      待条件
+                    </button>
+                  </article>
+                ))}
+                  </>
+                ) : (
                   <div className="quant-empty-orders">
                     <DatasetRoundedIcon fontSize="inherit" />
                     <strong>当前没有需要执行的建议单</strong>
@@ -1836,77 +1939,35 @@ export function QuantLabWorkspace({
               <div className="quant-ledger-more-actions" aria-label="更多操作">
                 <span>工具</span>
                 <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "strategy"} onClick={() => setActiveDialog("strategy")}>策略</button>
-                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "account"} onClick={() => setActiveDialog("account")}>账户</button>
+                <button type="button" aria-pressed={executionRailTab === "account"} onClick={() => setExecutionRailTab("account")}>账户</button>
                 <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "backtest"} onClick={handleRunBacktestAndOpen}>试算</button>
-                <button type="button" aria-haspopup="dialog" aria-expanded={activeDialog === "logs"} onClick={() => setActiveDialog("logs")}>日志</button>
+                <button type="button" aria-pressed={executionRailTab === "logs"} onClick={() => setExecutionRailTab("logs")}>日志</button>
               </div>
             </section>
 
-            <section className="quant-execution-footer">
-              <div className="quant-manual-ticket">
-                <div className="quant-section-head">
-                  <div>
-                    <span>{activeWatch?.tradable ? executionMode === "manual" ? "手动交易票" : executionMode === "simulation" ? "模拟下单" : "通道下单" : "行情观察"}</span>
-                    <strong>{activeWatch ? `${activeWatch.symbol} · ${activeWatch.label}` : "选择标的"}</strong>
-                  </div>
-                  <em>{activeWatch ? activeWatchTradeStatus : "—"}</em>
-                </div>
-                <div className="quant-ticket-grid">
-                  <CompactStat
-                    label="方向"
-                    value={activeRecommendation ? sideLabel(activeRecommendation.side) : activeWatch?.tradable ? "待建议" : "观察"}
-                    tone={activeRecommendation ? activeRecommendation.side === "SELL" ? "negative" : activeRecommendation.tone : "caution"}
-                  />
-                  <CompactStat label="金额" value={activeRecommendation?.amount ?? "—"} />
-                  <CompactStat label="比例" value={activeRecommendation?.weight ?? "—"} />
-                  <CompactStat label="限价" value={activeWatch ? formatNumber(activeWatch.close, 2) : "—"} />
-                </div>
-                <div className="quant-ticket-actions">
-                  <button type="button" className="quant-paper-button" disabled={!activeTicketReady} title={activeOrderGuard?.summary ?? ""} onClick={handleQueueActiveOrder}>
-                    <PlayArrowRoundedIcon fontSize="inherit" />
-                    {activeWatch?.tradable
-                      ? activeRecommendation
-                        ? executionMode === "manual" ? "生成票" : executionMode === "simulation" ? "模拟成交" : "排入队列"
-                        : "暂无建议"
-                      : "仅观察"}
-                  </button>
-                  {activeWatch && !activeWatch.tradable ? (
-                    <button
-                      type="button"
-                      className="quant-secondary-button"
-                      onClick={activeWatch.source === "profile" && !activeWatchRegistered ? handleRegisterActiveWatch : onOpenHoldings}
-                    >
-                      {activeWatch.source === "profile" && !activeWatchRegistered ? "加入观察" : "持仓管理"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="quant-route-strip">
-                <div className="quant-section-head">
-                  <div>
-                    <span>执行确认</span>
-                    <strong>{orderIntentLabel(orderRows.length, orders.length)}</strong>
-                  </div>
-                  <em>{lastRun ? `试算 ${lastRun.createdAt}` : modeLabel(engineMode)}</em>
-                </div>
-                <div className="quant-flow-compact" aria-label="订单流">
-                  <span className={`is-${normalizePlanTone(score.tone)}`}>建议 <strong>{score.label}</strong></span>
-                  <span className={`is-${normalizePlanTone(activeGate?.tone ?? "neutral")}`}>风控 <strong>{activeGate?.label ?? "待生成"}</strong></span>
-                  <span className={orderRows.length || orders.length ? "is-caution" : "is-neutral"}>委托 <strong>{orderIntentLabel(orderRows.length, orders.length)}</strong></span>
-                  <span className={`is-${normalizePlanTone(executionTone)}`}>方式 <strong>{executionLabel}</strong></span>
-                  <span className={executionReady ? "is-positive" : "is-caution"}>路由 <strong>{executionReady ? executionRouteLabel : "检查"}</strong></span>
-                </div>
-              </div>
-            </section>
           </main>
 
           <aside className="decision-rail quant-execution-rail workspace-inspector-rail" aria-label="委托执行">
             <div className="quant-rail-head">
               <PanelTitle icon={<ReceiptLongRoundedIcon fontSize="inherit" />} eyebrow="执行" title="委托执行" />
             </div>
+            <div className="quant-rail-tabs" role="tablist" aria-label="执行面板" onKeyDown={handleTabListKeyDown}>
+              {EXECUTION_RAIL_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={executionRailTab === tab.key}
+                  tabIndex={executionRailTab === tab.key ? 0 : -1}
+                  className={executionRailTab === tab.key ? "is-active" : undefined}
+                  onClick={() => setExecutionRailTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            <section id="quant-execution-ticket" className="quant-ledger-ticket" aria-label="交易票">
+            <section id="quant-execution-ticket" className="quant-ledger-ticket" aria-label="交易票" hidden={executionRailTab !== "ticket"}>
                 <header>
                   <div>
                     <span>交易票</span>
@@ -1920,7 +1981,7 @@ export function QuantLabWorkspace({
                 <div className="quant-ticket-identity">
                   <strong>{activeWatch?.symbol ?? "选择建议"}</strong>
                   <span>{activeWatch?.label ?? "从左侧账本选择一条建议"}</span>
-                  {activeWatch ? <em>{activeWatch.sourceLabel}</em> : null}
+                  {activeWatch ? <em>{activeWatch.sourceLabel} · {activeWatchTradeStatus}</em> : null}
                 </div>
 
                 <div className={`quant-ticket-decision is-${activeRecommendation ? (activeRecommendation.side === "SELL" ? "sell" : "buy") : "neutral"}`}>
@@ -2010,26 +2071,37 @@ export function QuantLabWorkspace({
                   </ProgressiveDisclosure>
                 </div>
 
+                <div className="quant-flow-compact quant-ticket-flow" aria-label="执行确认">
+                  <span className={`is-${normalizePlanTone(score.tone)}`}>建议 <strong>{score.label}</strong></span>
+                  <span className={`is-${normalizePlanTone(activeGate?.tone ?? "neutral")}`}>风控 <strong>{activeGate?.label ?? "待生成"}</strong></span>
+                  <span className={orderRows.length || orders.length ? "is-caution" : "is-neutral"}>委托 <strong>{orderIntentLabel(orderRows.length, orders.length)}</strong></span>
+                  <span className={`is-${normalizePlanTone(executionTone)}`}>方式 <strong>{executionLabel}</strong></span>
+                  <span className={executionReady ? "is-positive" : "is-caution"}>路由 <strong>{executionReady ? executionRouteLabel : "检查"}</strong></span>
+                </div>
+
                 <button
                   type="button"
                   className="quant-ticket-primary-action"
                   disabled={!activeTicketReady}
-                  title={activeTicketReady ? "" : recommendationReadiness.detail}
+                  title={activeExecutionReadiness.reason}
                   onClick={handleQueueActiveOrder}
                 >
                   <ReceiptLongRoundedIcon fontSize="inherit" />
-                  {activeRecommendation
-                    ? executionMode === "manual"
-                      ? `生成${sideLabel(activeRecommendation.side)}票`
-                      : executionMode === "simulation"
-                        ? "运行模拟"
-                        : "排入委托"
-                    : "选择一条建议"}
+                  {activeExecutionReadiness.primaryLabel}
                 </button>
+                {activeWatch && !activeWatch.tradable ? (
+                  <button
+                    type="button"
+                    className="quant-secondary-button"
+                    onClick={activeWatch.source === "profile" && !activeWatchRegistered ? handleRegisterActiveWatch : onOpenHoldings}
+                  >
+                    {activeWatch.source === "profile" && !activeWatchRegistered ? "加入观察" : "持仓管理"}
+                  </button>
+                ) : null}
                 <p className="quant-ticket-note">生成后进入待执行队列，可在高级执行区查看。</p>
             </section>
 
-            <Card size="sm" className="rail-card quant-market-quote-card" role="region" aria-label="行情">
+            <Card size="sm" className="rail-card quant-market-quote-card" role="region" aria-label="行情" hidden={executionRailTab !== "ticket"}>
                 <div className="quant-section-head">
                   <div>
                     <span>行情</span>
@@ -2057,14 +2129,16 @@ export function QuantLabWorkspace({
                 <p>{activeQuote ? quoteMessage(activeQuote) : activeWatch?.tradable ? "排队前会自动回填行情，ETF 会检查价差和折溢价。" : activeWatch?.source === "profile" ? "代理信号可同步行情，也可先加入观察资产。" : "观察或代理资产不会直接进入委托队列。"}</p>
               </Card>
 
-              <PaperSimulationCard
-                paperSim={paperSim}
-                summary={paperSimSummary}
-                onPause={handlePausePaperSimulation}
-                onRun={paperSimSummary.active ? handleRunPaperSimulation : handleStartPaperSimulation}
-              />
+              {executionRailTab === "simulation" ? (
+                <PaperSimulationCard
+                  paperSim={paperSim}
+                  summary={paperSimSummary}
+                  onPause={handlePausePaperSimulation}
+                  onRun={paperSimSummary.active ? handleRunPaperSimulation : handleStartPaperSimulation}
+                />
+              ) : null}
 
-              <Card id="quant-order-center" size="sm" className="rail-card quant-order-blotter" role="region" aria-label="委托队列">
+              <Card id="quant-order-center" size="sm" className="rail-card quant-order-blotter" role="region" aria-label="委托队列" hidden={executionRailTab !== "orders"}>
                 <div className="quant-section-head">
                   <div>
                     <span>委托队列</span>
@@ -2191,7 +2265,7 @@ export function QuantLabWorkspace({
                 </div>
               </Card>
 
-              <Card id="quant-account-center" size="sm" className="rail-card quant-account-sync" role="region" aria-label="账户同步">
+              <Card id="quant-account-center" size="sm" className="rail-card quant-account-sync" role="region" aria-label="账户同步" hidden={executionRailTab !== "account"}>
                 <div className="quant-section-head">
                   <div>
                     <span>账户</span>
@@ -2221,10 +2295,17 @@ export function QuantLabWorkspace({
                   </span>
                 </div>
                 <div className="quant-order-center-summary" aria-label="账户同步摘要">
-                  <span>权益 <strong>{formatBookMoney(accountBook.equity, accountBook.currency, positionPlan.currency)}</strong></span>
-                  <span>现金 <strong>{formatBookMoney(accountBook.cash, accountBook.currency, positionPlan.currency)}</strong></span>
+                  <span>权益 <strong>{formatBookMoney(accountPortfolio.equity, accountPortfolio.baseCurrency, positionPlan.currency)}</strong></span>
+                  <span>可用 <strong>{formatBookMoney(accountPortfolio.availableCash, accountPortfolio.baseCurrency, positionPlan.currency)}</strong></span>
                   <span>持仓 <strong>{accountBook.positionCount}</strong></span>
                 </div>
+                <label className="quant-account-selector">
+                  <span>执行账户</span>
+                  <select value={executionAccountId} onChange={(event) => setExecutionAccountId(event.target.value)}>
+                    <option value="">待选择</option>
+                    {activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}
+                  </select>
+                </label>
                 {accountBook.accounts.length ? (
                   <div className="quant-account-list" aria-label="已同步账户">
                     {accountBook.accounts.slice(0, 3).map((account) => (
@@ -2276,7 +2357,7 @@ export function QuantLabWorkspace({
                 )}
               </Card>
 
-              <Card id="quant-execution-log" size="sm" className="rail-card quant-log-panel" role="region" aria-label="运行日志">
+              <Card id="quant-execution-log" size="sm" className="rail-card quant-log-panel" role="region" aria-label="运行日志" hidden={executionRailTab !== "logs"}>
                 <div className="quant-section-head">
                   <div>
                     <span>日志</span>
@@ -2305,22 +2386,24 @@ export function QuantLabWorkspace({
           </aside>
         </div>
       )}
-      {activeDialog && report && reportIsCurrent ? createPortal(
-        <div className="quant-dialog-layer" role="presentation">
-          <button
-            type="button"
-            className="quant-dialog-backdrop"
-            aria-label="关闭弹窗"
-            onClick={() => setActiveDialog(null)}
-          />
-          <aside className={`quant-dialog is-${activeDialog}`} role="dialog" aria-modal="true" aria-label="交易配置">
-            <header className="quant-dialog-head">
-              <div>
-                <span>{dialogEyebrow(activeDialog)}</span>
-                <strong>{dialogTitle(activeDialog)}</strong>
-              </div>
-              <button type="button" className="quant-layer-close" onClick={() => setActiveDialog(null)}>关闭</button>
-            </header>
+      <Dialog
+        open={Boolean(activeDialog && report && reportIsCurrent)}
+        onOpenChange={(open) => {
+          if (!open) setActiveDialog(null);
+        }}
+      >
+        <DialogContent
+          className={`quant-dialog is-${activeDialog ?? "strategy"}`}
+          mobileMode="sheet"
+          showCloseButton
+          size="lg"
+        >
+          <DialogHeader className="quant-dialog-head">
+            <div>
+              <DialogDescription>{QUANT_DIALOG_META[activeDialog ?? "strategy"].eyebrow}</DialogDescription>
+              <DialogTitle>{QUANT_DIALOG_META[activeDialog ?? "strategy"].title}</DialogTitle>
+            </div>
+          </DialogHeader>
 
             {activeDialog === "strategy" ? (
               <div className="quant-dialog-stack">
@@ -2414,7 +2497,7 @@ export function QuantLabWorkspace({
                 />
 
                 <div className="quant-parameter-grid" aria-label="情景试算参数">
-                  <Param label="标的池" value={report.profileKey} />
+                  <Param label="标的池" value={report?.profileKey ?? "—"} />
                   <Param label="仓位方法" value={activeScalingPolicy.label} />
                   <Param label="周期" value="1D" />
                   <Param label="成交" value="次日收盘" />
@@ -2427,13 +2510,14 @@ export function QuantLabWorkspace({
 
             {activeDialog === "bridge" ? (
               <div className="quant-dialog-stack">
-                <div className="quant-execution-mode-options" role="tablist" aria-label="执行方式">
+                <div className="quant-execution-mode-options" role="tablist" aria-label="执行方式" onKeyDown={handleTabListKeyDown}>
                   {EXECUTION_MODE_OPTIONS.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       role="tab"
                       aria-selected={executionMode === item.key}
+                      tabIndex={executionMode === item.key ? 0 : -1}
                       className={executionMode === item.key ? "is-active" : undefined}
                       disabled={item.key === "auto" && !recommendationReadiness.autoExecutionAllowed}
                       title={item.key === "auto" && !recommendationReadiness.autoExecutionAllowed ? `${recommendationReadiness.validationLabel}：先完成样本外验证` : item.detail}
@@ -2444,13 +2528,14 @@ export function QuantLabWorkspace({
                     </button>
                   ))}
                 </div>
-                <div className="quant-broker-options" role="tablist" aria-label="执行通道">
+                <div className="quant-broker-options" role="tablist" aria-label="执行通道" onKeyDown={handleTabListKeyDown}>
                   {BROKER_OPTIONS.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       role="tab"
                       aria-selected={brokerMode === item.key}
+                      tabIndex={brokerMode === item.key ? 0 : -1}
                       className={brokerMode === item.key ? "is-active" : undefined}
                       disabled={!recommendationReadiness.autoExecutionAllowed}
                       title={!recommendationReadiness.autoExecutionAllowed ? `${recommendationReadiness.validationLabel}：通道自动暂不可用` : item.detail}
@@ -2491,64 +2576,6 @@ export function QuantLabWorkspace({
               </div>
             ) : null}
 
-            {activeDialog === "account" ? (
-              <div className="quant-dialog-stack quant-account-dialog">
-                <div className="quant-order-center-summary" aria-label="账户同步摘要">
-                  <span>权益 <strong>{formatBookMoney(accountBook.equity, accountBook.currency, positionPlan.currency)}</strong></span>
-                  <span>现金 <strong>{formatBookMoney(accountBook.cash, accountBook.currency, positionPlan.currency)}</strong></span>
-                  <span>持仓 <strong>{accountBook.positionCount}</strong></span>
-                </div>
-                <div className="quant-dialog-actions">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!actionableReconcileRows.some((row) => row.status === "extra" || row.status === "drift")}
-                    onClick={handleApplyReconcileDiffs}
-                  >
-                    应用差异
-                  </Button>
-                  <Button type="button" disabled={accountSyncing} onClick={() => void handleSyncAccount()}>
-                    {accountSyncing ? "同步中" : "同步账户"}
-                  </Button>
-                </div>
-                {accountBook.accounts.length ? (
-                  <div className="quant-account-list" aria-label="已同步账户">
-                    {accountBook.accounts.map((account) => (
-                      <article key={account.key} className={account.accepted ? "is-positive" : "is-negative"}>
-                        <div>
-                          <strong>{account.accountName}</strong>
-                          <span>{account.route || account.bridge}</span>
-                        </div>
-                        <em>{formatBookMoney(account.equity, account.currency || accountBook.currency, positionPlan.currency)}</em>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="quant-dialog-empty">
-                    <strong>尚未同步账户</strong>
-                    <span>点击“同步账户”读取持仓、委托和成交回报。</span>
-                  </div>
-                )}
-                {accountReconcile.rows.some((row) => row.status !== "matched") ? (
-                  <div className="quant-reconcile-list" aria-label="持仓差异">
-                    {actionableReconcileRows.map((row) => (
-                      <article key={row.key} className={`is-${row.tone}`}>
-                        <div>
-                          <strong>{row.symbol}</strong>
-                          <span>{row.name}</span>
-                        </div>
-                        <em>{reconcileStatusLabel(row.status)}</em>
-                        <small>{row.summary}</small>
-                        <Button type="button" variant="outline" size="xs" onClick={() => handleApplyReconcileRow(row)}>
-                          {reconcileActionLabel(row.status)}
-                        </Button>
-                      </article>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
             {activeDialog === "backtest" ? (
               <div className="quant-dialog-stack quant-backtest-dialog">
                 {lastRun ? (
@@ -2581,23 +2608,7 @@ export function QuantLabWorkspace({
                 ) : (
                   <div className="quant-dialog-empty">
                     <strong>暂无试算结果</strong>
-                    <span>请先生成可执行建议后重新运行试算。</span>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {activeDialog === "logs" ? (
-              <div className="quant-dialog-stack quant-log-dialog" role="log" aria-label="运行日志">
-                {logs.length ? logs.map((item) => (
-                  <article key={item.key} className={`is-${item.tone}`}>
-                    <span>{item.time}</span>
-                    <p>{item.text}</p>
-                  </article>
-                )) : (
-                  <div className="quant-dialog-empty">
-                    <strong>暂无运行日志</strong>
-                    <span>运行试算、同步账户或生成委托后会记录在这里。</span>
+                    <span>请先生成可建票建议后重新运行试算。</span>
                   </div>
                 )}
               </div>
@@ -2606,12 +2617,13 @@ export function QuantLabWorkspace({
             {activeDialog === "risk" ? (
               <div className="quant-dialog-stack">
                 <section className="quant-risk-switchboard">
-                  <PanelTitle icon={<ShieldRoundedIcon fontSize="inherit" />} eyebrow="风控" title="风控开关" />
-                  <RiskRule label="现金底线" value={`${formatNumber(positionPlan.policy.minCashWeight, 0)}%`} tone={positionPlan.hasCashInstrument ? "positive" : "caution"} />
-                  <RiskRule label="单标上限" value={`${formatNumber(positionPlan.policy.singleAssetCap, 0)}%`} tone="positive" />
-                  <RiskRule label="单日委托" value={`${riskPolicy.maxDailyOrders} 单`} tone="positive" />
-                  <RiskRule label="冷却时间" value={`${riskPolicy.cooldownMinutes} 分钟`} tone={riskPolicy.cooldownMinutes ? "positive" : "neutral"} />
-                  <RiskRule label="风险门" value={activeGate?.blocked ? "阻断" : activeGate?.watch ? "观察" : "通过"} tone={activeGate?.tone ?? "neutral"} />
+                  <div className="quant-risk-summary-grid" aria-label="当前风控摘要">
+                    <RiskRule label="现金底线" value={`${formatNumber(positionPlan.policy.minCashWeight, 0)}%`} tone={positionPlan.hasCashInstrument ? "positive" : "caution"} />
+                    <RiskRule label="单标上限" value={`${formatNumber(positionPlan.policy.singleAssetCap, 0)}%`} tone="positive" />
+                    <RiskRule label="单日委托" value={`${riskPolicy.maxDailyOrders} 单`} tone="positive" />
+                    <RiskRule label="冷却时间" value={`${riskPolicy.cooldownMinutes} 分钟`} tone={riskPolicy.cooldownMinutes ? "positive" : "neutral"} />
+                    <RiskRule label="风险门" value={activeGate?.blocked ? "阻断" : activeGate?.watch ? "观察" : "通过"} tone={activeGate?.tone ?? "neutral"} />
+                  </div>
                   <div className="quant-parameter-grid" aria-label="风控参数">
                     <RiskNumberInput
                       label="ETF 单笔"
@@ -2688,6 +2700,7 @@ export function QuantLabWorkspace({
                   </div>
                   <button
                     type="button"
+                    aria-pressed={riskOverride}
                     className={`quant-override-button ${riskOverride ? "is-active" : ""}`}
                     onClick={() => {
                       setRiskOverride((current) => !current);
@@ -2699,6 +2712,7 @@ export function QuantLabWorkspace({
                   </button>
                   <button
                     type="button"
+                    aria-pressed={riskPolicy.requireLiveConfirmation}
                     className={`quant-override-button ${riskPolicy.requireLiveConfirmation ? "is-active" : ""}`}
                     onClick={() => {
                       setRiskPolicy((current) => normalizeRiskGuardPolicy({
@@ -2713,29 +2727,6 @@ export function QuantLabWorkspace({
                   </button>
                   {riskPolicyState.error ? <p className="quant-dialog-error">{riskPolicyState.error}</p> : null}
                 </section>
-              </div>
-            ) : null}
-
-            {activeDialog === "signals" ? (
-              <div className="quant-dialog-stack">
-                <div className="quant-signal-board">
-                  <div className="quant-section-head">
-                    <div>
-                      <span>信号条件</span>
-                      <strong>信号闸门</strong>
-                    </div>
-                    <SpeedRoundedIcon fontSize="inherit" />
-                  </div>
-                  <div className="quant-signal-grid">
-                    {signals.map((item) => (
-                      <article key={item.key} className={`is-${item.tone}`}>
-                        <span>{item.label}</span>
-                        <strong>{item.value}</strong>
-                        <p>{item.detail}</p>
-                      </article>
-                    ))}
-                  </div>
-                </div>
               </div>
             ) : null}
 
@@ -2791,10 +2782,11 @@ export function QuantLabWorkspace({
                   <button
                     type="button"
                     className="is-primary"
-                    disabled={!primaryReplacementPlan.executable
+                    disabled={!report
+                      || !primaryReplacementPlan.executable
                       || primaryReplacementPlan.action !== "replace"
                       || paperSim.lastRunDate === report.asOf}
-                    title={paperSim.lastRunDate === report.asOf
+                    title={report && paperSim.lastRunDate === report.asOf
                       ? `${report.asOf} 模拟账户已经结算，请在下一交易日刷新后启动。`
                       : primaryReplacementPlan.executable
                         ? "创建关联基金替换模拟"
@@ -2807,10 +2799,8 @@ export function QuantLabWorkspace({
                 </div>
               </div>
             ) : null}
-          </aside>
-        </div>,
-        document.body,
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -2886,15 +2876,6 @@ function PanelTitle({ eyebrow, icon, title }: { eyebrow: string; icon: ReactNode
         <strong>{title}</strong>
       </div>
     </div>
-  );
-}
-
-function CompactStat({ label, tone = "neutral", value }: { label: string; tone?: LabTone | PositionPlanTone; value: string }) {
-  return (
-    <span className={`quant-inline-stat is-${normalizePlanTone(tone)}`}>
-      <em>{label}</em>
-      <strong>{value}</strong>
-    </span>
   );
 }
 
@@ -3261,66 +3242,6 @@ function AdapterPlanCard({ plan }: { plan: BrokerAdapterPlan }) {
   );
 }
 
-function dialogEyebrow(key: Exclude<QuantDialogKey, null>) {
-  if (key === "strategy") return "策略参数";
-  if (key === "bridge") return "执行通道";
-  if (key === "risk") return "风控";
-  if (key === "replacement") return "基金替换";
-  if (key === "account") return "账户中心";
-  if (key === "backtest") return "情景验证";
-  if (key === "logs") return "运行记录";
-  return "信号明细";
-}
-
-function dialogTitle(key: Exclude<QuantDialogKey, null>) {
-  if (key === "strategy") return "策略与参数";
-  if (key === "bridge") return "执行通道";
-  if (key === "risk") return "风控开关";
-  if (key === "replacement") return "关联模拟计划";
-  if (key === "account") return "账户与持仓同步";
-  if (key === "backtest") return "情景试算结果";
-  if (key === "logs") return "运行日志";
-  return "信号闸门";
-}
-
-function executableOrderFromTicket({
-  brokerMode,
-  preset,
-  recommendation,
-  watch,
-}: {
-  brokerMode: string;
-  preset: QbotPreset;
-  recommendation: OrderIntent;
-  watch: WatchRow;
-}): ManualOrderDraft {
-  const side = recommendation.side === "SELL" ? "SELL" : "BUY";
-  const blocked = recommendation.state === "已阻断";
-  const notional = parseMoneyLabel(recommendation.amount);
-  const quantity = watch.close > 0 && notional > 0 ? notional / watch.close : 0;
-  const route = brokerRouteLabel(brokerMode, preset);
-  const tone: LabTone = blocked ? "negative" : side === "SELL" ? "caution" : recommendation.tone;
-  return {
-    key: `ticket-${Date.now()}-${watch.symbol}`,
-    symbol: watch.symbol,
-    name: watch.label,
-    side,
-    state: blocked ? "已阻断" : `${route} 已排队`,
-    tone,
-    amount: recommendation.amount,
-    weight: recommendation.weight,
-    detail: `${recommendation.detail} · ${preset.strategy} · ${route}`,
-    limit: formatNumber(watch.close, 2),
-    quantity: quantity > 0 ? formatNumber(quantity, quantity >= 100 ? 0 : 4) : "—",
-  };
-}
-
-function parseMoneyLabel(value: string) {
-  const match = value.replace(/[,，]/g, "").match(/-?\d+(?:\.\d+)?/);
-  const parsed = match ? Number(match[0]) : 0;
-  return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
-}
-
 function labLogsFor({
   engineMode,
   eventLogs,
@@ -3407,21 +3328,27 @@ function labLogsFor({
   return [...eventLogs, ...base, ...latestTrades].slice(0, 7);
 }
 
-function watchRowsFor(report: MarketAnalysisReport, holdings: HoldingRecord[], totalValue: number): WatchRow[] {
+function watchRowsFor(report: MarketAnalysisReport, holdings: HoldingRecord[], positionPlan: PositionPlan): WatchRow[] {
   const holdingBySymbol = new Map(holdings.map((item) => [symbolKey(item.symbol), item]));
   const technicalBySymbol = new Map(report.technicalRows.map((item) => [symbolKey(item.symbol), item]));
+  const weightByHoldingId = new Map(positionPlan.decision.assetDecisions.map((item) => [item.holdingId, item.weight]));
   const rows = report.assetStatuses.map((asset) => {
     const technical = technicalBySymbol.get(symbolKey(asset.symbol));
     const holding = holdingBySymbol.get(symbolKey(asset.symbol));
-    return watchRowFromAsset(asset, technical, holding, totalValue);
+    return watchRowFromAsset(asset, technical, holding, holding ? weightByHoldingId.get(holding.id) ?? null : null);
   });
   const extras = holdings
     .filter((holding) => !rows.some((item) => symbolKey(item.symbol) === symbolKey(holding.symbol)))
-    .map((holding) => watchRowFromHolding(holding, totalValue));
+    .map((holding) => watchRowFromHolding(holding, weightByHoldingId.get(holding.id) ?? null));
   return [...rows, ...extras].sort(compareWatchRows);
 }
 
-function watchRowFromAsset(asset: AssetStatus, technical: TechnicalRow | undefined, holding: HoldingRecord | undefined, totalValue: number): WatchRow {
+function watchRowFromAsset(
+  asset: AssetStatus,
+  technical: TechnicalRow | undefined,
+  holding: HoldingRecord | undefined,
+  weight: number | null,
+): WatchRow {
   const cash = Boolean(holding && isCashHolding(holding));
   const tradable = Boolean(holding?.role === "real" && !cash);
   return {
@@ -3429,7 +3356,7 @@ function watchRowFromAsset(asset: AssetStatus, technical: TechnicalRow | undefin
     label: holding?.name || asset.label,
     close: firstPositiveNumber(holding?.currentPrice, asset.close) ?? 0,
     change1d: asset.change1d,
-    weight: holding?.role === "real" && totalValue > 0 ? ((holding.quantity * holding.currentPrice) / totalValue) * 100 : null,
+    weight: holding?.role === "real" ? weight : null,
     status: holding?.role ?? asset.statusLabel,
     tone: toneFromStatus(asset.status),
     rsi: technical?.rsi14 ?? null,
@@ -3441,7 +3368,7 @@ function watchRowFromAsset(asset: AssetStatus, technical: TechnicalRow | undefin
   };
 }
 
-function watchRowFromHolding(holding: HoldingRecord, totalValue: number): WatchRow {
+function watchRowFromHolding(holding: HoldingRecord, weight: number | null): WatchRow {
   const cash = isCashHolding(holding);
   const tradable = holding.role === "real" && !cash;
   return {
@@ -3449,7 +3376,7 @@ function watchRowFromHolding(holding: HoldingRecord, totalValue: number): WatchR
     label: holding.name,
     close: holding.currentPrice,
     change1d: null,
-    weight: holding.role === "real" && totalValue > 0 ? ((holding.quantity * holding.currentPrice) / totalValue) * 100 : null,
+    weight: holding.role === "real" ? weight : null,
     status: holding.role,
     tone: cash ? "neutral" : tradable ? "caution" : "neutral",
     rsi: null,
@@ -3481,7 +3408,7 @@ function isObservationWatchRow(row: WatchRow) {
 
 function holdingSourceLabel(holding: HoldingRecord, cash = isCashHolding(holding)) {
   if (cash) return "现金";
-  if (holding.role === "real") return "真实持仓";
+  if (holding.role === "real") return "本地持仓";
   if (holding.role === "proxy") return "代理资产";
   return "观察资产";
 }
@@ -3489,8 +3416,8 @@ function holdingSourceLabel(holding: HoldingRecord, cash = isCashHolding(holding
 function holdingBlockReason(holding: HoldingRecord | undefined, cash = Boolean(holding && isCashHolding(holding))) {
   if (!holding) return "代理信号只用于组合风控";
   if (cash) return "现金或货基不进入委托队列";
-  if (holding.role === "proxy") return "代理资产不进入委托队列，先转为真实持仓并配置目标带";
-  if (holding.role === "watch") return "观察资产不进入委托队列，先转为真实持仓并配置目标带";
+  if (holding.role === "proxy") return "代理资产不进入委托队列，先转为本地持仓并配置目标带";
+  if (holding.role === "watch") return "观察资产不进入委托队列，先转为本地持仓并配置目标带";
   return "该资产暂不满足下单条件";
 }
 
@@ -3565,16 +3492,12 @@ function modeLabel(mode: EngineMode) {
 }
 
 function recommendationAllowed(order: Pick<OrderIntent, "side">, readiness: RecommendationReadiness) {
-  return order.side.toUpperCase() === "SELL" ? readiness.canExecute : readiness.canIncreaseRisk;
+  return order.side.toUpperCase() === "SELL" ? readiness.canReduceRisk : readiness.canIncreaseRisk;
 }
 
 function executionModeLabel(mode: ExecutionMode) {
   if (mode === "simulation") return "自动模拟";
   return mode === "manual" ? "手动交易" : "通道自动";
-}
-
-function sideLabel(side: string) {
-  return side === "SELL" || side.toLowerCase() === "sell" ? "卖出" : "买入";
 }
 
 function orderIntentFromWatch(watch: WatchRow, strategy: StrategyDefinition): OrderIntent {
@@ -3798,9 +3721,13 @@ function applyReconcileRowToHoldings({
   row: PortfolioReconcileRow;
 }): { changed: boolean; holdings: HoldingRecord[]; message: string; tone: LabTone } {
   const key = symbolKey(row.symbol);
-  const index = holdings.findIndex((holding) => symbolKey(holding.symbol) === key);
+  const index = holdings.findIndex((holding) =>
+    symbolKey(holding.symbol) === key && (holding.accountId ?? "") === row.accountId,
+  );
   const existing = index >= 0 ? holdings[index] : undefined;
-  const brokerPositions = positions.filter((position) => symbolKey(position.symbol) === key);
+  const brokerPositions = positions.filter((position) =>
+    symbolKey(position.symbol) === key && position.accountId === row.accountId,
+  );
 
   if (row.status === "extra" || row.status === "drift") {
     const nextHolding = holdingFromReconcile(row, brokerPositions, existing, fallbackCurrency);
@@ -3809,14 +3736,14 @@ function applyReconcileRowToHoldings({
       return {
         changed: true,
         holdings: next,
-        message: `${row.symbol} 已按账户回报${existing?.role === "real" ? "更新" : "转为真实持仓"}。`,
+        message: `${row.symbol} 已按账户回报${existing?.role === "real" ? "更新" : "转为本地持仓"}。`,
         tone: "positive",
       };
     }
     return {
       changed: true,
       holdings: [nextHolding, ...holdings],
-      message: `${row.symbol} 已从账户回报加入真实持仓。`,
+      message: `${row.symbol} 已从账户回报加入本地持仓。`,
       tone: "positive",
     };
   }
@@ -3865,6 +3792,7 @@ function holdingFromReconcile(
   const exchange = positions.find((position) => position.exchange)?.exchange ?? "";
   return {
     id: existing?.id ?? `acct-${symbolKey(row.symbol).toLowerCase()}-${Date.now()}`,
+    accountId: row.accountId || existing?.accountId,
     symbol: symbolKey(row.symbol),
     name: row.name || existing?.name || symbolKey(row.symbol),
     market: existing?.market || inferBrokerMarket(exchange, currency),
@@ -3946,19 +3874,28 @@ function toneFromStatus(status: string): LabTone {
   return "neutral";
 }
 
-function summarizeDecisionCoverage(positionPlan: PositionPlan, orders: OrderIntent[]) {
+function summarizeDecisionCoverage(positionPlan: PositionPlan, orders: OrderIntent[], guards: RiskGuardResult[] = []) {
   const actions = positionPlan.actions.filter((action) => action.holdingId);
   const orderKeys = new Set(orders.map((order) => order.key));
+  const blockedOrderKeys = new Set(guards.filter((guard) => guard.blocked).map((guard) => guard.intent.key));
   const skipped = actions
     .filter((action) => !orderKeys.has(action.key))
     .map((action) => ({
       key: action.key,
       symbol: action.symbol,
+      name: action.name,
       action: action.action,
+      amountLabel: action.amountLabel,
+      priorityLabel: skippedActionPriorityLabel(action),
       reason: action.reason || action.detail || "当前条件未满足",
+      sideClass: skippedActionSideClass(action),
+      sideLabel: skippedActionSideLabel(action),
+      targetBandLabel: action.targetBandLabel,
+      tone: normalizePlanTone(action.tone),
+      weightLabel: action.weightLabel,
     }));
   const hold = skipped.filter((item) => item.action.includes("持有")).length;
-  const blocked = orders.filter((order) => order.state === "已阻断").length;
+  const blocked = orders.filter((order) => order.state === "已阻断" || blockedOrderKeys.has(order.key)).length;
 
   return {
     analyzed: actions.length,
@@ -3969,6 +3906,21 @@ function summarizeDecisionCoverage(positionPlan: PositionPlan, orders: OrderInte
   };
 }
 
-function totalMarketValue(holdings: HoldingRecord[]) {
-  return holdings.reduce((sum, item) => sum + item.quantity * item.currentPrice, 0);
+function skippedActionSideLabel(action: PositionPlanAction) {
+  if (action.weightDelta < -0.01) return "卖出";
+  if (action.weightDelta > 0.01 || action.amount > 0) return "买入";
+  if (action.action.includes("持有")) return "持有";
+  return "观察";
+}
+
+function skippedActionSideClass(action: PositionPlanAction) {
+  if (action.weightDelta < -0.01) return "is-sell";
+  if (action.weightDelta > 0.01 || action.amount > 0) return "is-buy";
+  return "is-watch";
+}
+
+function skippedActionPriorityLabel(action: PositionPlanAction) {
+  if (action.action.includes("持有")) return "继续持有";
+  if (action.tone === "negative") return "阻断 · 暂不建票";
+  return "等待条件 · 暂不建票";
 }

@@ -18,6 +18,7 @@ import { formatMoney, formatNumber, formatPercent } from "./utils";
 import { assessDataQuality } from "./data-quality";
 import { overlapClusterForHolding, overlapPairForHolding } from "./portfolio-overlap";
 import { substitutionForHolding } from "./fund-substitution";
+import { holdingMarketValueInBase } from "./portfolio-valuation";
 
 export type RiskInstrumentKind = "fund" | "etf" | "leveraged-etf" | "stock" | "cash" | "other";
 export type RiskGuardSeverity = "pass" | "warn" | "block";
@@ -80,9 +81,11 @@ export function guardOrderIntent({
   const instrumentKind = classifyInstrument(orderIntent, holding, preset);
   const instrumentLabel = instrumentKindLabel(instrumentKind, holding?.assetType);
   const checks: RiskGuardCheck[] = [];
-  const originalNotional = parseMoney(orderIntent.amount);
+  const originalNotional = orderIntent.notional ?? parseMoney(orderIntent.amount);
+  const originalBaseNotional = orderIntent.baseNotional ?? originalNotional;
   const originalWeight = parsePercent(orderIntent.weight);
   let effectiveNotional = originalNotional;
+  let effectiveBaseNotional = originalBaseNotional;
   let effectiveWeight = originalWeight;
   let capped = false;
 
@@ -118,12 +121,24 @@ export function guardOrderIntent({
 
   const dataQuality = assessDataQuality(report, true);
   dataQuality.checks.forEach((check) => {
+    const severity = !isBuy(side) && check.severity === "block" ? "warn" : check.severity;
     addCheck(
       `data.${check.key}`,
       check.label,
-      check.severity,
-      check.detail,
-      check.severity !== "block",
+      severity,
+      severity === "warn" && check.severity === "block" ? `${check.detail} 当前仅允许降低风险。` : check.detail,
+      severity !== "block",
+    );
+  });
+
+  positionPlan.valuation.checks.forEach((check) => {
+    const reductionOverride = !isBuy(side) && positionPlan.valuation.riskReductionAllowed && check.severity === "block";
+    addCheck(
+      `valuation.${check.key}`,
+      check.label,
+      reductionOverride ? "warn" : check.severity,
+      reductionOverride ? `${check.detail} 当前仅允许降低风险。` : check.detail,
+      reductionOverride,
     );
   });
 
@@ -141,7 +156,7 @@ export function guardOrderIntent({
   }
 
   if (isBuy(side)) {
-    const cashCheck = cashCapacityCheck({ notional: effectiveNotional, positionPlan, totalValue });
+    const cashCheck = cashCapacityCheck({ notional: effectiveBaseNotional, positionPlan, totalValue });
     addCheck(cashCheck.key, "现金校验", cashCheck.severity, cashCheck.detail, cashCheck.overridable);
   } else {
     const sellCheck = sellCapacityCheck({ holding, notional: effectiveNotional });
@@ -172,7 +187,8 @@ export function guardOrderIntent({
     const cap = maxSingleBuyWeight(instrumentKind, positionPlan, activePolicy);
     if (effectiveWeight > cap && cap > 0) {
       effectiveWeight = cap;
-      effectiveNotional = totalValue > 0 ? (totalValue * cap) / 100 : effectiveNotional;
+      effectiveBaseNotional = totalValue > 0 ? (totalValue * cap) / 100 : effectiveBaseNotional;
+      effectiveNotional = settlementNotionalForBase(effectiveBaseNotional, orderIntent);
       capped = true;
       addCheck("budget.cap", "单笔上限", "warn", `单笔预算已降至 ${formatPercent(cap)}。`);
     } else {
@@ -180,21 +196,22 @@ export function guardOrderIntent({
     }
 
     const targetCheck = targetBandCheck({
-      effectiveNotional,
+      effectiveNotional: effectiveBaseNotional,
       holding,
       positionPlan,
       totalValue,
     });
-    if (targetCheck.cappedNotional != null && targetCheck.cappedNotional < effectiveNotional) {
-      effectiveNotional = targetCheck.cappedNotional;
-      effectiveWeight = totalValue > 0 ? (effectiveNotional / totalValue) * 100 : effectiveWeight;
+    if (targetCheck.cappedNotional != null && targetCheck.cappedNotional < effectiveBaseNotional) {
+      effectiveBaseNotional = targetCheck.cappedNotional;
+      effectiveNotional = settlementNotionalForBase(effectiveBaseNotional, orderIntent);
+      effectiveWeight = totalValue > 0 ? (effectiveBaseNotional / totalValue) * 100 : effectiveWeight;
       capped = true;
     }
     addCheck(targetCheck.key, "目标带", targetCheck.severity, targetCheck.detail, targetCheck.overridable);
 
     if (instrumentKind === "fund" || instrumentKind === "etf") {
-      const pair = overlapPairForHolding(holdings, orderIntent.symbol, totalValue);
-      const overlap = overlapClusterForHolding(holdings, orderIntent.symbol, totalValue);
+      const pair = overlapPairForHolding(holdings, orderIntent.symbol, totalValue, positionPlan.valuation.settings);
+      const overlap = overlapClusterForHolding(holdings, orderIntent.symbol, totalValue, positionPlan.valuation.settings);
       if (pair) {
         const peer = sameSymbol(pair.left, orderIntent.symbol) ? pair.right : pair.left;
         const substitution = substitutionForHolding(holdings, pair, orderIntent.symbol);
@@ -261,7 +278,11 @@ export function guardOrderIntent({
   const tone: LabTone = blocked ? "negative" : warnings.length ? "caution" : score.tone === "negative" ? "caution" : orderIntent.tone;
   const intent: OrderIntent = {
     ...orderIntent,
-    amount: capped && effectiveNotional > 0 ? formatMoney(effectiveNotional, positionPlan.currency) : orderIntent.amount,
+    amount: capped && effectiveNotional > 0 ? formatMoney(effectiveNotional, orderIntent.currency ?? positionPlan.currency) : orderIntent.amount,
+    baseCurrency: orderIntent.baseCurrency ?? positionPlan.currency,
+    baseNotional: effectiveBaseNotional,
+    currency: orderIntent.currency ?? positionPlan.currency,
+    notional: effectiveNotional,
     detail: warnings.length ? `${orderIntent.detail} · ${warnings[0]}` : orderIntent.detail,
     state: blocked ? "已阻断" : capped ? "风控降级" : orderIntent.state,
     tone,
@@ -309,15 +330,19 @@ function fundTradeChecks({
     checks.push({
       key: "fund.nav.missing",
       label: "确认净值",
-      severity: "block",
-      detail: "尚未同步基金确认净值和日期，不能生成交易票。",
+      severity: isBuy(side) ? "block" : "warn",
+      detail: isBuy(side)
+        ? "尚未同步基金确认净值和日期，不能生成买入交易票。"
+        : "确认净值待同步；赎回按下一净值确认，允许降低风险但需复核份额。",
     });
   } else if (navAge === null || navAge > 3) {
     checks.push({
       key: "fund.nav.stale",
       label: "确认净值",
-      severity: "block",
-      detail: `最新确认净值日期 ${holding.confirmedNavAsOf}，已超过可执行时效。`,
+      severity: isBuy(side) ? "block" : "warn",
+      detail: isBuy(side)
+        ? `最新确认净值日期 ${holding.confirmedNavAsOf}，已超过买入时效。`
+        : `最新确认净值日期 ${holding.confirmedNavAsOf}；赎回按下一净值确认，允许降低风险。`,
     });
   } else {
     checks.push({
@@ -542,7 +567,7 @@ function targetBandCheck({
     return { key: "target.missing", severity: "block" as const, detail: "该持仓缺少目标带，先在持仓管理里补齐。", overridable: false };
   }
   const band = targetBandForHolding(holding, positionPlan.policy);
-  const currentValue = marketValueOf(holding);
+  const currentValue = holdingMarketValueInBase(holding, positionPlan.valuation.settings) ?? 0;
   const currentWeight = (currentValue / totalValue) * 100;
   if (band.max <= 0) {
     return { key: "target.disabled", severity: "block" as const, detail: "该标的没有可买目标上限。", overridable: true };
@@ -615,6 +640,14 @@ function sideLabel(side: string) {
 
 function marketValueOf(holding: HoldingRecord) {
   return Math.max(0, holding.quantity * holding.currentPrice);
+}
+
+function settlementNotionalForBase(baseNotional: number, intent: OrderIntent) {
+  if (baseNotional <= 0) return 0;
+  if (intent.baseNotional && intent.baseNotional > 0 && intent.notional != null) {
+    return baseNotional * (intent.notional / intent.baseNotional);
+  }
+  return baseNotional;
 }
 
 function parseMoney(value: string) {

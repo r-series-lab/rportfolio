@@ -1,4 +1,5 @@
 import type { HoldingRecord } from "./holdings";
+import { holdingMarketValueInBase, type PortfolioValuationSettings } from "./portfolio-valuation";
 import { formatNumber } from "./utils";
 
 export type PortfolioOverlapCluster = {
@@ -38,6 +39,7 @@ const EXPOSURE_RULES: Array<{ key: string; label: string; pattern: RegExp }> = [
 export function assessPortfolioOverlap(
   holdings: HoldingRecord[],
   totalValue: number,
+  valuation?: Partial<PortfolioValuationSettings>,
 ): PortfolioOverlapAssessment {
   if (totalValue <= 0) return { clusters: [], pairs: [], summary: "组合重叠待评估" };
   const grouped = new Map<string, { label: string; symbols: Set<string>; value: number }>();
@@ -45,7 +47,9 @@ export function assessPortfolioOverlap(
   holdings
     .filter((holding) => holding.role === "real" && (holding.assetType === "fund" || holding.assetType === "etf"))
     .forEach((holding) => {
-      const value = Math.max(0, holding.quantity * holding.currentPrice);
+      const value = valuation
+        ? Math.max(0, holdingMarketValueInBase(holding, valuation) ?? 0)
+        : Math.max(0, holding.quantity * holding.currentPrice);
       if (!value) return;
       exposureKeysFor(holding).forEach(({ key, label }) => {
         const current = grouped.get(key) ?? { label, symbols: new Set<string>(), value: 0 };
@@ -125,9 +129,10 @@ export function overlapClusterForHolding(
   holdings: HoldingRecord[],
   symbol: string,
   totalValue: number,
+  valuation?: Partial<PortfolioValuationSettings>,
 ) {
   const key = symbol.trim().toUpperCase();
-  return assessPortfolioOverlap(holdings, totalValue).clusters.find((cluster) =>
+  return assessPortfolioOverlap(holdings, totalValue, valuation).clusters.find((cluster) =>
     cluster.symbols.some((item) => item.trim().toUpperCase() === key)
   ) ?? null;
 }
@@ -136,9 +141,10 @@ export function overlapPairForHolding(
   holdings: HoldingRecord[],
   symbol: string,
   totalValue: number,
+  valuation?: Partial<PortfolioValuationSettings>,
 ) {
   const key = normalizeSymbol(symbol);
-  return assessPortfolioOverlap(holdings, totalValue).pairs.find((pair) =>
+  return assessPortfolioOverlap(holdings, totalValue, valuation).pairs.find((pair) =>
     normalizeSymbol(pair.left) === key || normalizeSymbol(pair.right) === key
   ) ?? null;
 }

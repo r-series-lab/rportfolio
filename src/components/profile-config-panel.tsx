@@ -1309,7 +1309,7 @@ export function ProfileConfigPanel({
             if (!open) setSelectedRulePreset(null);
           }}
         >
-          <DialogContent className="rule-preset-dialog" showCloseButton>
+          <DialogContent className="rule-preset-dialog" mobileMode="sheet" showCloseButton size="md">
             <DialogHeader className="rule-preset-dialog-head">
               <DialogDescription>指标规则预设</DialogDescription>
               <DialogTitle>{selectedRulePreset?.label ?? "规则预设"}</DialogTitle>

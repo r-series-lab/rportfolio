@@ -57,12 +57,17 @@ export type StrategySignal = {
 
 export type OrderIntent = {
   key: string;
+  decisionId?: string;
   symbol: string;
   name: string;
   side: string;
   state: string;
   tone: LabTone;
   amount: string;
+  baseCurrency?: string;
+  baseNotional?: number;
+  currency?: string;
+  notional?: number;
   weight: string;
   detail: string;
   replacementLink?: ReplacementOrderLink;
@@ -429,6 +434,11 @@ function buildPositionPlanOrderIntents(
     const priceActionBlocked = isBuy && priceAction?.tone === "negative";
     const blocked = isBuy && (buyBlocked || !scaling?.allowed || priceActionBlocked);
     const amount = isBuy && scaling ? strategyBudget * scaling.budgetFraction : strategyBudget;
+    const settlementFraction = action.amount > 0 ? amount / action.amount : 0;
+    const settlementAmount = action.settlementAmount != null
+      ? action.settlementAmount * settlementFraction
+      : amount;
+    const settlementCurrency = action.settlementCurrency ?? positionPlan.currency;
     const priceActionDetail = priceAction
       ? `价格行为：${priceAction.phaseLabel}；触发 ${priceAction.entryTrigger}；失效 ${priceAction.invalidation}`
       : "";
@@ -444,7 +454,11 @@ function buildPositionPlanOrderIntents(
       side: isBuy ? "BUY" : "SELL",
       state: blocked ? scaling?.stateLabel || "已阻断" : isBuy ? scaling?.stateLabel || "待买入" : "待减仓",
       tone: blocked ? "negative" : normalizePlanTone(action.tone),
-      amount: amount > 0 ? formatMoney(amount, positionPlan.currency) : action.amountLabel,
+      amount: settlementAmount > 0 ? formatMoney(settlementAmount, settlementCurrency) : action.amountLabel,
+      baseCurrency: positionPlan.currency,
+      baseNotional: amount,
+      currency: settlementCurrency,
+      notional: settlementAmount,
       weight: action.weightLabel,
       detail,
       scaling,

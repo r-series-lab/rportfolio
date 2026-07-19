@@ -24,7 +24,7 @@ export function RecommendationOutcomePanel({ action, attribution, performance }:
           <FactCheckRoundedIcon />
           真实建议结果
         </h2>
-        <span className="outcome-source-badge">样本外 · 5/20/60 日</span>
+        <span className="outcome-source-badge">真实前瞻 · 5/20/60 日</span>
       </div>
 
       <div className="outcome-verdict">

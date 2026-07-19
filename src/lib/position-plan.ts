@@ -1,4 +1,12 @@
 import { isHoldingRecord, type HoldingRecord } from "./holdings";
+import {
+  assessPortfolioValuation,
+  convertCurrency,
+  normalizePortfolioValuationSettings,
+  type PortfolioValuationAssessment,
+  type PortfolioValuationSettings,
+  type SupportedCurrency,
+} from "./portfolio-valuation";
 import type { MarketAnalysisReport } from "./types";
 
 export type PositionPlanTone = "positive" | "neutral" | "caution" | "negative";
@@ -23,6 +31,7 @@ type PositionPlanOptions = {
   marketRiskScore?: number;
   policy?: Partial<PositionPolicy> | null;
   riskGate?: PositionRiskGate | null;
+  valuation?: Partial<PortfolioValuationSettings> | null;
 };
 
 export type RecommendationIntent =
@@ -159,6 +168,9 @@ export type PositionPlanAction = {
   targetBandLabel: string;
   reason: string;
   detail: string;
+  baseCurrency?: SupportedCurrency;
+  settlementAmount?: number;
+  settlementCurrency?: SupportedCurrency;
   assetType?: HoldingRecord["assetType"];
   profileKey?: string;
 };
@@ -199,6 +211,7 @@ export type PositionPlan = {
     maxSingleAddWeight: number;
   };
   riskGate: PositionRiskGate | null;
+  valuation: PortfolioValuationAssessment;
 };
 
 export const DEFAULT_POSITION_POLICY: PositionPolicy = {
@@ -274,13 +287,19 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
   const marketRiskScore = planOptions.marketRiskScore ?? 50;
   const policy = normalizePositionPolicy(planOptions.policy);
   const riskGate = planOptions.riskGate ?? null;
-  const records = holdings.filter(isHoldingRecord);
+  const sourceRecords = holdings.filter(isHoldingRecord);
+  const valuation = assessPortfolioValuation(sourceRecords, planOptions.valuation);
+  const valuationSettings = normalizePortfolioValuationSettings(valuation.settings);
+  const sourceById = new Map(sourceRecords.map((holding) => [holding.id, holding]));
+  const records = valuation.canCalculate
+    ? sourceRecords.map((holding) => holdingInBaseCurrency(holding, valuationSettings))
+    : [];
   const realRows = records.filter((holding) => holding.role === "real");
   const cashRows = realRows.filter(isCashHolding);
   const riskRows = realRows.filter((holding) => !isCashHolding(holding));
   const totalValue = realRows.reduce((sum, holding) => sum + marketValueOf(holding), 0);
   const cashValue = cashRows.reduce((sum, holding) => sum + marketValueOf(holding), 0);
-  const currency = dominantCurrency(realRows);
+  const currency = valuationSettings.baseCurrency;
   const hasCashInstrument = cashRows.length > 0;
   const cashWeight = totalValue > 0 && hasCashInstrument ? (cashValue / totalValue) * 100 : 0;
   const riskExposure = totalValue > 0 ? (riskRows.reduce((sum, holding) => sum + marketValueOf(holding), 0) / totalValue) * 100 : 0;
@@ -310,7 +329,7 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
   const riskActions = [...riskRows]
     .sort((left, right) => compareHoldingPlanPriority(left, right, totalValue, policy))
     .map((holding) => {
-      const action = actionForHolding({
+      const baseAction = actionForHolding({
         addableBudget: remainingAddableBudget,
         cashWeight,
         holding,
@@ -321,6 +340,11 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
         riskGate,
         totalValue,
       });
+      const action = actionInSettlementCurrency(
+        baseAction,
+        sourceById.get(holding.id) ?? holding,
+        valuationSettings,
+      );
       if (action.amount > 0 && action.weightDelta > 0) {
         remainingAddableBudget = Math.max(0, remainingAddableBudget - action.amount);
       }
@@ -354,9 +378,9 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
   });
 
   return {
-    statusLabel: status.label,
-    statusTone: status.tone,
-    summary: status.summary,
+    statusLabel: valuation.canCalculate ? status.label : valuation.label,
+    statusTone: valuation.canCalculate ? status.tone : "negative",
+    summary: valuation.canCalculate ? status.summary : valuation.detail,
     totalValue,
     currency,
     cashValue,
@@ -373,6 +397,7 @@ export function createPositionPlan(holdings: HoldingRecord[], options: number | 
     horizons,
     policy,
     riskGate,
+    valuation,
   };
 }
 
@@ -1108,7 +1133,7 @@ function planStatus({
   riskGate: PositionRiskGate | null;
 }) {
   if (!realCount) {
-    return { label: "待建仓", tone: "neutral" as const, summary: "先添加真实持仓。" };
+    return { label: "待建仓", tone: "neutral" as const, summary: "先添加本地持仓。" };
   }
   if (!hasCashInstrument) {
     return { label: "缺现金数据", tone: "caution" as const, summary: "补现金后可计算加仓预算。" };
@@ -1134,7 +1159,7 @@ function planStatus({
   if (riskGate?.watch) {
     return { label: riskGate.label, tone: riskGate.tone, summary: riskGate.reason };
   }
-  return { label: "可执行", tone: "positive" as const, summary: "现金缓冲满足加仓纪律。" };
+  return { label: "可建票", tone: "positive" as const, summary: "现金缓冲满足建票纪律。" };
 }
 
 function addLimitFor({
@@ -1432,12 +1457,40 @@ function compactText(value: string | undefined, fallback: string) {
   return text.length > 54 ? `${text.slice(0, 54)}…` : text;
 }
 
-function dominantCurrency(rows: HoldingRecord[]) {
-  return rows.find(isCashHolding)?.currency || rows[0]?.currency || "CNY";
-}
-
 function marketValueOf(holding: HoldingRecord) {
   return holding.quantity * holding.currentPrice;
+}
+
+function holdingInBaseCurrency(holding: HoldingRecord, settings: PortfolioValuationSettings): HoldingRecord {
+  const currentPrice = convertCurrency(holding.currentPrice, holding.currency, settings.baseCurrency, settings);
+  const costPrice = convertCurrency(holding.costPrice, holding.currency, settings.baseCurrency, settings);
+  return {
+    ...holding,
+    currency: settings.baseCurrency,
+    currentPrice: currentPrice ?? 0,
+    costPrice: costPrice ?? 0,
+  };
+}
+
+function actionInSettlementCurrency(
+  action: PositionPlanAction,
+  holding: HoldingRecord,
+  settings: PortfolioValuationSettings,
+): PositionPlanAction {
+  const currency = holding.currency.toUpperCase();
+  if (currency !== "CNY" && currency !== "USD") return action;
+  const settlementAmount = convertCurrency(action.amount, settings.baseCurrency, currency, settings) ?? 0;
+  const settlementLabel = action.amount > 0 ? formatAmount(settlementAmount, currency) : action.amountLabel;
+  const amountLabel = action.amount > 0 && currency !== settings.baseCurrency
+    ? `${settlementLabel}（约 ${formatAmount(action.amount, settings.baseCurrency)}）`
+    : settlementLabel;
+  return {
+    ...action,
+    amountLabel,
+    baseCurrency: settings.baseCurrency,
+    settlementAmount,
+    settlementCurrency: currency,
+  };
 }
 
 function formatAmount(value: number, currency: string) {

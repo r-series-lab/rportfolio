@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  CircleDollarSign,
   Clock3,
   Database,
   LayoutDashboard,
@@ -23,11 +24,14 @@ import { ProfileConfigPanel, type ProfileConfigSection } from "./profile-config-
 import type { RPortfolioStyleMode } from "../theme/r-theme";
 import type { DataSource, MarketAnalysisReport, ProfileSummary } from "../lib/types";
 import type { HoldingRecord } from "../lib/holdings";
+import type { PortfolioValuationSettings } from "../lib/portfolio-valuation";
 import {
   fundFeesFor,
   updateFundFeeOverride,
   type FundExecutionPolicy,
 } from "../lib/fund-execution-policy";
+import "../styles/pages/settings.css";
+import "../styles/pages/settings-polish.css";
 
 export type ConfigPanelSection = "global" | ProfileConfigSection;
 
@@ -40,9 +44,11 @@ type SettingsPanelProps = {
   defaultSource: DataSource;
   fundExecutionPolicy: FundExecutionPolicy;
   fundHoldings: HoldingRecord[];
+  portfolioValuation: PortfolioValuationSettings;
   onActiveSectionChange: (section: ConfigPanelSection) => void;
   onApplyDefaultProfile: () => void;
   onFundExecutionPolicyChange: (policy: FundExecutionPolicy) => void;
+  onPortfolioValuationChange: (valuation: PortfolioValuationSettings) => void;
   onOpenChange: (open: boolean) => void;
   onProfileChange: (profile: string) => void;
   onProfilesChanged: () => Promise<ProfileSummary[]>;
@@ -95,9 +101,11 @@ export function SettingsPanel({
   defaultSource,
   fundExecutionPolicy,
   fundHoldings,
+  portfolioValuation,
   onActiveSectionChange,
   onApplyDefaultProfile,
   onFundExecutionPolicyChange,
+  onPortfolioValuationChange,
   onOpenChange,
   onProfileChange,
   onProfilesChanged,
@@ -128,7 +136,7 @@ export function SettingsPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="settings-dialog">
+      <DialogContent showCloseButton={false} className="settings-dialog" mobileMode="modal" size="workspace">
         <DialogHeader className="settings-sheet-head">
           <div className="settings-sheet-title">
             <span>设置</span>
@@ -255,6 +263,63 @@ export function SettingsPanel({
                       <Button type="button" variant="outline" onClick={() => onSetDefaultSource(source)} disabled={source === defaultSource}>
                         设为启动默认
                       </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="settings-preference-card">
+                    <CardHeader>
+                      <CardTitle>组合估值</CardTitle>
+                      <CardDescription>人民币 / 美元统一权重与预算</CardDescription>
+                      <CardAction>
+                        <CircleDollarSign />
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="settings-fund-policy-grid">
+                        <label className="settings-field">
+                          <span>基准币种</span>
+                          <select
+                            value={portfolioValuation.baseCurrency}
+                            aria-label="组合基准币种"
+                            onChange={(event) => onPortfolioValuationChange({
+                              ...portfolioValuation,
+                              baseCurrency: event.target.value === "USD" ? "USD" : "CNY",
+                            })}
+                          >
+                            <option value="CNY">CNY 人民币</option>
+                            <option value="USD">USD 美元</option>
+                          </select>
+                        </label>
+                        <label className="settings-field">
+                          <span>USD/CNY</span>
+                          <Input
+                            type="number"
+                            min="0.0001"
+                            max="99"
+                            step="0.0001"
+                            value={portfolioValuation.usdCnyRate ?? ""}
+                            aria-label="美元兑人民币汇率"
+                            placeholder="1 美元对应人民币"
+                            onChange={(event) => onPortfolioValuationChange({
+                              ...portfolioValuation,
+                              usdCnyRate: event.target.value ? Number(event.target.value) : null,
+                            })}
+                          />
+                        </label>
+                        <label className="settings-field">
+                          <span>汇率日期</span>
+                          <Input
+                            type="date"
+                            value={portfolioValuation.fxAsOf}
+                            aria-label="汇率日期"
+                            onChange={(event) => onPortfolioValuationChange({
+                              ...portfolioValuation,
+                              fxAsOf: event.target.value,
+                            })}
+                          />
+                        </label>
+                      </div>
+                      <p>汇率表示 1 USD 对应的 CNY。缺少汇率或日期过期时，不生成增加风险的交易票。</p>
                     </CardContent>
                   </Card>
 

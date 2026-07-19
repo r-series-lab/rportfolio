@@ -28,8 +28,11 @@ export async function loadPersistedOrders(): Promise<OrderRecord[]> {
 export async function savePersistedOrders(orders: OrderRecord[]): Promise<OrderRecord[]> {
   writeOrdersToLocalStorage(orders);
   if (hasTauriRuntime()) {
-    return invoke<OrderRecord[]>("save_orders", { orders });
+    const saved = await invoke<OrderRecord[]>("save_orders", { orders });
+    notifyOrdersSaved(saved);
+    return saved;
   }
+  notifyOrdersSaved(orders);
   return orders;
 }
 
@@ -89,6 +92,8 @@ function downloadBrowserAuditExport(orders: OrderRecord[], format: OrderAuditExp
 
 function browserAuditCsv(orders: OrderRecord[]) {
   const header = [
+    "account_id",
+    "decision_id",
     "order_id",
     "symbol",
     "name",
@@ -111,6 +116,8 @@ function browserAuditCsv(orders: OrderRecord[]) {
   const rows = orders.flatMap((order) => {
     const events = order.events?.length ? order.events : [null];
     return events.map((event) => [
+      order.accountId,
+      order.decisionId,
       order.id,
       order.symbol,
       order.name,
@@ -132,6 +139,11 @@ function browserAuditCsv(orders: OrderRecord[]) {
     ]);
   });
   return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function notifyOrdersSaved(orders: OrderRecord[]) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("rportfolio:orders-saved", { detail: orders }));
 }
 
 function csvCell(value: string) {

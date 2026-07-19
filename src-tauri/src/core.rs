@@ -283,6 +283,8 @@ pub struct FundNavLookup {
 #[serde(rename_all = "camelCase")]
 pub struct HoldingRecord {
     pub id: String,
+    #[serde(default)]
+    pub account_id: Option<String>,
     pub symbol: String,
     pub name: String,
     pub market: String,
@@ -297,6 +299,8 @@ pub struct HoldingRecord {
     pub quantity: f64,
     pub cost_price: f64,
     pub current_price: f64,
+    #[serde(default)]
+    pub quote_as_of: Option<String>,
     #[serde(default)]
     pub confirmed_nav: Option<f64>,
     #[serde(default)]
@@ -331,6 +335,12 @@ pub struct HoldingRecord {
 #[serde(rename_all = "camelCase")]
 pub struct TradeRecord {
     pub id: String,
+    #[serde(default)]
+    pub account_id: Option<String>,
+    #[serde(default)]
+    pub decision_id: Option<String>,
+    #[serde(default)]
+    pub order_id: Option<String>,
     pub symbol: String,
     pub name: String,
     pub side: String,
@@ -471,6 +481,12 @@ pub struct BrokerAccountSnapshot {
     pub currency: String,
     #[serde(default)]
     pub cash: f64,
+    #[serde(default)]
+    pub available_cash: Option<f64>,
+    #[serde(default)]
+    pub settled_cash: Option<f64>,
+    #[serde(default)]
+    pub pending_settlement: Option<f64>,
     #[serde(default)]
     pub market_value: f64,
     #[serde(default)]
@@ -2405,6 +2421,701 @@ pub fn save_trades_to_path(
     Ok(trades)
 }
 
+const ACCOUNT_STORE_VERSION: u16 = 2;
+const PERFORMANCE_LEDGER_VERSION: u16 = 1;
+const STATEMENT_IMPORT_LEDGER_VERSION: u16 = 1;
+const DATA_BACKUP_SCHEMA_VERSION: u16 = 1;
+const DATA_STORE_FILES: [(&str, &str); 10] = [
+    ("accounts", "accounts.json"),
+    ("holdings", "holdings.json"),
+    ("trades", "trades.json"),
+    ("orders", "orders.json"),
+    ("recommendations", "recommendations.json"),
+    ("monitor", "monitor.json"),
+    ("riskPolicy", "risk-policy.json"),
+    ("paperSim", "paper-sim.json"),
+    ("performanceLedger", "performance-ledger.json"),
+    ("statementImports", "statement-imports.json"),
+];
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountStoreSnapshot {
+    pub version: u16,
+    pub updated_at: String,
+    pub accounts: Vec<Value>,
+    pub broker_snapshots: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerformanceLedgerSnapshot {
+    pub version: u16,
+    pub updated_at: String,
+    pub snapshots: Vec<Value>,
+    pub cash_flows: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatementImportLedgerSnapshot {
+    pub version: u16,
+    pub updated_at: String,
+    pub batches: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataBackupSummary {
+    pub id: String,
+    pub created_at: String,
+    pub reason: String,
+    pub schema_version: u16,
+    pub files: Vec<String>,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataRestoreResult {
+    pub backup_id: String,
+    pub pre_restore_backup_id: String,
+    pub restored_files: usize,
+    pub restored_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataStoreDiagnostic {
+    pub key: String,
+    pub file: String,
+    pub present: bool,
+    pub bytes: u64,
+    pub records: usize,
+    pub version: u64,
+    pub readable: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataDiagnostics {
+    pub schema_version: u16,
+    pub generated_at: String,
+    pub stores: Vec<DataStoreDiagnostic>,
+    pub backups: usize,
+}
+
+pub fn load_accounts_from_path(path: &Path) -> Result<AccountStoreSnapshot, AppError> {
+    if !path.exists() {
+        return Ok(empty_account_store());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| AppError::internal(format!("accounts file read failed: {error}")))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("accounts json parse failed: {error}")))?;
+    normalize_account_store(value)
+}
+
+pub fn save_accounts_to_path(
+    path: &Path,
+    snapshot: AccountStoreSnapshot,
+) -> Result<AccountStoreSnapshot, AppError> {
+    let snapshot = normalize_account_store(
+        serde_json::to_value(snapshot)
+            .map_err(|error| AppError::internal(format!("accounts serialize failed: {error}")))?,
+    )?;
+    write_json_atomically(path, &snapshot, "accounts")?;
+    Ok(snapshot)
+}
+
+pub fn load_performance_ledger_from_path(
+    path: &Path,
+) -> Result<PerformanceLedgerSnapshot, AppError> {
+    if !path.exists() {
+        return Ok(empty_performance_ledger());
+    }
+    let content = fs::read_to_string(path).map_err(|error| {
+        AppError::internal(format!("performance ledger file read failed: {error}"))
+    })?;
+    let value: Value = serde_json::from_str(&content).map_err(|error| {
+        AppError::invalid(format!("performance ledger json parse failed: {error}"))
+    })?;
+    normalize_performance_ledger(value)
+}
+
+pub fn save_performance_ledger_to_path(
+    path: &Path,
+    snapshot: PerformanceLedgerSnapshot,
+) -> Result<PerformanceLedgerSnapshot, AppError> {
+    let snapshot =
+        normalize_performance_ledger(serde_json::to_value(snapshot).map_err(|error| {
+            AppError::internal(format!("performance ledger serialize failed: {error}"))
+        })?)?;
+    write_json_atomically(path, &snapshot, "performance ledger")?;
+    Ok(snapshot)
+}
+
+pub fn load_statement_imports_from_path(
+    path: &Path,
+) -> Result<StatementImportLedgerSnapshot, AppError> {
+    if !path.exists() {
+        return Ok(empty_statement_import_ledger());
+    }
+    let content = fs::read_to_string(path).map_err(|error| {
+        AppError::internal(format!("statement imports file read failed: {error}"))
+    })?;
+    let value: Value = serde_json::from_str(&content).map_err(|error| {
+        AppError::invalid(format!("statement imports json parse failed: {error}"))
+    })?;
+    normalize_statement_import_ledger(value)
+}
+
+pub fn save_statement_imports_to_path(
+    path: &Path,
+    snapshot: StatementImportLedgerSnapshot,
+) -> Result<StatementImportLedgerSnapshot, AppError> {
+    let snapshot =
+        normalize_statement_import_ledger(serde_json::to_value(snapshot).map_err(|error| {
+            AppError::internal(format!("statement imports serialize failed: {error}"))
+        })?)?;
+    write_json_atomically(path, &snapshot, "statement imports")?;
+    Ok(snapshot)
+}
+
+pub fn create_data_backup_in_dir(
+    app_data_dir: &Path,
+    reason: &str,
+) -> Result<DataBackupSummary, AppError> {
+    let backups_dir = app_data_dir.join("backups");
+    fs::create_dir_all(&backups_dir)
+        .map_err(|error| AppError::internal(format!("backup directory create failed: {error}")))?;
+    let backup_id = next_backup_id(&backups_dir);
+    let backup_dir = backups_dir.join(&backup_id);
+    fs::create_dir_all(&backup_dir)
+        .map_err(|error| AppError::internal(format!("backup create failed: {error}")))?;
+    let mut files = Vec::new();
+    let mut bytes = 0_u64;
+    for (_, file_name) in DATA_STORE_FILES {
+        let source = app_data_dir.join(file_name);
+        if !source.is_file() {
+            continue;
+        }
+        let target = backup_dir.join(file_name);
+        let copied = fs::copy(&source, &target).map_err(|error| {
+            AppError::internal(format!("backup copy failed for {file_name}: {error}"))
+        })?;
+        files.push(file_name.to_string());
+        bytes += copied;
+    }
+    let summary = DataBackupSummary {
+        id: backup_id,
+        created_at: Utc::now().to_rfc3339(),
+        reason: normalize_backup_reason(reason),
+        schema_version: DATA_BACKUP_SCHEMA_VERSION,
+        files,
+        bytes,
+    };
+    write_json_atomically(
+        &backup_dir.join("manifest.json"),
+        &summary,
+        "backup manifest",
+    )?;
+    Ok(summary)
+}
+
+pub fn list_data_backups_in_dir(app_data_dir: &Path) -> Result<Vec<DataBackupSummary>, AppError> {
+    let backups_dir = app_data_dir.join("backups");
+    if !backups_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&backups_dir)
+        .map_err(|error| AppError::internal(format!("backup directory read failed: {error}")))?;
+    let mut backups = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| fs::read_to_string(entry.path().join("manifest.json")).ok())
+        .filter_map(|content| serde_json::from_str::<DataBackupSummary>(&content).ok())
+        .collect::<Vec<_>>();
+    backups.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    Ok(backups)
+}
+
+pub fn restore_data_backup_in_dir(
+    app_data_dir: &Path,
+    backup_id: &str,
+) -> Result<DataRestoreResult, AppError> {
+    validate_backup_id(backup_id)?;
+    let backup_dir = app_data_dir.join("backups").join(backup_id);
+    let manifest_path = backup_dir.join("manifest.json");
+    let content = fs::read_to_string(&manifest_path)
+        .map_err(|error| AppError::invalid(format!("backup manifest unavailable: {error}")))?;
+    let manifest: DataBackupSummary = serde_json::from_str(&content)
+        .map_err(|error| AppError::invalid(format!("backup manifest invalid: {error}")))?;
+    if manifest.id != backup_id || manifest.schema_version != DATA_BACKUP_SCHEMA_VERSION {
+        return Err(AppError::invalid(
+            "backup manifest identity or schema is invalid",
+        ));
+    }
+    let allowed_files = manifest
+        .files
+        .iter()
+        .cloned()
+        .collect::<std::collections::HashSet<_>>();
+    if allowed_files
+        .iter()
+        .any(|file| !DATA_STORE_FILES.iter().any(|(_, known)| known == file))
+    {
+        return Err(AppError::invalid(
+            "backup manifest contains an unsupported file",
+        ));
+    }
+    let protection = create_data_backup_in_dir(app_data_dir, "pre-restore")?;
+    let mut restored_files = 0;
+    for (_, file_name) in DATA_STORE_FILES {
+        let target = app_data_dir.join(file_name);
+        if allowed_files.contains(file_name) {
+            copy_file_atomically(&backup_dir.join(file_name), &target)?;
+            restored_files += 1;
+        } else if target.exists() {
+            fs::remove_file(&target).map_err(|error| {
+                AppError::internal(format!("restore could not remove {file_name}: {error}"))
+            })?;
+        }
+    }
+    Ok(DataRestoreResult {
+        backup_id: backup_id.to_string(),
+        pre_restore_backup_id: protection.id,
+        restored_files,
+        restored_at: Utc::now().to_rfc3339(),
+    })
+}
+
+pub fn data_diagnostics_for_dir(app_data_dir: &Path) -> Result<DataDiagnostics, AppError> {
+    let stores = DATA_STORE_FILES
+        .iter()
+        .map(|(key, file_name)| store_diagnostic(app_data_dir, key, file_name))
+        .collect::<Vec<_>>();
+    let backups = list_data_backups_in_dir(app_data_dir)?.len();
+    Ok(DataDiagnostics {
+        schema_version: DATA_BACKUP_SCHEMA_VERSION,
+        generated_at: Utc::now().to_rfc3339(),
+        stores,
+        backups,
+    })
+}
+
+fn empty_account_store() -> AccountStoreSnapshot {
+    AccountStoreSnapshot {
+        version: ACCOUNT_STORE_VERSION,
+        updated_at: String::new(),
+        accounts: Vec::new(),
+        broker_snapshots: Vec::new(),
+    }
+}
+
+fn empty_performance_ledger() -> PerformanceLedgerSnapshot {
+    PerformanceLedgerSnapshot {
+        version: PERFORMANCE_LEDGER_VERSION,
+        updated_at: String::new(),
+        snapshots: Vec::new(),
+        cash_flows: Vec::new(),
+    }
+}
+
+fn empty_statement_import_ledger() -> StatementImportLedgerSnapshot {
+    StatementImportLedgerSnapshot {
+        version: STATEMENT_IMPORT_LEDGER_VERSION,
+        updated_at: String::new(),
+        batches: Vec::new(),
+    }
+}
+
+fn normalize_statement_import_ledger(
+    value: Value,
+) -> Result<StatementImportLedgerSnapshot, AppError> {
+    let mut object = value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| AppError::invalid("statement imports storage must be a JSON object"))?;
+    let updated_at = object
+        .remove("updatedAt")
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_default();
+    let batches = object
+        .remove("batches")
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default()
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| normalize_statement_import_batch(index, value))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(StatementImportLedgerSnapshot {
+        version: STATEMENT_IMPORT_LEDGER_VERSION,
+        updated_at,
+        batches,
+    })
+}
+
+fn normalize_statement_import_batch(index: usize, value: Value) -> Result<Value, AppError> {
+    let batch = value.as_object().ok_or_else(|| {
+        AppError::invalid(format!(
+            "statement import batches[{index}] must be an object"
+        ))
+    })?;
+    let id = batch
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    let checksum = batch
+        .get("checksum")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    let imported_at = batch
+        .get("importedAt")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if id.is_empty()
+        || checksum.is_empty()
+        || chrono::DateTime::parse_from_rfc3339(imported_at).is_err()
+    {
+        return Err(AppError::invalid(format!(
+            "statement import batches[{index}] has invalid identity or timestamp"
+        )));
+    }
+    Ok(value)
+}
+
+fn normalize_performance_ledger(value: Value) -> Result<PerformanceLedgerSnapshot, AppError> {
+    let mut object = value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| AppError::invalid("performance ledger storage must be a JSON object"))?;
+    let updated_at = object
+        .remove("updatedAt")
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_default();
+    let snapshots = object
+        .remove("snapshots")
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default()
+        .into_iter()
+        .enumerate()
+        .map(|(index, snapshot)| normalize_performance_snapshot(index, snapshot))
+        .collect::<Result<Vec<_>, _>>()?;
+    let cash_flows = object
+        .remove("cashFlows")
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default()
+        .into_iter()
+        .enumerate()
+        .map(|(index, cash_flow)| normalize_performance_cash_flow(index, cash_flow))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(PerformanceLedgerSnapshot {
+        version: PERFORMANCE_LEDGER_VERSION,
+        updated_at,
+        snapshots,
+        cash_flows,
+    })
+}
+
+fn normalize_performance_snapshot(index: usize, value: Value) -> Result<Value, AppError> {
+    let snapshot = value.as_object().ok_or_else(|| {
+        AppError::invalid(format!("performance snapshots[{index}] must be an object"))
+    })?;
+    let date = snapshot
+        .get("date")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let currency = snapshot
+        .get("baseCurrency")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let portfolio_value = snapshot
+        .get("portfolioValue")
+        .and_then(Value::as_f64)
+        .unwrap_or_default();
+    if !valid_date_key(date)
+        || !matches!(currency, "CNY" | "USD")
+        || !portfolio_value.is_finite()
+        || portfolio_value <= 0.0
+    {
+        return Err(AppError::invalid(format!(
+            "performance snapshots[{index}] has invalid date, currency, or value"
+        )));
+    }
+    Ok(value)
+}
+
+fn normalize_performance_cash_flow(index: usize, value: Value) -> Result<Value, AppError> {
+    let cash_flow = value.as_object().ok_or_else(|| {
+        AppError::invalid(format!("performance cashFlows[{index}] must be an object"))
+    })?;
+    let id = cash_flow
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    let date = cash_flow
+        .get("date")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let currency = cash_flow
+        .get("currency")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let base_currency = cash_flow
+        .get("baseCurrency")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let base_amount = cash_flow
+        .get("baseAmount")
+        .and_then(Value::as_f64)
+        .unwrap_or_default();
+    if id.is_empty()
+        || !valid_date_key(date)
+        || !matches!(currency, "CNY" | "USD")
+        || !matches!(base_currency, "CNY" | "USD")
+        || !base_amount.is_finite()
+        || base_amount == 0.0
+    {
+        return Err(AppError::invalid(format!(
+            "performance cashFlows[{index}] has invalid identity, date, currency, or amount"
+        )));
+    }
+    Ok(value)
+}
+
+fn valid_date_key(value: &str) -> bool {
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
+}
+
+fn normalize_account_store(value: Value) -> Result<AccountStoreSnapshot, AppError> {
+    let (updated_at, raw_accounts, raw_snapshots) = match value {
+        Value::Array(snapshots) => (String::new(), Vec::new(), snapshots),
+        Value::Object(mut object) => {
+            let updated_at = object
+                .remove("updatedAt")
+                .and_then(|value| value.as_str().map(str::to_string))
+                .unwrap_or_default();
+            let accounts = object
+                .remove("accounts")
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default();
+            let snapshots = object
+                .remove("brokerSnapshots")
+                .or_else(|| object.remove("snapshots"))
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default();
+            (updated_at, accounts, snapshots)
+        }
+        _ => {
+            return Err(AppError::invalid(
+                "accounts storage must be a JSON object or legacy snapshot array",
+            ))
+        }
+    };
+    let accounts = raw_accounts
+        .into_iter()
+        .enumerate()
+        .map(|(index, account)| normalize_account_value(index, account))
+        .collect::<Result<Vec<_>, _>>()?;
+    let broker_snapshots = raw_snapshots
+        .into_iter()
+        .filter(|snapshot| snapshot.is_object())
+        .take(24)
+        .collect();
+    Ok(AccountStoreSnapshot {
+        version: ACCOUNT_STORE_VERSION,
+        updated_at,
+        accounts,
+        broker_snapshots,
+    })
+}
+
+fn normalize_account_value(index: usize, value: Value) -> Result<Value, AppError> {
+    let mut account = value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| AppError::invalid(format!("accounts[{index}] must be an object")))?;
+    let id = account
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if id.is_empty() {
+        return Err(AppError::invalid(format!(
+            "accounts[{index}].id cannot be empty"
+        )));
+    }
+    let currency = account
+        .get("currency")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_uppercase();
+    if !matches!(currency.as_str(), "CNY" | "USD") {
+        return Err(AppError::invalid(format!(
+            "accounts[{index}].currency must be CNY or USD"
+        )));
+    }
+    let legacy_cash = account.get("cash").and_then(Value::as_f64).unwrap_or(0.0);
+    let settled_cash = account
+        .get("settledCash")
+        .and_then(Value::as_f64)
+        .unwrap_or(legacy_cash);
+    let available_cash = account
+        .get("availableCash")
+        .and_then(Value::as_f64)
+        .unwrap_or(legacy_cash.max(settled_cash));
+    let pending_settlement = account
+        .get("pendingSettlement")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    for (field, amount, allow_negative) in [
+        ("settledCash", settled_cash, false),
+        ("availableCash", available_cash, false),
+        ("pendingSettlement", pending_settlement, true),
+    ] {
+        if !amount.is_finite() || (!allow_negative && amount < 0.0) {
+            return Err(AppError::invalid(format!(
+                "accounts[{index}].{field} is invalid"
+            )));
+        }
+    }
+    account.insert("id".to_string(), Value::String(id));
+    account.insert("currency".to_string(), Value::String(currency));
+    account.insert("settledCash".to_string(), json_number(settled_cash));
+    account.insert("availableCash".to_string(), json_number(available_cash));
+    account.insert(
+        "pendingSettlement".to_string(),
+        json_number(pending_settlement),
+    );
+    account.remove("cash");
+    Ok(Value::Object(account))
+}
+
+fn write_json_atomically<T: Serialize>(
+    path: &Path,
+    value: &T,
+    label: &str,
+) -> Result<(), AppError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            AppError::internal(format!("{label} directory create failed: {error}"))
+        })?;
+    }
+    let content = serde_json::to_string_pretty(value)
+        .map_err(|error| AppError::internal(format!("{label} serialize failed: {error}")))?;
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, content)
+        .map_err(|error| AppError::internal(format!("{label} temp write failed: {error}")))?;
+    fs::rename(&temp_path, path)
+        .map_err(|error| AppError::internal(format!("{label} replace failed: {error}")))?;
+    Ok(())
+}
+
+fn copy_file_atomically(source: &Path, target: &Path) -> Result<(), AppError> {
+    let file_name = target
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("data file");
+    if !source.is_file() {
+        return Err(AppError::invalid(format!(
+            "backup file missing: {file_name}"
+        )));
+    }
+    let temp_path = target.with_extension("json.restore.tmp");
+    fs::copy(source, &temp_path).map_err(|error| {
+        AppError::internal(format!("restore copy failed for {file_name}: {error}"))
+    })?;
+    fs::rename(&temp_path, target).map_err(|error| {
+        AppError::internal(format!("restore replace failed for {file_name}: {error}"))
+    })?;
+    Ok(())
+}
+
+fn next_backup_id(backups_dir: &Path) -> String {
+    let base = format!("backup-{}", Utc::now().format("%Y%m%dT%H%M%S%3fZ"));
+    if !backups_dir.join(&base).exists() {
+        return base;
+    }
+    (2..1000)
+        .map(|suffix| format!("{base}-{suffix}"))
+        .find(|candidate| !backups_dir.join(candidate).exists())
+        .unwrap_or_else(|| format!("{base}-overflow"))
+}
+
+fn validate_backup_id(backup_id: &str) -> Result<(), AppError> {
+    let valid = backup_id.starts_with("backup-")
+        && backup_id.len() <= 80
+        && backup_id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'));
+    if valid {
+        Ok(())
+    } else {
+        Err(AppError::invalid("backup id is invalid"))
+    }
+}
+
+fn normalize_backup_reason(reason: &str) -> String {
+    if reason.trim() == "pre-restore" {
+        "pre-restore".to_string()
+    } else {
+        "manual".to_string()
+    }
+}
+
+fn store_diagnostic(app_data_dir: &Path, key: &str, file_name: &str) -> DataStoreDiagnostic {
+    let path = app_data_dir.join(file_name);
+    let bytes = fs::metadata(&path)
+        .map(|metadata| metadata.len())
+        .unwrap_or(0);
+    let value = fs::read_to_string(&path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<Value>(&content).ok());
+    let records = value.as_ref().map(diagnostic_record_count).unwrap_or(0);
+    let version = value
+        .as_ref()
+        .and_then(|item| item.get("version"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    DataStoreDiagnostic {
+        key: key.to_string(),
+        file: file_name.to_string(),
+        present: path.is_file(),
+        bytes,
+        records,
+        version,
+        readable: !path.exists() || value.is_some(),
+    }
+}
+
+fn diagnostic_record_count(value: &Value) -> usize {
+    if let Some(items) = value.as_array() {
+        return items.len();
+    }
+    if value.get("snapshots").is_some() || value.get("cashFlows").is_some() {
+        return value
+            .get("snapshots")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+            + value
+                .get("cashFlows")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+    }
+    ["accounts", "orders", "records", "batches"]
+        .iter()
+        .find_map(|key| value.get(key).and_then(Value::as_array).map(Vec::len))
+        .or_else(|| value.as_object().map(|_| 1))
+        .unwrap_or(0)
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct OrderStoreSnapshot {
@@ -3777,6 +4488,8 @@ fn write_order_audit_csv(path: &Path, orders: &[Value]) -> Result<(), AppError> 
     let mut writer = csv::Writer::from_writer(Vec::new());
     writer
         .write_record([
+            "account_id",
+            "decision_id",
             "order_id",
             "intent_key",
             "symbol",
@@ -3842,6 +4555,8 @@ fn write_order_audit_csv_row(
 ) -> Result<(), AppError> {
     writer
         .write_record([
+            value_field(order, "accountId"),
+            value_field(order, "decisionId"),
             value_field(order, "id"),
             value_field(order, "intentKey"),
             value_field(order, "symbol"),
@@ -4179,6 +4894,15 @@ pub fn sync_account(request: BrokerAccountSyncRequest) -> BrokerAccountSnapshot 
             }
             if snapshot.synced_at.trim().is_empty() {
                 snapshot.synced_at = Utc::now().to_rfc3339();
+            }
+            if snapshot.settled_cash.is_none() {
+                snapshot.settled_cash = Some(snapshot.cash);
+            }
+            if snapshot.available_cash.is_none() {
+                snapshot.available_cash = Some(snapshot.cash);
+            }
+            if snapshot.pending_settlement.is_none() {
+                snapshot.pending_settlement = Some(0.0);
             }
             if snapshot.message.trim().is_empty() {
                 snapshot.message = format!(
@@ -5530,6 +6254,12 @@ fn normalize_trades(trades: Vec<TradeRecord>) -> Result<Vec<TradeRecord>, AppErr
 
 fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<HoldingRecord, AppError> {
     holding.id = holding.id.trim().to_string();
+    holding.account_id = holding
+        .account_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     holding.symbol = holding.symbol.trim().to_ascii_uppercase();
     holding.name = holding.name.trim().to_string();
     holding.market = holding.market.trim().to_ascii_uppercase();
@@ -5549,6 +6279,12 @@ fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<Holding
         .map(str::to_string);
     holding.profile_key = holding
         .profile_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    holding.quote_as_of = holding
+        .quote_as_of
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -5672,6 +6408,24 @@ fn normalize_holding(index: usize, mut holding: HoldingRecord) -> Result<Holding
 
 fn normalize_trade(index: usize, mut trade: TradeRecord) -> Result<TradeRecord, AppError> {
     trade.id = trade.id.trim().to_string();
+    trade.account_id = trade
+        .account_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    trade.decision_id = trade
+        .decision_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    trade.order_id = trade
+        .order_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     trade.symbol = trade.symbol.trim().to_ascii_uppercase();
     trade.name = trade.name.trim().to_string();
     trade.side = trade.side.trim().to_ascii_lowercase();
@@ -18623,10 +19377,176 @@ mod tests {
     }
 
     #[test]
+    fn account_storage_migrates_legacy_cash_fields() {
+        let path = test_holdings_path("accounts-migration");
+        fs::write(
+            &path,
+            r#"{
+              "version": 1,
+              "accounts": [{"id":"legacy-cn","name":"人民币账户","currency":"CNY","cash":12000}],
+              "snapshots": []
+            }"#,
+        )
+        .expect("write legacy accounts");
+
+        let loaded = load_accounts_from_path(&path).expect("load accounts");
+        let saved = save_accounts_to_path(&path, loaded).expect("save accounts");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved.version, ACCOUNT_STORE_VERSION);
+        assert_eq!(saved.accounts.len(), 1);
+        assert_eq!(saved.accounts[0]["settledCash"], 12_000.0);
+        assert_eq!(saved.accounts[0]["availableCash"], 12_000.0);
+        assert_eq!(saved.accounts[0]["pendingSettlement"], 0.0);
+        assert!(saved.accounts[0].get("cash").is_none());
+    }
+
+    #[test]
+    fn performance_ledger_storage_roundtrips_and_validates_currency() {
+        let path = test_holdings_path("performance-ledger-roundtrip");
+        let snapshot = PerformanceLedgerSnapshot {
+            version: 99,
+            updated_at: "2026-07-16T10:00:00Z".to_string(),
+            snapshots: vec![serde_json::json!({
+                "id": "performance-2026-07-16",
+                "date": "2026-07-16",
+                "baseCurrency": "CNY",
+                "portfolioValue": 120000.0,
+                "note": "private portfolio note"
+            })],
+            cash_flows: vec![serde_json::json!({
+                "id": "cash-flow-1",
+                "date": "2026-07-16",
+                "kind": "deposit",
+                "currency": "USD",
+                "baseCurrency": "CNY",
+                "baseAmount": 7100.0
+            })],
+        };
+
+        let saved = save_performance_ledger_to_path(&path, snapshot).expect("save ledger");
+        let loaded = load_performance_ledger_from_path(&path).expect("load ledger");
+
+        assert_eq!(saved.version, PERFORMANCE_LEDGER_VERSION);
+        assert_eq!(loaded.snapshots.len(), 1);
+        assert_eq!(loaded.cash_flows.len(), 1);
+        assert_eq!(loaded.snapshots[0]["portfolioValue"], 120000.0);
+
+        fs::write(
+            &path,
+            r#"{"snapshots":[{"date":"2026-07-16","baseCurrency":"EUR","portfolioValue":1}],"cashFlows":[]}"#,
+        )
+        .expect("write invalid ledger");
+        let invalid = load_performance_ledger_from_path(&path);
+        let _ = fs::remove_file(&path);
+
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn statement_import_ledger_roundtrips_redacted_batch_metadata() {
+        let path = test_holdings_path("statement-import-ledger-roundtrip");
+        let snapshot = StatementImportLedgerSnapshot {
+            version: 99,
+            updated_at: "2026-07-16T10:00:00Z".to_string(),
+            batches: vec![serde_json::json!({
+                "id": "statement-checksum",
+                "checksum": "checksum",
+                "fileName": "broker.csv",
+                "importedAt": "2026-07-16T10:00:00Z",
+                "rowCount": 4,
+                "warningCount": 1,
+                "counts": {"account": 1, "position": 1, "trade": 1, "cash-flow": 1}
+            })],
+        };
+
+        let saved = save_statement_imports_to_path(&path, snapshot).expect("save imports");
+        let loaded = load_statement_imports_from_path(&path).expect("load imports");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(saved.version, STATEMENT_IMPORT_LEDGER_VERSION);
+        assert_eq!(loaded.batches.len(), 1);
+        assert_eq!(loaded.batches[0]["rowCount"], 4);
+    }
+
+    #[test]
+    fn backup_and_diagnostics_include_performance_ledger_without_content() {
+        let dir = std::env::temp_dir().join(format!(
+            "rportfolio-performance-backup-test-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        fs::create_dir_all(&dir).expect("create test data directory");
+        fs::write(
+            dir.join("performance-ledger.json"),
+            r#"{"version":1,"snapshots":[{"id":"private-snapshot","date":"2026-07-16"}],"cashFlows":[{"id":"private-flow"}]}"#,
+        )
+        .expect("write ledger");
+
+        let backup = create_data_backup_in_dir(&dir, "manual").expect("create backup");
+        let diagnostics = data_diagnostics_for_dir(&dir).expect("diagnostics");
+        let diagnostic_json = serde_json::to_string(&diagnostics).expect("serialize diagnostics");
+        let performance = diagnostics
+            .stores
+            .iter()
+            .find(|store| store.key == "performanceLedger")
+            .expect("performance diagnostic");
+        let _ = fs::remove_dir_all(&dir);
+
+        assert!(backup
+            .files
+            .contains(&"performance-ledger.json".to_string()));
+        assert_eq!(performance.records, 2);
+        assert!(!diagnostic_json.contains("private-snapshot"));
+        assert!(!diagnostic_json.contains("private-flow"));
+    }
+
+    #[test]
+    fn backup_restore_creates_protection_snapshot_and_redacted_diagnostics() {
+        let dir = std::env::temp_dir().join(format!(
+            "rportfolio-backup-test-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        fs::create_dir_all(&dir).expect("create test data directory");
+        fs::write(
+            dir.join("holdings.json"),
+            r#"[{"id":"secret-account-position","symbol":"SPY"}]"#,
+        )
+        .expect("write holdings");
+
+        let backup = create_data_backup_in_dir(&dir, "manual").expect("create backup");
+        fs::write(dir.join("holdings.json"), "[]").expect("mutate holdings");
+        let restored = restore_data_backup_in_dir(&dir, &backup.id).expect("restore backup");
+        let content =
+            fs::read_to_string(dir.join("holdings.json")).expect("read restored holdings");
+        let diagnostics = data_diagnostics_for_dir(&dir).expect("diagnostics");
+        let diagnostic_json = serde_json::to_string(&diagnostics).expect("serialize diagnostics");
+        let backups = list_data_backups_in_dir(&dir).expect("list backups");
+        let _ = fs::remove_dir_all(&dir);
+
+        assert!(content.contains("secret-account-position"));
+        assert_eq!(restored.backup_id, backup.id);
+        assert!(!restored.pre_restore_backup_id.is_empty());
+        assert_eq!(restored.restored_files, 1);
+        assert!(backups.len() >= 2);
+        assert!(!diagnostic_json.contains("secret-account-position"));
+        assert_eq!(
+            diagnostics
+                .stores
+                .iter()
+                .find(|store| store.key == "holdings")
+                .map(|store| store.records),
+            Some(1)
+        );
+    }
+
+    #[test]
     fn holdings_storage_roundtrips_normalized_records() {
         let path = test_holdings_path("roundtrip");
         let holdings = vec![HoldingRecord {
             id: "  local-smh ".to_string(),
+            account_id: Some(" account-us ".to_string()),
             symbol: " smh ".to_string(),
             name: " 半导体 ETF ".to_string(),
             market: " us ".to_string(),
@@ -18638,6 +19558,7 @@ mod tests {
             quantity: 12.0,
             cost_price: 180.0,
             current_price: 195.0,
+            quote_as_of: Some(" 2026-07-15 ".to_string()),
             confirmed_nav: Some(194.5),
             confirmed_nav_as_of: Some(" 2026-07-01 ".to_string()),
             fund_purchase_status: None,
@@ -18661,12 +19582,14 @@ mod tests {
 
         assert_eq!(saved, loaded);
         assert_eq!(loaded[0].symbol, "SMH");
+        assert_eq!(loaded[0].account_id.as_deref(), Some("account-us"));
         assert_eq!(loaded[0].market, "US");
         assert_eq!(loaded[0].currency, "USD");
         assert_eq!(loaded[0].role, "real");
         assert_eq!(loaded[0].asset_type.as_deref(), Some("etf"));
         assert_eq!(loaded[0].quote_source.as_deref(), Some("yahoo"));
         assert_eq!(loaded[0].profile_key.as_deref(), Some("local-smh-profile"));
+        assert_eq!(loaded[0].quote_as_of.as_deref(), Some("2026-07-15"));
         assert_eq!(loaded[0].confirmed_nav, Some(194.5));
         assert_eq!(loaded[0].confirmed_nav_as_of.as_deref(), Some("2026-07-01"));
         assert_eq!(loaded[0].target_min_weight, Some(25.0));
@@ -18723,6 +19646,7 @@ mod tests {
             &path,
             vec![HoldingRecord {
                 id: "bad".to_string(),
+                account_id: None,
                 symbol: "SPY".to_string(),
                 name: "SPY".to_string(),
                 market: "US".to_string(),
@@ -18734,6 +19658,7 @@ mod tests {
                 quantity: 1.0,
                 cost_price: 1.0,
                 current_price: 1.0,
+                quote_as_of: None,
                 confirmed_nav: None,
                 confirmed_nav_as_of: None,
                 fund_purchase_status: None,
@@ -18762,6 +19687,9 @@ mod tests {
         let path = test_holdings_path("trades-roundtrip");
         let trades = vec![TradeRecord {
             id: " trade-016702 ".to_string(),
+            account_id: Some(" account-cn ".to_string()),
+            decision_id: Some(" decision-016702 ".to_string()),
+            order_id: Some(" order-016702 ".to_string()),
             symbol: " 016702 ".to_string(),
             name: " 银华数字经济 ".to_string(),
             side: " BUY ".to_string(),
@@ -18779,6 +19707,9 @@ mod tests {
 
         assert_eq!(saved, loaded);
         assert_eq!(loaded[0].symbol, "016702");
+        assert_eq!(loaded[0].account_id.as_deref(), Some("account-cn"));
+        assert_eq!(loaded[0].decision_id.as_deref(), Some("decision-016702"));
+        assert_eq!(loaded[0].order_id.as_deref(), Some("order-016702"));
         assert_eq!(loaded[0].side, "buy");
         assert_eq!(loaded[0].currency, "CNY");
         assert_eq!(loaded[0].notes, "定投");

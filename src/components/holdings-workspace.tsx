@@ -18,6 +18,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -29,6 +30,7 @@ import { Separator } from "./ui/separator";
 import { Textarea } from "./ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { ProgressiveDisclosure } from "./progressive-disclosure";
+import type { AccountRecord } from "../lib/accounts";
 import {
   HOLDING_ASSET_TYPE_OPTIONS,
   HOLDING_CURRENCY_OPTIONS,
@@ -50,6 +52,14 @@ import {
 import { importProfileConfig, lookupFundProfileSeed } from "../lib/analysis";
 import { buildFundProfileContentFromHolding } from "../lib/fund-profile-builder";
 import {
+  buildHoldingDeskSummary,
+  buildHoldingInspectorView,
+  buildHoldingLedgerRow,
+  filterHoldingLedgerRows,
+  type HoldingDeskFilter,
+  type HoldingLedgerRow,
+} from "../lib/holding-desk-view";
+import {
   DEFAULT_POSITION_POLICY,
   isCashHolding,
   normalizePositionPolicy,
@@ -64,13 +74,22 @@ import {
   type RecommendationIntent,
 } from "../lib/position-plan";
 import { recommendationReadinessFor, type RecommendationReadiness } from "../lib/recommendation-readiness";
+import {
+  convertCurrency,
+  holdingCostValueInBase,
+  holdingMarketValueInBase,
+} from "../lib/portfolio-valuation";
 import type { MarketAnalysisReport, ProfileSummary } from "../lib/types";
+import { orderStatusLabel, type OrderRecord } from "../lib/order-store";
+import { handleTabListKeyDown } from "../lib/tab-keyboard";
 import {
   type TradeRecord,
   type TradeSide,
 } from "../lib/trades";
+import "../styles/pages/holdings.css";
 
 type HoldingDraft = {
+  accountId: string;
   symbol: string;
   name: string;
   market: string;
@@ -81,6 +100,7 @@ type HoldingDraft = {
   quantity: string;
   costPrice: string;
   currentPrice: string;
+  quoteAsOf: string;
   confirmedNav: string;
   confirmedNavAsOf: string;
   fundPurchaseStatus: string;
@@ -99,6 +119,8 @@ type HoldingDraft = {
 };
 
 type HoldingView = HoldingRecord & {
+  baseCostValue: number;
+  baseMarketValue: number;
   costValue: number;
   marketValue: number;
   pnl: number;
@@ -141,6 +163,8 @@ type PolicyDraft = {
 };
 
 type TradeDraft = {
+  accountId: string;
+  orderId: string;
   symbol: string;
   name: string;
   side: TradeSide;
@@ -153,6 +177,7 @@ type TradeDraft = {
 };
 
 const EMPTY_DRAFT: HoldingDraft = {
+  accountId: "",
   symbol: "",
   name: "",
   market: "US",
@@ -163,6 +188,7 @@ const EMPTY_DRAFT: HoldingDraft = {
   quantity: "",
   costPrice: "",
   currentPrice: "",
+  quoteAsOf: "",
   confirmedNav: "",
   confirmedNavAsOf: "",
   fundPurchaseStatus: "",
@@ -181,6 +207,8 @@ const EMPTY_DRAFT: HoldingDraft = {
 };
 
 const EMPTY_TRADE_DRAFT: TradeDraft = {
+  accountId: "",
+  orderId: "",
   symbol: "",
   name: "",
   side: "buy",
@@ -192,8 +220,17 @@ const EMPTY_TRADE_DRAFT: TradeDraft = {
   notes: "",
 };
 
+const HOLDING_FILTERS: Array<{ key: HoldingDeskFilter; label: string }> = [
+  { key: "all", label: "全部" },
+  { key: "actionable", label: "需处理" },
+  { key: "real", label: "本地持仓" },
+  { key: "watch", label: "观察" },
+];
+
 type HoldingsWorkspaceProps = {
+  accounts: AccountRecord[];
   holdings: HoldingRecord[];
+  orders: OrderRecord[];
   persistenceMessage: string;
   onHoldingsChange: Dispatch<SetStateAction<HoldingRecord[]>>;
   onPositionPolicyChange: Dispatch<SetStateAction<PositionPolicy>>;
@@ -208,7 +245,9 @@ type HoldingsWorkspaceProps = {
 };
 
 export function HoldingsWorkspace({
+  accounts,
   holdings,
+  orders,
   persistenceMessage,
   onHoldingsChange,
   onPositionPolicyChange,
@@ -231,18 +270,20 @@ export function HoldingsWorkspace({
   const [tradeDraft, setTradeDraft] = useState<TradeDraft>(EMPTY_TRADE_DRAFT);
   const [profileGeneratingId, setProfileGeneratingId] = useState<string | null>(null);
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
+  const [holdingFilter, setHoldingFilter] = useState<HoldingDeskFilter>("all");
+  const [holdingQuery, setHoldingQuery] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const symbolInputRef = useRef<HTMLInputElement | null>(null);
 
   const normalizedHoldings = useMemo(() => holdings.filter(isHoldingRecord), [holdings]);
-  const realTotal = useMemo(
-    () => normalizedHoldings.filter((holding) => holding.role === "real").reduce((sum, holding) => sum + valueOf(holding), 0),
-    [normalizedHoldings],
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.name])),
+    [accounts],
   );
   const rows = useMemo(
-    () => normalizedHoldings.map((holding) => toHoldingView(holding, realTotal)),
-    [normalizedHoldings, realTotal],
+    () => normalizedHoldings.map((holding) => toHoldingView(holding, positionPlan.totalValue, positionPlan.valuation.settings)),
+    [normalizedHoldings, positionPlan.totalValue, positionPlan.valuation.settings],
   );
   const actionByHoldingId = useMemo(() => {
     return new Map<string, PositionPlanAction>(
@@ -252,7 +293,7 @@ export function HoldingsWorkspace({
   const decisionByHoldingId = useMemo(() => {
     return new Map<string, AssetDecision>(positionPlan.decision.assetDecisions.map((decision) => [decision.holdingId, decision]));
   }, [positionPlan.decision.assetDecisions]);
-  const stats = useMemo(() => summarizeHoldings(rows), [rows]);
+  const stats = useMemo(() => summarizeHoldings(rows, positionPlan.currency), [positionPlan.currency, rows]);
   const selectedHolding = useMemo(
     () => rows.find((row) => row.id === selectedHoldingId) ?? rows[0] ?? null,
     [rows, selectedHoldingId],
@@ -268,6 +309,36 @@ export function HoldingsWorkspace({
   const selectedHoldingAdvice = selectedHoldingAdviceBase
     ? applyRecommendationReadiness(selectedHoldingAdviceBase, recommendationReadiness)
     : null;
+  const holdingDeskSummary = useMemo(
+    () => buildHoldingDeskSummary({ positionPlan, readiness: recommendationReadiness }),
+    [positionPlan, recommendationReadiness],
+  );
+  const ledgerRows = useMemo(() => {
+    return rows.map((holding) => {
+      const action = actionByHoldingId.get(holding.id);
+      const decision = decisionByHoldingId.get(holding.id);
+      const band = targetBandForHolding(holding, positionPlan.policy);
+      const advice = applyRecommendationReadiness(
+        holdingAdviceFor(holding, action, band, positionPlan, decision),
+        recommendationReadiness,
+      );
+      return {
+        action,
+        advice,
+        band,
+        holding,
+        ledger: buildHoldingLedgerRow({ action, advice, holding, readiness: recommendationReadiness }),
+      };
+    });
+  }, [actionByHoldingId, decisionByHoldingId, positionPlan, recommendationReadiness, rows]);
+  const visibleLedgerRows = useMemo(
+    () => filterHoldingLedgerRows({ filter: holdingFilter, query: holdingQuery, rows: ledgerRows }),
+    [holdingFilter, holdingQuery, ledgerRows],
+  );
+  const selectedLedgerRow = useMemo(
+    () => ledgerRows.find((row) => row.holding.id === selectedHolding?.id) ?? null,
+    [ledgerRows, selectedHolding?.id],
+  );
 
   useEffect(() => {
     if (!rows.length) {
@@ -295,8 +366,15 @@ export function HoldingsWorkspace({
         next.currency = "CNY";
         next.quoteSource = "eastmoney_tiantian";
       }
+      if (field === "accountId") {
+        const account = accounts.find((item) => item.id === value);
+        if (account) next.currency = account.currency;
+      }
       if (field === "assetType" && value !== "fund" && current.quoteSource === "eastmoney_tiantian") {
         next.quoteSource = "manual";
+      }
+      if (field === "currentPrice" && value !== current.currentPrice) {
+        next.quoteAsOf = todayDate();
       }
       return next;
     });
@@ -304,7 +382,7 @@ export function HoldingsWorkspace({
   };
 
   const resetDraft = () => {
-    setDraft(EMPTY_DRAFT);
+    setDraft({ ...EMPTY_DRAFT, quoteAsOf: todayDate() });
     setEditingId(null);
     setErrorMessage("");
     setStatusMessage("已清空编辑区。");
@@ -312,7 +390,7 @@ export function HoldingsWorkspace({
   };
 
   const openCreate = () => {
-    setDraft(EMPTY_DRAFT);
+    setDraft({ ...EMPTY_DRAFT, quoteAsOf: todayDate() });
     setEditingId(null);
     setErrorMessage("");
     setStatusMessage("");
@@ -340,8 +418,11 @@ export function HoldingsWorkspace({
 
   const openTrade = () => {
     const firstReal = rows.find((row) => row.role === "real" && row.assetType !== "cash") ?? rows[0];
+    const linkedOrder = latestOrderForSymbol(orders, firstReal?.symbol ?? "");
     setTradeDraft({
       ...EMPTY_TRADE_DRAFT,
+      accountId: linkedOrder?.accountId || firstReal?.accountId || "",
+      orderId: linkedOrder?.id ?? "",
       symbol: firstReal?.symbol ?? "",
       name: firstReal?.name ?? "",
       price: firstReal?.currentPrice ? String(firstReal.currentPrice) : "",
@@ -362,11 +443,17 @@ export function HoldingsWorkspace({
       const next = { ...current, [field]: value };
       if (field === "symbol") {
         const holding = normalizedHoldings.find((item) => item.symbol === value.toUpperCase());
+        next.orderId = latestOrderForSymbol(orders, value)?.id ?? "";
         if (holding) {
+          next.accountId = holding.accountId ?? next.accountId;
           next.name = holding.name;
           next.currency = holding.currency;
           next.price = holding.currentPrice ? String(holding.currentPrice) : next.price;
         }
+      }
+      if (field === "orderId") {
+        const order = orders.find((item) => item.id === value);
+        if (order?.accountId) next.accountId = order.accountId;
       }
       return next;
     });
@@ -375,7 +462,7 @@ export function HoldingsWorkspace({
 
   const submitTrade = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = createTradeFromDraft(tradeDraft);
+    const parsed = createTradeFromDraft(tradeDraft, orders);
     if (!parsed.ok) {
       setErrorMessage(parsed.message);
       setStatusMessage(parsed.message);
@@ -428,7 +515,7 @@ export function HoldingsWorkspace({
       quantity: holding.quantity > 0 ? String(holding.quantity) : "",
       costPrice: String(holding.costPrice || holding.currentPrice || ""),
       currentPrice: String(holding.currentPrice || ""),
-      notes: holding.notes.includes("升级为真实持仓") ? holding.notes : compactNote(holding.notes, "升级为真实持仓后进入交易与仓位计算。"),
+      notes: holding.notes.includes("升级为本地持仓") ? holding.notes : compactNote(holding.notes, "升级为本地持仓后进入交易与仓位计算。"),
     });
     setEditingId(holding.id);
     setFormOpen(true);
@@ -480,6 +567,7 @@ export function HoldingsWorkspace({
         assetType: "fund" as const,
         quoteSource: "eastmoney_tiantian" as const,
         currentPrice: nav === null ? holding.currentPrice : nav,
+        quoteAsOf: seed.navDate ?? holding.quoteAsOf,
         confirmedNav: seed.nav ?? holding.confirmedNav,
         confirmedNavAsOf: seed.navDate ?? holding.confirmedNavAsOf,
         fundPurchaseStatus: seed.purchaseStatus || holding.fundPurchaseStatus,
@@ -535,6 +623,7 @@ export function HoldingsWorkspace({
         assetType: "fund",
         quoteSource: "eastmoney_tiantian",
         currentPrice: nav === null ? current.currentPrice : String(nav),
+        quoteAsOf: seed.navDate ?? current.quoteAsOf,
         confirmedNav: seed.nav === null ? current.confirmedNav : String(seed.nav),
         confirmedNavAsOf: seed.navDate ?? current.confirmedNavAsOf,
         fundPurchaseStatus: seed.purchaseStatus || current.fundPurchaseStatus,
@@ -610,7 +699,14 @@ export function HoldingsWorkspace({
     >
       <div className="holdings-main-column">
         <div className="holdings-summary-grid">
-          <SummaryCard icon={<ShieldCheck aria-hidden="true" />} label="真实市值" value={stats.marketValueLabel} title="代理和观察资产不计入" />
+          <SummaryCard
+            icon={<ShieldCheck aria-hidden="true" />}
+            label="组合市值"
+            value={stats.marketValueLabel}
+            detail={positionPlan.valuation.label}
+            tone={positionPlan.valuation.severity === "block" ? "negative" : positionPlan.valuation.severity === "warn" ? "caution" : "positive"}
+            title={positionPlan.valuation.detail}
+          />
           <SummaryCard
             icon={<Layers3 aria-hidden="true" />}
             label="现金健康"
@@ -620,17 +716,10 @@ export function HoldingsWorkspace({
           />
           <SummaryCard
             icon={<Eye aria-hidden="true" />}
-            label="待处理"
-            value={`${positionPlan.actions.filter((action) => action.holdingId && action.weightDelta !== 0).length}`}
-            detail={positionPlan.summary}
-            tone={positionPlan.actions.some((action) => action.holdingId && action.weightDelta < 0) ? "negative" : positionPlan.statusTone}
-          />
-          <SummaryCard
-            icon={<ShieldCheck aria-hidden="true" />}
-            label="交易就绪"
-            value={recommendationReadiness.label}
-            detail={`${recommendationReadiness.dataQuality.label} · ${recommendationReadiness.confidenceLabel} ${recommendationReadiness.confidenceScore}/100`}
-            tone={recommendationReadiness.tone}
+            label="待复核动作"
+            value={holdingDeskSummary.reviewValue}
+            detail={holdingDeskSummary.reviewDetail}
+            tone={holdingDeskSummary.reviewTone}
           />
         </div>
 
@@ -640,7 +729,7 @@ export function HoldingsWorkspace({
               <div className="holding-card-head">
                 <div>
                   <h2 id="holdings-list-title">资产列表</h2>
-                  <p>{rows.length} 项资产 · 点击行查看执行建议</p>
+                  <p>{visibleLedgerRows.length}/{rows.length} 项本地资产 · 规则建议需复核</p>
                 </div>
                 <div className="holding-list-actions">
                   {statusMessage ? <p aria-live="polite">{statusMessage}</p> : null}
@@ -659,6 +748,33 @@ export function HoldingsWorkspace({
                 </div>
               </div>
 
+              <div className="holding-filter-bar" aria-label="资产筛选">
+                <label className="holding-search-field">
+                  <Search aria-hidden="true" />
+                  <Input
+                    value={holdingQuery}
+                    onChange={(event) => setHoldingQuery(event.target.value)}
+                    placeholder="搜索代码、名称、状态"
+                    aria-label="搜索资产"
+                  />
+                </label>
+                <div className="holding-filter-tabs" role="tablist" aria-label="资产范围" onKeyDown={handleTabListKeyDown}>
+                  {HOLDING_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={holdingFilter === filter.key}
+                      tabIndex={holdingFilter === filter.key ? 0 : -1}
+                      className={holdingFilter === filter.key ? "is-active" : undefined}
+                      onClick={() => setHoldingFilter(filter.key)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {rows.length ? (
                 <div className="holdings-asset-workbench">
                   <div className="holdings-table-wrap">
@@ -674,15 +790,9 @@ export function HoldingsWorkspace({
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.map((holding) => {
-                          const action = actionByHoldingId.get(holding.id);
-                          const decision = decisionByHoldingId.get(holding.id);
-                          const band = targetBandForHolding(holding, positionPlan.policy);
-                          const advice = applyRecommendationReadiness(
-                            holdingAdviceFor(holding, action, band, positionPlan, decision),
-                            recommendationReadiness,
-                          );
+                        {visibleLedgerRows.map(({ advice, band, holding, ledger }) => {
                           const selected = selectedHolding?.id === holding.id;
+                          const provenanceLabel = holdingProvenanceLabel(holding);
                           return (
                             <tr
                               key={holding.id}
@@ -704,7 +814,7 @@ export function HoldingsWorkspace({
                               </td>
                               <td className="holding-value-cell">
                                 <strong>{holding.marketValue > 0 ? formatCurrency(holding.marketValue, holding.currency) : "—"}</strong>
-                                <small>{holding.market} · {holdingQuoteSourceLabel(holding.quoteSource)}</small>
+                                <small>{accountNameById.get(holding.accountId ?? "") ?? "待归属"} · {holding.market} · {provenanceLabel} · {holdingQuoteSourceLabel(holding.quoteSource)}</small>
                               </td>
                               <td className="holding-weight-cell">
                                 <strong>{holding.role === "real" ? `${formatNumber(holding.weight, 1)}%` : "—"}</strong>
@@ -718,9 +828,9 @@ export function HoldingsWorkspace({
                                 <strong>{advice.amount}</strong>
                                 <small>{advice.action}</small>
                               </td>
-                              <td className={`holding-horizon-cell is-${advice.long.tone}`}>
-                                <strong>{advice.state}</strong>
-                                <small>{advice.reason}</small>
+                              <td className={`holding-horizon-cell is-${ledger.statusTone}`}>
+                                <strong>{ledger.statusLabel}</strong>
+                                <small>{ledger.adviceReason}</small>
                               </td>
                             </tr>
                           );
@@ -728,6 +838,12 @@ export function HoldingsWorkspace({
                       </tbody>
                     </table>
                   </div>
+                  {!visibleLedgerRows.length ? (
+                    <div className="holdings-empty-state is-filtered">
+                      <strong>没有匹配资产</strong>
+                      <p>换一个关键词或筛选范围。</p>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="holdings-empty-state">
@@ -747,6 +863,7 @@ export function HoldingsWorkspace({
           band={selectedHoldingBand}
           generating={profileGeneratingId === selectedHolding?.id}
           holding={selectedHolding}
+          ledger={selectedLedgerRow?.ledger ?? null}
           onDelete={deleteHolding}
           onEdit={startEdit}
           onGenerateProfile={(holding) => void generateProfileForHolding(holding)}
@@ -759,14 +876,14 @@ export function HoldingsWorkspace({
       <Dialog open={formOpen} onOpenChange={(open) => {
         if (!open) closeForm();
       }}>
-        <DialogContent className="holding-form-dialog holdings-shadcn-dialog" showCloseButton>
+        <DialogContent className="holding-form-dialog holdings-shadcn-dialog" mobileMode="modal" showCloseButton size="lg">
           <form
             className="holding-dialog-form"
             onSubmit={submitDraft}
           >
             <DialogHeader className="holding-card-head holdings-dialog-head">
               <div>
-                <DialogDescription>{editingId ? "更新资产、目标仓位与行情来源" : "录入真实持仓、代理资产或观察标的"}</DialogDescription>
+                <DialogDescription>{editingId ? "更新资产、目标仓位与行情来源" : "录入本地持仓、代理资产或观察标的"}</DialogDescription>
                 <DialogTitle id="holding-form-title">{editingId ? "编辑资产" : "添加资产"}</DialogTitle>
               </div>
               <div className="holding-dialog-actions">
@@ -777,6 +894,7 @@ export function HoldingsWorkspace({
               </div>
             </DialogHeader>
 
+            <DialogBody className="holding-dialog-body">
             <div className="holding-role-segment" role="radiogroup" aria-label="持仓角色">
               {HOLDING_ROLE_OPTIONS.map((option) => (
                 <label key={option.key} className={draft.role === option.key ? "is-active" : undefined}>
@@ -795,6 +913,20 @@ export function HoldingsWorkspace({
 
             <div className="holding-form-grid">
               <label className="is-select">
+                <span>归属账户</span>
+                <select
+                  name="holdingAccountId"
+                  value={draft.accountId}
+                  onChange={(event) => updateDraft("accountId", event.target.value)}
+                  aria-label="归属账户"
+                >
+                  <option value="">待归属</option>
+                  {accounts.filter((account) => account.status !== "archived").map((account) => (
+                    <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="is-select">
                 <span>标的类型</span>
                 <select
                   name="holdingAssetType"
@@ -803,21 +935,6 @@ export function HoldingsWorkspace({
                   aria-label="标的类型"
                 >
                   {HOLDING_ASSET_TYPE_OPTIONS.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="is-select">
-                <span>行情源</span>
-                <select
-                  name="holdingQuoteSource"
-                  value={draft.quoteSource}
-                  onChange={(event) => updateDraft("quoteSource", event.target.value)}
-                  aria-label="行情源"
-                >
-                  {HOLDING_QUOTE_SOURCE_OPTIONS.map((option) => (
                     <option key={option.key} value={option.key}>
                       {option.label}
                     </option>
@@ -845,36 +962,6 @@ export function HoldingsWorkspace({
                   autoComplete="off"
                   placeholder={draft.assetType === "fund" ? "例如 基金名称…" : "例如 半导体 ETF…"}
                 />
-              </label>
-              <label className="is-select">
-                <span>市场</span>
-                <select
-                  name="holdingMarket"
-                  value={draft.market}
-                  onChange={(event) => updateDraft("market", event.target.value)}
-                  aria-label="市场"
-                >
-                  {HOLDING_MARKET_OPTIONS.map((market) => (
-                    <option key={market} value={market}>
-                      {market}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="is-select">
-                <span>币种</span>
-                <select
-                  name="holdingCurrency"
-                  value={draft.currency}
-                  onChange={(event) => updateDraft("currency", event.target.value)}
-                  aria-label="币种"
-                >
-                  {HOLDING_CURRENCY_OPTIONS.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
-                </select>
               </label>
               <label className="is-number">
                 <span>份额 / 数量</span>
@@ -921,62 +1008,121 @@ export function HoldingsWorkspace({
                   placeholder={draft.assetType === "fund" ? "例如 2.893…" : "例如 182.3…"}
                 />
               </label>
-              <label className="is-number">
-                <span>最小仓位</span>
-                <Input
-                  name="holdingTargetMinWeight"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  max="100"
-                  step="any"
-                  value={draft.targetMinWeight}
-                  onChange={(event) => updateDraft("targetMinWeight", event.target.value)}
-                  autoComplete="off"
-                  placeholder="例如 3…"
-                />
-              </label>
-              <label className="is-number">
-                <span>目标仓位</span>
-                <Input
-                  name="holdingTargetWeight"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  max="100"
-                  step="any"
-                  value={draft.targetWeight}
-                  onChange={(event) => updateDraft("targetWeight", event.target.value)}
-                  autoComplete="off"
-                  placeholder="例如 6…"
-                />
-              </label>
-              <label className="is-number">
-                <span>最大仓位</span>
-                <Input
-                  name="holdingTargetMaxWeight"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  max="100"
-                  step="any"
-                  value={draft.targetMaxWeight}
-                  onChange={(event) => updateDraft("targetMaxWeight", event.target.value)}
-                  autoComplete="off"
-                  placeholder="例如 8…"
-                />
-              </label>
-              <label className="is-wide">
-                <span>备注</span>
-                <Textarea
-                  name="holdingNotes"
-                  value={draft.notes}
-                  onChange={(event) => updateDraft("notes", event.target.value)}
-                  autoComplete="off"
-                  placeholder={draft.assetType === "fund" ? "例如 消费主动基金，跟踪季报持仓…" : "例如 用作 AI 半导体主线真实仓位…"}
-                />
-              </label>
             </div>
+
+            <ProgressiveDisclosure className="holding-form-advanced" label="高级设置" badge="市场 / 目标带">
+              <div className="holding-form-grid is-advanced">
+                <label className="is-select">
+                  <span>行情源</span>
+                  <select
+                    name="holdingQuoteSource"
+                    value={draft.quoteSource}
+                    onChange={(event) => updateDraft("quoteSource", event.target.value)}
+                    aria-label="行情源"
+                  >
+                    {HOLDING_QUOTE_SOURCE_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>价格日期</span>
+                  <Input
+                    name="holdingQuoteAsOf"
+                    type="date"
+                    value={draft.quoteAsOf}
+                    onChange={(event) => updateDraft("quoteAsOf", event.target.value)}
+                  />
+                </label>
+                <label className="is-select">
+                  <span>市场</span>
+                  <select
+                    name="holdingMarket"
+                    value={draft.market}
+                    onChange={(event) => updateDraft("market", event.target.value)}
+                    aria-label="市场"
+                  >
+                    {HOLDING_MARKET_OPTIONS.map((market) => (
+                      <option key={market} value={market}>
+                        {market}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="is-select">
+                  <span>币种</span>
+                  <select
+                    name="holdingCurrency"
+                    value={draft.currency}
+                    onChange={(event) => updateDraft("currency", event.target.value)}
+                    aria-label="币种"
+                  >
+                    {HOLDING_CURRENCY_OPTIONS.map((currency) => (
+                      <option key={currency} value={currency}>
+                        {currency}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="is-number">
+                  <span>最小仓位</span>
+                  <Input
+                    name="holdingTargetMinWeight"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={draft.targetMinWeight}
+                    onChange={(event) => updateDraft("targetMinWeight", event.target.value)}
+                    autoComplete="off"
+                    placeholder="例如 3…"
+                  />
+                </label>
+                <label className="is-number">
+                  <span>目标仓位</span>
+                  <Input
+                    name="holdingTargetWeight"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={draft.targetWeight}
+                    onChange={(event) => updateDraft("targetWeight", event.target.value)}
+                    autoComplete="off"
+                    placeholder="例如 6…"
+                  />
+                </label>
+                <label className="is-number">
+                  <span>最大仓位</span>
+                  <Input
+                    name="holdingTargetMaxWeight"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={draft.targetMaxWeight}
+                    onChange={(event) => updateDraft("targetMaxWeight", event.target.value)}
+                    autoComplete="off"
+                    placeholder="例如 8…"
+                  />
+                </label>
+                <label className="is-wide">
+                  <span>备注</span>
+                  <Textarea
+                    name="holdingNotes"
+                    value={draft.notes}
+                    onChange={(event) => updateDraft("notes", event.target.value)}
+                    autoComplete="off"
+                    placeholder={draft.assetType === "fund" ? "例如 消费主动基金，跟踪季报持仓…" : "例如 用作 AI 半导体主线真实仓位…"}
+                  />
+                </label>
+              </div>
+            </ProgressiveDisclosure>
 
             <div className="holding-form-tools">
               <Button
@@ -991,6 +1137,7 @@ export function HoldingsWorkspace({
               </Button>
               <p>基金模式可用东方财富 / 天天基金公开资料预填名称和净值；非基金持仓保持手动维护。</p>
             </div>
+            </DialogBody>
 
             <DialogFooter className="holding-form-footer" aria-live="polite">
               <p className={errorMessage ? "is-error" : undefined}>{errorMessage || statusMessage || persistenceMessage}</p>
@@ -1006,7 +1153,7 @@ export function HoldingsWorkspace({
       <Dialog open={policyOpen} onOpenChange={(open) => {
         if (!open) closePolicy();
       }}>
-        <DialogContent className="holding-form-dialog holdings-shadcn-dialog position-policy-dialog" showCloseButton>
+        <DialogContent className="holding-form-dialog holdings-shadcn-dialog position-policy-dialog" mobileMode="sheet" showCloseButton size="md">
           <form
             className="holding-dialog-form"
             onSubmit={submitPolicy}
@@ -1024,6 +1171,7 @@ export function HoldingsWorkspace({
               </div>
             </DialogHeader>
 
+            <DialogBody className="holding-dialog-body">
             <div className="position-policy-grid">
               <label className="is-number">
                 <span>现金下限</span>
@@ -1068,6 +1216,7 @@ export function HoldingsWorkspace({
                 <small>每条建议单次最多加到组合的这个比例。</small>
               </label>
             </div>
+            </DialogBody>
 
             <DialogFooter className="holding-form-footer" aria-live="polite">
               <p className={errorMessage ? "is-error" : undefined}>{errorMessage || "规则会同时影响持仓页和组合决策页。"}</p>
@@ -1083,7 +1232,7 @@ export function HoldingsWorkspace({
       <Dialog open={tradeOpen} onOpenChange={(open) => {
         if (!open) closeTrade();
       }}>
-        <DialogContent className="holding-form-dialog holdings-shadcn-dialog trade-form-dialog" showCloseButton>
+        <DialogContent className="holding-form-dialog holdings-shadcn-dialog trade-form-dialog" mobileMode="sheet" showCloseButton size="md">
           <form
             className="holding-dialog-form"
             onSubmit={submitTrade}
@@ -1095,6 +1244,7 @@ export function HoldingsWorkspace({
               </div>
             </DialogHeader>
 
+            <DialogBody className="holding-dialog-body">
             <div className="trade-side-segment" role="radiogroup" aria-label="交易方向">
               {(["buy", "sell"] as TradeSide[]).map((side) => (
                 <label key={side} className={tradeDraft.side === side ? "is-active" : undefined}>
@@ -1111,6 +1261,20 @@ export function HoldingsWorkspace({
             </div>
 
             <div className="holding-form-grid">
+              <label className="is-select">
+                <span>归属账户</span>
+                <select
+                  name="tradeAccountId"
+                  value={tradeDraft.accountId}
+                  onChange={(event) => updateTradeDraft("accountId", event.target.value)}
+                  aria-label="成交归属账户"
+                >
+                  <option value="">待归属</option>
+                  {accounts.filter((account) => account.status !== "archived").map((account) => (
+                    <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>
+                  ))}
+                </select>
+              </label>
               <label>
                 <span>代码</span>
                 <Input
@@ -1196,6 +1360,24 @@ export function HoldingsWorkspace({
                   autoComplete="off"
                 />
               </label>
+              <label className="is-wide is-select">
+                <span>关联委托</span>
+                <select
+                  name="tradeOrderId"
+                  value={tradeDraft.orderId}
+                  onChange={(event) => updateTradeDraft("orderId", event.target.value)}
+                  aria-label="关联委托"
+                >
+                  <option value="">不关联委托</option>
+                  {orders
+                    .filter((order) => !tradeDraft.symbol || order.symbol.toUpperCase() === tradeDraft.symbol.toUpperCase())
+                    .map((order) => (
+                      <option key={order.id} value={order.id}>
+                        {order.symbol} · {order.side} · {orderStatusLabel(order.status)} · {order.id}
+                      </option>
+                    ))}
+                </select>
+              </label>
               <label className="is-wide">
                 <span>备注</span>
                 <Textarea
@@ -1207,6 +1389,7 @@ export function HoldingsWorkspace({
                 />
               </label>
             </div>
+            </DialogBody>
 
             <DialogFooter className="holding-form-footer" aria-live="polite">
               <p className={errorMessage ? "is-error" : undefined}>
@@ -1257,6 +1440,7 @@ function HoldingDetailPanel({
   band,
   generating,
   holding,
+  ledger,
   onDelete,
   onEdit,
   onGenerateProfile,
@@ -1269,6 +1453,7 @@ function HoldingDetailPanel({
   band: ReturnType<typeof targetBandForHolding> | null;
   generating: boolean;
   holding: HoldingView | null;
+  ledger: HoldingLedgerRow | null;
   onDelete: (holding: HoldingRecord) => void;
   onEdit: (holding: HoldingRecord) => void;
   onGenerateProfile: (holding: HoldingRecord) => void;
@@ -1276,7 +1461,7 @@ function HoldingDetailPanel({
   onUpgradeToReal: (holding: HoldingRecord) => void;
   positionPlan: PositionPlan;
 }) {
-  if (!holding || !advice || !band) {
+  if (!holding || !advice || !band || !ledger) {
     return (
       <Card size="sm" className="holding-detail-panel is-empty" aria-label="资产详情">
         <strong>选择资产</strong>
@@ -1288,6 +1473,9 @@ function HoldingDetailPanel({
   const targetCopy = band.target > 0 ? band.label : isCashHolding(holding) ? `>=${formatNumber(positionPlan.policy.minCashWeight, 0)}%` : "未设置";
   const pnlCopy = formatPercent(holding.pnlPct) || "等待成本";
   const canUpgrade = holding.role !== "real";
+  const quoteDate = holding.quoteAsOf || holding.confirmedNavAsOf || "日期待补";
+  const sourceLine = `${holding.market} · ${holdingAssetTypeLabel(holding.assetType)} · ${holdingProvenanceLabel(holding)} · ${holdingQuoteSourceLabel(holding.quoteSource)} · 价格 ${quoteDate}${holding.assetType === "fund" ? ` · 确认净值 ${holding.confirmedNavAsOf || "待同步"}` : ""}`;
+  const inspector = buildHoldingInspectorView({ advice, holding, ledgerRow: ledger, sourceLine });
 
   return (
     <Card size="sm" className={`holding-detail-panel is-${advice.tone}`} aria-label={`${holding.symbol} 资产详情`}>
@@ -1350,37 +1538,9 @@ function HoldingDetailPanel({
           </Tooltip>
         </div>
         <div className="holding-detail-summary">
-          <span>
-            {holding.market} · {holdingAssetTypeLabel(holding.assetType)} · {holdingQuoteSourceLabel(holding.quoteSource)}
-            {holding.assetType === "fund" ? ` · 确认净值 ${holding.confirmedNavAsOf || "待同步"}` : ""}
-          </span>
+          <span>{inspector.identityLine}</span>
         </div>
       </div>
-
-      <ProgressiveDisclosure
-        className="holding-detail-disclosure"
-        label="资产资料与策略依据"
-        badge={holding.assetType === "fund" ? "基金资料" : "查看"}
-      >
-        <div className="holding-detail-evidence">
-          {holding.assetType === "fund" ? (
-            <span>
-              <strong>交易状态</strong>
-              <em>{holding.fundPurchaseStatus || "待同步"}</em>
-            </span>
-          ) : null}
-          {holding.assetType === "fund" ? (
-            <span>
-              <strong>持仓穿透</strong>
-              <em>{holding.fundHoldingsAsOf || "待同步"} · 前 {holding.fundTopHoldings?.length ?? 0} 项</em>
-            </span>
-          ) : null}
-          <span>
-            <strong>建议依据</strong>
-            <em>{action?.detail ?? action?.reason ?? "按当前仓位规则"}</em>
-          </span>
-        </div>
-      </ProgressiveDisclosure>
 
       {canUpgrade ? (
         <div className="holding-upgrade-strip">
@@ -1418,10 +1578,35 @@ function HoldingDetailPanel({
       <HoldingBandMeter band={band} currentWeight={holding.role === "real" ? holding.weight : 0} tone={advice.tone} />
 
       <div className="holding-detail-callout">
-        <span>{advice.action}</span>
-        <strong>{advice.amount}</strong>
-        <p>{advice.reason}</p>
+        <span>{inspector.statusLabel} · {inspector.actionLabel}</span>
+        <strong>{inspector.amountLabel}</strong>
+        <p>{inspector.reason}</p>
       </div>
+
+      <ProgressiveDisclosure
+        className="holding-detail-disclosure"
+        label="资产资料与策略依据"
+        badge={holding.assetType === "fund" ? "基金资料" : "查看"}
+      >
+        <div className="holding-detail-evidence">
+          {holding.assetType === "fund" ? (
+            <span>
+              <strong>交易状态</strong>
+              <em>{holding.fundPurchaseStatus || "待同步"}</em>
+            </span>
+          ) : null}
+          {holding.assetType === "fund" ? (
+            <span>
+              <strong>持仓穿透</strong>
+              <em>{holding.fundHoldingsAsOf || "待同步"} · 前 {holding.fundTopHoldings?.length ?? 0} 项</em>
+            </span>
+          ) : null}
+          <span>
+            <strong>建议依据</strong>
+            <em>{action?.detail ?? action?.reason ?? "按当前仓位规则"}</em>
+          </span>
+        </div>
+      </ProgressiveDisclosure>
 
       <ProgressiveDisclosure className="holding-horizon-disclosure" label="分周期建议" badge="短 / 中 / 长">
         <div className="holding-horizon-grid" aria-label="短中长期建议">
@@ -1497,6 +1682,7 @@ function policyToDraft(policy: PositionPolicy): PolicyDraft {
 
 function draftFromHolding(holding: HoldingRecord): HoldingDraft {
   return {
+    accountId: holding.accountId ?? "",
     symbol: holding.symbol,
     name: holding.name,
     market: holding.market,
@@ -1507,6 +1693,7 @@ function draftFromHolding(holding: HoldingRecord): HoldingDraft {
     quantity: String(holding.quantity || ""),
     costPrice: String(holding.costPrice || ""),
     currentPrice: String(holding.currentPrice || ""),
+    quoteAsOf: holding.quoteAsOf ?? holding.confirmedNavAsOf ?? "",
     confirmedNav: String(holding.confirmedNav || ""),
     confirmedNavAsOf: holding.confirmedNavAsOf ?? "",
     fundPurchaseStatus: holding.fundPurchaseStatus ?? "",
@@ -1555,7 +1742,10 @@ function policyFromDraft(draft: PolicyDraft): { ok: true; policy: PositionPolicy
   };
 }
 
-function createTradeFromDraft(draft: TradeDraft): { ok: true; trade: TradeRecord } | { ok: false; message: string } {
+function createTradeFromDraft(
+  draft: TradeDraft,
+  orders: OrderRecord[],
+): { ok: true; trade: TradeRecord } | { ok: false; message: string } {
   const symbol = draft.symbol.trim().toUpperCase();
   const name = draft.name.trim();
   const quantity = parseDraftNumber(draft.quantity);
@@ -1563,6 +1753,7 @@ function createTradeFromDraft(draft: TradeDraft): { ok: true; trade: TradeRecord
   const fee = parseDraftNumber(draft.fee);
   const currency = draft.currency.trim().toUpperCase();
   const tradeDate = draft.tradeDate.trim();
+  const linkedOrder = orders.find((order) => order.id === draft.orderId);
 
   if (!symbol) return { ok: false, message: "请先填写交易代码。" };
   if (!name) return { ok: false, message: "请先填写交易名称。" };
@@ -1580,6 +1771,9 @@ function createTradeFromDraft(draft: TradeDraft): { ok: true; trade: TradeRecord
     ok: true,
     trade: {
       id: createTradeId(),
+      accountId: linkedOrder?.accountId || draft.accountId || undefined,
+      decisionId: linkedOrder?.decisionId || undefined,
+      orderId: linkedOrder?.id || undefined,
       symbol,
       name,
       side: draft.side,
@@ -1591,6 +1785,15 @@ function createTradeFromDraft(draft: TradeDraft): { ok: true; trade: TradeRecord
       notes: draft.notes.trim(),
     },
   };
+}
+
+function latestOrderForSymbol(orders: OrderRecord[], symbol: string) {
+  const key = symbol.trim().toUpperCase();
+  if (!key) return undefined;
+  return [...orders]
+    .filter((order) => order.symbol.trim().toUpperCase() === key)
+    .filter((order) => order.status !== "cancelled" && order.status !== "blocked" && order.status !== "error")
+    .sort((left, right) => right.updatedIso.localeCompare(left.updatedIso))[0];
 }
 
 function createHoldingFromDraft(
@@ -1614,7 +1817,7 @@ function createHoldingFromDraft(
     return { ok: false, message: "请先填写资产名称。" };
   }
   if (draft.role === "real" && (quantity <= 0 || currentPrice <= 0)) {
-    return { ok: false, message: "真实持仓需要填写大于 0 的数量和现价。" };
+    return { ok: false, message: "本地持仓需要填写大于 0 的数量和现价。" };
   }
   if ([targetMinWeight, targetWeight, targetMaxWeight].some((value) => value > 100)) {
     return { ok: false, message: "仓位区间不能超过 100%。" };
@@ -1633,6 +1836,7 @@ function createHoldingFromDraft(
     ok: true,
     holding: {
       id: editingId ?? createHoldingId(),
+      accountId: draft.accountId || undefined,
       symbol,
       name,
       market: draft.market,
@@ -1643,6 +1847,7 @@ function createHoldingFromDraft(
       quantity,
       costPrice,
       currentPrice,
+      quoteAsOf: draft.quoteAsOf || existing?.quoteAsOf || (currentPrice !== existing?.currentPrice ? todayDate() : undefined),
       confirmedNav: parseDraftNumber(draft.confirmedNav) || existing?.confirmedNav,
       confirmedNavAsOf: draft.confirmedNavAsOf || existing?.confirmedNavAsOf,
       fundPurchaseStatus: draft.fundPurchaseStatus || existing?.fundPurchaseStatus,
@@ -1663,10 +1868,10 @@ function createHoldingFromDraft(
   };
 }
 
-function summarizeHoldings(rows: HoldingView[]) {
+function summarizeHoldings(rows: HoldingView[], baseCurrency: string) {
   const realRows = rows.filter((row) => row.role === "real");
-  const totalMarketValue = realRows.reduce((sum, row) => sum + row.marketValue, 0);
-  const totalCostValue = realRows.reduce((sum, row) => sum + row.costValue, 0);
+  const totalMarketValue = realRows.reduce((sum, row) => sum + row.baseMarketValue, 0);
+  const totalCostValue = realRows.reduce((sum, row) => sum + row.baseCostValue, 0);
   const pnl = totalMarketValue - totalCostValue;
   const pnlPct = totalCostValue > 0 ? (pnl / totalCostValue) * 100 : null;
   const drift = realRows
@@ -1675,9 +1880,9 @@ function summarizeHoldings(rows: HoldingView[]) {
 
   return {
     driftLabel: drift > 0 ? `${formatNumber(drift, 1)}%` : "—",
-    marketValueLabel: formatCurrencyGroups(realRows),
+    marketValueLabel: totalMarketValue > 0 ? formatCurrency(totalMarketValue, baseCurrency) : "—",
     pnl,
-    pnlLabel: totalCostValue > 0 ? formatCurrency(pnl, dominantCurrency(realRows)) : "—",
+    pnlLabel: totalCostValue > 0 ? formatCurrency(pnl, baseCurrency) : "—",
     pnlPctLabel: pnlPct === null ? "等待成本价" : formatPercent(pnlPct),
     fundCount: rows.filter((row) => row.assetType === "fund").length,
     proxyCount: rows.filter((row) => row.role === "proxy").length,
@@ -1704,10 +1909,10 @@ function holdingAdviceFor(
   if (isCash) {
     const cash = plan.decision.cashDecision;
     const executionLabel = executionStateLabel(plan.decision.executionState);
-    const todayAmount = plan.decision.executableBudget > 0 ? signedCurrency(plan.decision.executableBudget, plan.currency, "reduce") : "¥0";
-    const shortAmount = plan.decision.triggerBudget > 0 ? signedCurrency(plan.decision.triggerBudget, plan.currency, "reduce") : "¥0";
-    const pending = cash.excessCashToUpper > 0 ? signedCurrency(cash.excessCashToUpper, plan.currency, "reduce") : "¥0";
-    const available = cash.maxSpendUntilCashMin > 0 ? signedCurrency(cash.maxSpendUntilCashMin, plan.currency, "reduce") : "¥0";
+    const todayAmount = signedPlanAmount(plan.decision.executableBudget, holding, plan, "reduce");
+    const shortAmount = signedPlanAmount(plan.decision.triggerBudget, holding, plan, "reduce");
+    const pending = signedPlanAmount(cash.excessCashToUpper, holding, plan, "reduce");
+    const available = signedPlanAmount(cash.maxSpendUntilCashMin, holding, plan, "reduce");
     return {
       action: cash.label,
       amount: todayAmount,
@@ -1733,14 +1938,14 @@ function holdingAdviceFor(
   if (decision) {
     const tone = assetDecisionTone(decision);
     const reduceIntent = decision.intent === "TRIM_OVERWEIGHT";
-    const today = decision.todayAmount > 0 ? signedCurrency(decision.todayAmount, holding.currency, reduceIntent ? "reduce" : "add") : "¥0";
-    const shortAmount = decision.triggerAmount > 0 ? signedCurrency(decision.triggerAmount, holding.currency, reduceIntent ? "reduce" : "add") : "¥0";
+    const today = signedPlanAmount(decision.todayAmount, holding, plan, reduceIntent ? "reduce" : "add");
+    const shortAmount = signedPlanAmount(decision.triggerAmount, holding, plan, reduceIntent ? "reduce" : "add");
     const midAmount = reduceIntent
       ? decision.pendingAmount > 0
-        ? signedCurrency(decision.pendingAmount, holding.currency, "reduce")
-        : "¥0"
-      : signedCurrency(decision.headroomToMid, holding.currency, "add");
-    const maxAmount = reduceIntent ? "¥0" : signedCurrency(decision.headroomToMax, holding.currency, "add");
+        ? signedPlanAmount(decision.pendingAmount, holding, plan, "reduce")
+        : formatCurrency(0, holding.currency)
+      : signedPlanAmount(decision.headroomToMid, holding, plan, "add");
+    const maxAmount = reduceIntent ? formatCurrency(0, holding.currency) : signedPlanAmount(decision.headroomToMax, holding, plan, "add");
     const state = executionStateLabel(decision.executionState);
     const intent = intentLabel(decision.intent, decision.executionState, holding.assetType);
     const reason = reasonCodesText(decision.reasonCodes);
@@ -1770,7 +1975,7 @@ function holdingAdviceFor(
     const hasTargetBand = band.target > 0;
     return {
       action: holding.role === "real" ? "今日不动" : "不计仓位",
-      amount: "¥0",
+      amount: formatCurrency(0, holding.currency),
       amountTone: "neutral",
       delta: targetLabel,
       longAmount: "—",
@@ -1781,7 +1986,7 @@ function holdingAdviceFor(
       midTone: "neutral",
       reason: holding.role === "real" ? "未触发加减仓条件" : "代理/观察资产",
       short: { label: "今日不动", detail: "0-2 周", tone: "neutral" },
-      shortAmount: "¥0",
+      shortAmount: formatCurrency(0, holding.currency),
       shortTone: "neutral",
       medium: { label: hasTargetBand ? "维持区间" : targetLabel, detail: `2-12 周 · ${targetLabel}`, tone: "neutral" },
       long: { label: hasTargetBand ? "守住目标带" : "复核配置", detail: `3-12 个月 · ${targetLabel}`, tone: "neutral" },
@@ -1796,7 +2001,15 @@ function holdingAdviceFor(
   const delta = action.weightLabel !== "—" ? action.weightLabel : targetLabel;
   const isAdd = action.weightDelta > 0 && action.amount > 0;
   const isReduce = action.weightDelta < 0;
-  const amount = action.amount > 0 ? signedCurrency(action.amount, holding.currency, isReduce ? "reduce" : "add") : "¥0";
+  const settlementAmount = action.settlementAmount ?? convertCurrency(
+    action.amount,
+    plan.currency,
+    holding.currency,
+    plan.valuation.settings,
+  ) ?? 0;
+  const amount = action.amount > 0
+    ? signedCurrency(settlementAmount, action.settlementCurrency ?? holding.currency, isReduce ? "reduce" : "add")
+    : formatCurrency(0, holding.currency);
   const isPaused = action.action === "暂停定投" || action.action === "预算不足" || action.action === "补现金后加";
   const isHold = action.action === "继续持有";
   const pausedShortLabel =
@@ -1879,6 +2092,19 @@ function applyRecommendationReadiness(advice: HoldingAdviceView, readiness: Reco
   };
 }
 
+function holdingProvenanceLabel(holding: HoldingRecord) {
+  const evidenceText = `${holding.id} ${holding.notes}`;
+  if (/requested-|研究版目标带|整体效果预览|本地持仓补充生成|请求补充/u.test(evidenceText)) {
+    return "研究预览";
+  }
+  if (holding.assetType === "fund" && holding.quoteSource === "eastmoney_tiantian" && !holding.confirmedNavAsOf) {
+    return "净值待同步";
+  }
+  if (holding.quoteSource === "manual") return "手动维护";
+  if (holding.quoteSource === "csv") return "离线导入";
+  return "本地记录";
+}
+
 function isAdditiveAdvice(action: string) {
   return /买入|申购|定投|加仓|部署|补中位|补现金后加/u.test(action);
 }
@@ -1886,7 +2112,7 @@ function isAdditiveAdvice(action: string) {
 function executionStateLabel(state: ExecutionState) {
   switch (state) {
     case "EXECUTABLE":
-      return "可执行";
+      return "可建票";
     case "BLOCKED_BY_PROFILE":
       return "配置阻断";
     case "BLOCKED_BY_RISK":
@@ -1966,23 +2192,25 @@ function reasonCodesText(codes: ReasonCode[]) {
   return compactTableText(text.slice(0, 3).join(" / "));
 }
 
-function toHoldingView(holding: HoldingRecord, realTotal: number): HoldingView {
+function toHoldingView(
+  holding: HoldingRecord,
+  realTotal: number,
+  valuation: PositionPlan["valuation"]["settings"],
+): HoldingView {
   const marketValue = valueOf(holding);
   const costValue = holding.quantity * holding.costPrice;
+  const baseMarketValue = holdingMarketValueInBase(holding, valuation) ?? 0;
+  const baseCostValue = holdingCostValueInBase(holding, valuation) ?? 0;
   const pnl = marketValue - costValue;
   const pnlPct = costValue > 0 ? (pnl / costValue) * 100 : null;
-  const weight = holding.role === "real" && realTotal > 0 ? (marketValue / realTotal) * 100 : 0;
+  const weight = holding.role === "real" && realTotal > 0 ? (baseMarketValue / realTotal) * 100 : 0;
   const drift = holding.role === "real" && holding.targetWeight > 0 ? weight - holding.targetWeight : null;
 
-  return { ...holding, costValue, drift, marketValue, pnl, pnlPct, weight };
+  return { ...holding, baseCostValue, baseMarketValue, costValue, drift, marketValue, pnl, pnlPct, weight };
 }
 
 function valueOf(holding: HoldingRecord) {
   return holding.quantity * holding.currentPrice;
-}
-
-function dominantCurrency(rows: HoldingRecord[]) {
-  return rows[0]?.currency || "CNY";
 }
 
 function fundSeedNote(manager: string, issuer: string, sourceName: string) {
@@ -1998,17 +2226,6 @@ function compactTableText(value: string) {
   const text = value.replace(/\s+/g, " ").trim();
   if (!text) return "—";
   return text.length > 24 ? `${text.slice(0, 24)}…` : text;
-}
-
-function formatCurrencyGroups(rows: HoldingView[]) {
-  if (!rows.length) return "—";
-  const totals = rows.reduce<Record<string, number>>((acc, row) => {
-    acc[row.currency] = (acc[row.currency] ?? 0) + row.marketValue;
-    return acc;
-  }, {});
-  return Object.entries(totals)
-    .map(([currency, value]) => formatCurrency(value, currency))
-    .join(" / ");
 }
 
 function parseDraftNumber(value: string) {
@@ -2051,6 +2268,16 @@ function signedCurrency(value: number, currency: string, direction: "add" | "red
   if (!Number.isFinite(value) || Math.abs(value) < 0.005) return formatCurrency(0, currency);
   const prefix = direction === "reduce" ? "-" : "+";
   return `${prefix}${formatCurrency(Math.abs(value), currency)}`;
+}
+
+function signedPlanAmount(
+  baseAmount: number,
+  holding: HoldingRecord,
+  plan: PositionPlan,
+  direction: "add" | "reduce",
+) {
+  const amount = convertCurrency(baseAmount, plan.currency, holding.currency, plan.valuation.settings) ?? 0;
+  return signedCurrency(amount, holding.currency, direction);
 }
 
 function createHoldingId() {

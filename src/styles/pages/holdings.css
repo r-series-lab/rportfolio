@@ -51,7 +51,7 @@ html[data-rportfolio-style] .holdings-main-column {
 html[data-rportfolio-style] .holdings-summary-grid {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -202,6 +202,75 @@ html[data-rportfolio-style] .holding-list-actions > p {
   white-space: nowrap;
 }
 
+html[data-rportfolio-style] .holding-filter-bar {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.86fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--holdings-line);
+  background: color-mix(in srgb, var(--holdings-panel) 72%, transparent);
+}
+
+html[data-rportfolio-style] .holding-search-field {
+  min-width: 0;
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--holdings-line);
+  border-radius: var(--holdings-control-radius);
+  background: var(--holdings-row);
+}
+
+html[data-rportfolio-style] .holding-search-field svg {
+  width: 15px;
+  height: 15px;
+  color: var(--rp-ink-muted);
+}
+
+html[data-rportfolio-style] .holding-search-field input[data-slot="input"] {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--rp-ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.72rem;
+}
+
+html[data-rportfolio-style] .holding-filter-tabs {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+html[data-rportfolio-style] .holding-filter-tabs button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--holdings-line);
+  border-radius: var(--holdings-control-radius);
+  color: var(--rp-ink-muted);
+  background: var(--holdings-row);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+html[data-rportfolio-style] .holding-filter-tabs button.is-active {
+  color: var(--rp-ink);
+  border-color: var(--rp-accent-border);
+  background: var(--rp-accent-soft);
+}
+
 html[data-rportfolio-style] .holding-toolbar-button[data-slot="button"] {
   min-width: 0;
   border-color: var(--holdings-line);
@@ -231,7 +300,7 @@ html[data-rportfolio-style] .holdings-table-wrap {
 
 html[data-rportfolio-style] .holdings-table-wrap {
   height: 100%;
-  max-height: calc(100dvh - 242px);
+  max-height: calc(100dvh - 286px);
   overflow: hidden auto;
   scrollbar-gutter: stable;
 }
@@ -313,6 +382,13 @@ html[data-rportfolio-style] .holding-name-cell {
   width: 28%;
 }
 
+html[data-rportfolio-style] .holding-name-cell span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
 html[data-rportfolio-style] .holding-value-cell {
   width: 16%;
 }
@@ -331,6 +407,32 @@ html[data-rportfolio-style] .holding-amount-cell {
 
 html[data-rportfolio-style] .holding-horizon-cell {
   width: 19%;
+}
+
+html[data-rportfolio-style] .holding-value-cell,
+html[data-rportfolio-style] .holding-weight-cell,
+html[data-rportfolio-style] .holding-pnl-cell,
+html[data-rportfolio-style] .holding-amount-cell {
+  text-align: right;
+}
+
+html[data-rportfolio-style] .holdings-table th:nth-child(2),
+html[data-rportfolio-style] .holdings-table th:nth-child(3),
+html[data-rportfolio-style] .holdings-table th:nth-child(4),
+html[data-rportfolio-style] .holdings-table th:nth-child(5) {
+  text-align: right;
+}
+
+html[data-rportfolio-style] .holding-horizon-cell strong {
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid var(--holdings-line);
+  border-radius: 999px;
+  background: var(--holdings-row);
+  font-size: 0.66rem;
+  text-align: center;
 }
 
 html[data-rportfolio-style] .holding-pnl-cell.is-positive strong,
@@ -367,6 +469,11 @@ html[data-rportfolio-style] .holdings-empty-state strong {
 html[data-rportfolio-style] .holdings-empty-state p {
   margin: 0;
   font-size: 0.74rem;
+}
+
+html[data-rportfolio-style] .holdings-empty-state.is-filtered {
+  min-height: 168px;
+  border-top: 1px solid var(--holdings-line);
 }
 
 html[data-rportfolio-style] .holdings-detail-rail.workspace-inspector-rail {
@@ -464,6 +571,13 @@ html[data-rportfolio-style] .holding-detail-summary span {
   white-space: nowrap;
 }
 
+html[data-rportfolio-style] .holding-detail-identity p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
 html[data-rportfolio-style] .holding-detail-actions {
   display: flex;
   align-items: start;
@@ -479,6 +593,14 @@ html[data-rportfolio-style] .holding-detail-actions [data-slot="button"] {
 html[data-rportfolio-style] .holding-detail-summary {
   grid-column: 1 / -1;
   min-width: 0;
+}
+
+html[data-rportfolio-style] .holding-detail-summary span {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 html[data-rportfolio-style] .holding-upgrade-strip,
@@ -645,8 +767,31 @@ html[data-rportfolio-style] .holding-form-dialog {
 
 html[data-rportfolio-style] .holding-dialog-form {
   min-width: 0;
+  min-height: 0;
+  max-height: inherit;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .holding-dialog-body {
+  padding: 12px 14px !important;
+  display: grid;
+  align-content: start;
   gap: 12px;
+}
+
+html[data-rportfolio-style] .holding-dialog-body > .holding-role-segment,
+html[data-rportfolio-style] .holding-dialog-body > .trade-side-segment,
+html[data-rportfolio-style] .holding-dialog-body > .holding-form-grid,
+html[data-rportfolio-style] .holding-dialog-body > .position-policy-grid,
+html[data-rportfolio-style] .holding-dialog-body > .holding-form-tools {
+  padding: 0;
+}
+
+html[data-rportfolio-style] .holding-dialog-body > .holding-form-advanced {
+  margin: 0;
 }
 
 html[data-rportfolio-style] .holding-role-segment,
@@ -722,6 +867,28 @@ html[data-rportfolio-style] .position-policy-grid label {
 
 html[data-rportfolio-style] .holding-form-grid label.is-wide {
   grid-column: 1 / -1;
+}
+
+html[data-rportfolio-style] .holding-form-advanced {
+  margin: 0 14px;
+  border-top-color: var(--holdings-line);
+}
+
+html[data-rportfolio-style] .holding-form-advanced > summary {
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--holdings-line);
+  border-radius: var(--holdings-control-radius);
+  color: var(--rp-ink-muted);
+  background: var(--holdings-row);
+}
+
+html[data-rportfolio-style] .holding-form-advanced .progressive-disclosure-content {
+  padding: 9px 0 0;
+}
+
+html[data-rportfolio-style] .holding-form-grid.is-advanced {
+  padding: 0;
 }
 
 html[data-rportfolio-style] .holding-form-grid label > span,
@@ -962,6 +1129,7 @@ html[data-rportfolio-style] .holding-detail-panel[data-slot="card"] {
 }
 
 html[data-rportfolio-style] .holding-toolbar-button[data-slot="button"],
+html[data-rportfolio-style] .holding-filter-tabs button,
 html[data-rportfolio-style] .holding-detail-actions [data-slot="button"],
 html[data-rportfolio-style] .primary-action-button[data-slot="button"] {
   border-color: var(--holdings-line) !important;
@@ -973,6 +1141,7 @@ html[data-rportfolio-style] .primary-action-button[data-slot="button"] {
 }
 
 html[data-rportfolio-style] .holding-toolbar-button[data-slot="button"]:hover,
+html[data-rportfolio-style] .holding-filter-tabs button:hover,
 html[data-rportfolio-style] .holding-detail-actions [data-slot="button"]:hover {
   border-color: var(--holdings-line-strong) !important;
   color: var(--rp-ink) !important;
@@ -990,6 +1159,7 @@ html[data-rportfolio-style] .primary-action-button[data-slot="button"] {
 }
 
 html[data-rportfolio-style] .holding-card-head,
+html[data-rportfolio-style] .holding-filter-bar,
 html[data-rportfolio-style] .holdings-table th,
 html[data-rportfolio-style] .holding-detail-head,
 html[data-rportfolio-style] .holding-form-footer {
@@ -1020,6 +1190,8 @@ html[data-rportfolio-style] .holding-horizon-grid article,
 html[data-rportfolio-style] .holding-detail-evidence > span,
 html[data-rportfolio-style] .holding-role-segment label,
 html[data-rportfolio-style] .trade-side-segment label,
+html[data-rportfolio-style] .holding-search-field,
+html[data-rportfolio-style] .holding-form-advanced > summary,
 html[data-rportfolio-style] .holdings-import-preview,
 html[data-rportfolio-style] .holdings-import-analysis,
 html[data-rportfolio-style] .holdings-import-preview dl div,
@@ -1080,6 +1252,18 @@ html[data-rportfolio-style] .position-policy-grid [data-slot="input"]:focus {
     gap: 7px;
   }
 
+  html[data-rportfolio-style] .holding-filter-bar {
+    grid-template-columns: minmax(220px, 0.76fr) auto;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  html[data-rportfolio-style] .holding-filter-tabs button {
+    min-height: 28px;
+    padding-inline: 7px;
+    font-size: 0.64rem;
+  }
+
   html[data-rportfolio-style] .holdings-summary-card[data-slot="card"] {
     min-height: 76px;
     gap: 6px;
@@ -1110,7 +1294,7 @@ html[data-rportfolio-style] .position-policy-grid [data-slot="input"]:focus {
   }
 
   html[data-rportfolio-style] .holdings-table-wrap {
-    max-height: calc(100dvh - 218px);
+    max-height: calc(100dvh - 252px);
   }
 
   html[data-rportfolio-style] .holdings-table th,
@@ -1242,6 +1426,7 @@ html[data-rportfolio-style] .position-policy-grid [data-slot="input"]:focus {
 
   html[data-rportfolio-style] .holdings-summary-grid,
   html[data-rportfolio-style] .holding-card-head,
+  html[data-rportfolio-style] .holding-filter-bar,
   html[data-rportfolio-style] .holding-detail-head,
   html[data-rportfolio-style] .holding-form-grid,
   html[data-rportfolio-style] .position-policy-grid,
@@ -1252,6 +1437,7 @@ html[data-rportfolio-style] .position-policy-grid [data-slot="input"]:focus {
   }
 
   html[data-rportfolio-style] .holding-list-actions,
+  html[data-rportfolio-style] .holding-filter-tabs,
   html[data-rportfolio-style] .holding-detail-actions {
     justify-content: start;
     flex-wrap: wrap;

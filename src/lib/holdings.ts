@@ -22,6 +22,7 @@ export type FundRedemptionFeeTier = {
 
 export type HoldingRecord = {
   id: string;
+  accountId?: string;
   symbol: string;
   name: string;
   market: string;
@@ -33,6 +34,7 @@ export type HoldingRecord = {
   quantity: number;
   costPrice: number;
   currentPrice: number;
+  quoteAsOf?: string;
   confirmedNav?: number;
   confirmedNavAsOf?: string;
   fundPurchaseStatus?: string;
@@ -51,13 +53,13 @@ export type HoldingRecord = {
 };
 
 export const HOLDING_ROLE_OPTIONS: Array<{ key: HoldingRole; label: string; detail: string }> = [
-  { key: "real", label: "真实持仓", detail: "计入账户市值与权重" },
+  { key: "real", label: "本地持仓", detail: "计入本地账本市值与权重" },
   { key: "proxy", label: "代理资产", detail: "用于跟踪替代暴露" },
   { key: "watch", label: "观察资产", detail: "只观察，不进仓位" },
 ];
 
-export const HOLDING_MARKET_OPTIONS = ["US", "CN", "HK", "Global"];
-export const HOLDING_CURRENCY_OPTIONS = ["USD", "CNY", "HKD"];
+export const HOLDING_MARKET_OPTIONS = ["CN", "US", "Global"];
+export const HOLDING_CURRENCY_OPTIONS = ["CNY", "USD"];
 export const HOLDING_ASSET_TYPE_OPTIONS: Array<{ key: HoldingAssetType; label: string; detail: string }> = [
   { key: "stock", label: "股票", detail: "个股仓位" },
   { key: "etf", label: "ETF", detail: "指数/主题基金" },
@@ -89,6 +91,7 @@ export function isHoldingRecord(value: unknown): value is HoldingRecord {
   const item = value as Partial<HoldingRecord>;
   return (
     typeof item.id === "string" &&
+    (item.accountId === undefined || typeof item.accountId === "string") &&
     typeof item.symbol === "string" &&
     typeof item.name === "string" &&
     typeof item.market === "string" &&

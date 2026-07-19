@@ -1,0 +1,313 @@
+html[data-rportfolio-style] .portfolio-workspace {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .portfolio-workspace-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rp-line);
+  background: var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .portfolio-workspace-head > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 3px 10px;
+}
+
+html[data-rportfolio-style] .portfolio-workspace-head > div > span,
+html[data-rportfolio-style] .portfolio-workspace-head small,
+html[data-rportfolio-style] .portfolio-section-head span,
+html[data-rportfolio-style] .portfolio-account-row span,
+html[data-rportfolio-style] .portfolio-account-row small {
+  color: var(--rp-ink-muted);
+  font-size: 0.7rem;
+}
+
+html[data-rportfolio-style] .portfolio-workspace-head > div > strong {
+  color: var(--rp-ink);
+  font-size: 0.86rem;
+}
+
+html[data-rportfolio-style] .portfolio-workspace-head small {
+  grid-column: 1 / -1;
+}
+
+html[data-rportfolio-style] .portfolio-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rp-line);
+  border-radius: 8px;
+  background: var(--rp-surface-soft);
+}
+
+html[data-rportfolio-style] .portfolio-tabs button {
+  min-width: 58px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--rp-ink-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+html[data-rportfolio-style] .portfolio-tabs button.is-active {
+  color: var(--rp-ink);
+  background: var(--rp-surface-raised);
+  box-shadow: 0 1px 5px rgba(22, 35, 51, 0.08);
+}
+
+html[data-rportfolio-style] .portfolio-account-page,
+html[data-rportfolio-style] .portfolio-reconcile-page,
+html[data-rportfolio-style] .portfolio-data-page {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+html[data-rportfolio-style] .portfolio-holdings-slot {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+html[data-rportfolio-style] .portfolio-import-slot {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+html[data-rportfolio-style] .portfolio-cash-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--rp-line);
+  background: var(--rp-surface-soft);
+}
+
+html[data-rportfolio-style] .portfolio-metric {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 13px 14px;
+  border-right: 1px solid var(--rp-line);
+}
+
+html[data-rportfolio-style] .portfolio-metric:last-child { border-right: 0; }
+html[data-rportfolio-style] .portfolio-metric span { color: var(--rp-ink-muted); font-size: 0.7rem; }
+html[data-rportfolio-style] .portfolio-metric strong { overflow-wrap: anywhere; color: var(--rp-ink); font-size: 1rem; }
+html[data-rportfolio-style] .portfolio-metric.is-caution strong { color: var(--rp-warning); }
+
+html[data-rportfolio-style] .portfolio-section-head,
+html[data-rportfolio-style] .portfolio-data-toolbar,
+html[data-rportfolio-style] .portfolio-reconcile-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 8px 0;
+}
+
+html[data-rportfolio-style] .portfolio-section-head > div,
+html[data-rportfolio-style] .portfolio-data-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .portfolio-section-head > div > strong,
+html[data-rportfolio-style] .portfolio-data-toolbar strong { color: var(--rp-ink); font-size: 0.82rem; }
+
+html[data-rportfolio-style] .portfolio-account-list,
+html[data-rportfolio-style] .portfolio-backup-list {
+  display: grid;
+  gap: 7px;
+}
+
+html[data-rportfolio-style] .portfolio-account-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(360px, 1.5fr) minmax(110px, auto) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--rp-line);
+  border-radius: 8px;
+  background: var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .portfolio-account-row.is-archived { opacity: 0.62; }
+
+html[data-rportfolio-style] .portfolio-account-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+html[data-rportfolio-style] .portfolio-account-identity i {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  color: var(--rp-accent);
+  background: color-mix(in srgb, var(--rp-accent) 10%, transparent);
+  font-style: normal;
+  font-weight: 820;
+}
+
+html[data-rportfolio-style] .portfolio-account-identity > div,
+html[data-rportfolio-style] .portfolio-account-state { min-width: 0; display: grid; gap: 3px; }
+html[data-rportfolio-style] .portfolio-account-identity strong { overflow-wrap: anywhere; color: var(--rp-ink); font-size: 0.8rem; }
+
+html[data-rportfolio-style] .portfolio-account-row dl {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+html[data-rportfolio-style] .portfolio-account-row dl > div { min-width: 0; display: grid; gap: 3px; }
+html[data-rportfolio-style] .portfolio-account-row dt { color: var(--rp-ink-muted); font-size: 0.64rem; }
+html[data-rportfolio-style] .portfolio-account-row dd { margin: 0; overflow-wrap: anywhere; color: var(--rp-ink); font-size: 0.75rem; font-weight: 720; }
+html[data-rportfolio-style] .portfolio-row-actions { display: flex; gap: 2px; }
+
+html[data-rportfolio-style] .portfolio-empty-state {
+  min-height: 150px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5px;
+  color: var(--rp-ink-muted);
+  text-align: center;
+}
+html[data-rportfolio-style] .portfolio-empty-state strong { color: var(--rp-ink); font-size: 0.84rem; }
+html[data-rportfolio-style] .portfolio-empty-state span { font-size: 0.72rem; }
+
+html[data-rportfolio-style] .portfolio-inline-warning,
+html[data-rportfolio-style] .portfolio-data-message,
+html[data-rportfolio-style] .portfolio-dialog-error {
+  margin: 10px 0 0;
+  color: var(--rp-warning);
+  font-size: 0.72rem;
+}
+
+html[data-rportfolio-style] .portfolio-reconcile-summary {
+  margin: 0;
+  border-bottom: 1px solid var(--rp-line);
+}
+
+html[data-rportfolio-style] .portfolio-reconcile-summary > div { display: grid; gap: 3px; }
+html[data-rportfolio-style] .portfolio-reconcile-summary span { color: var(--rp-ink-muted); font-size: 0.67rem; }
+html[data-rportfolio-style] .portfolio-reconcile-summary strong { color: var(--rp-ink); font-size: 1rem; }
+
+html[data-rportfolio-style] .portfolio-reconcile-table { margin-top: 12px; border: 1px solid var(--rp-line); border-radius: 8px; overflow: hidden; }
+html[data-rportfolio-style] .portfolio-reconcile-table-head,
+html[data-rportfolio-style] .portfolio-reconcile-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(90px, 0.7fr)) minmax(80px, 0.5fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+}
+html[data-rportfolio-style] .portfolio-reconcile-table-head { color: var(--rp-ink-muted); background: var(--rp-surface-soft); font-size: 0.66rem; font-weight: 720; }
+html[data-rportfolio-style] .portfolio-reconcile-row { border-top: 1px solid var(--rp-line); color: var(--rp-ink-secondary); font-size: 0.73rem; }
+html[data-rportfolio-style] .portfolio-reconcile-row > div { min-width: 0; display: grid; gap: 2px; }
+html[data-rportfolio-style] .portfolio-reconcile-row strong { color: var(--rp-ink); }
+html[data-rportfolio-style] .portfolio-reconcile-row > div span { overflow-wrap: anywhere; color: var(--rp-ink-muted); font-size: 0.66rem; }
+html[data-rportfolio-style] .portfolio-reconcile-row em { color: var(--tone-color, var(--rp-ink-muted)); font-style: normal; font-weight: 760; }
+
+html[data-rportfolio-style] .portfolio-data-toolbar { margin: 0; border-bottom: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .portfolio-data-toolbar svg { width: 17px; color: var(--rp-success); }
+html[data-rportfolio-style] .portfolio-data-toolbar > div > div { display: grid; gap: 2px; }
+html[data-rportfolio-style] .portfolio-data-toolbar span { color: var(--rp-ink-muted); font-size: 0.7rem; }
+html[data-rportfolio-style] .portfolio-data-actions { display: flex; gap: 6px; }
+
+html[data-rportfolio-style] .portfolio-diagnostic-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+html[data-rportfolio-style] .portfolio-diagnostic-grid article { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--rp-line); border-left: 3px solid var(--tone-color); border-radius: 8px; background: var(--rp-surface-raised); }
+html[data-rportfolio-style] .portfolio-diagnostic-grid strong { color: var(--rp-ink); font-size: 0.76rem; }
+html[data-rportfolio-style] .portfolio-diagnostic-grid span,
+html[data-rportfolio-style] .portfolio-diagnostic-grid small { color: var(--rp-ink-muted); font-size: 0.65rem; }
+
+html[data-rportfolio-style] .portfolio-backup-list article {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(130px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--rp-line);
+  border-radius: 8px;
+  background: var(--rp-surface-raised);
+}
+html[data-rportfolio-style] .portfolio-backup-list article > div { display: grid; gap: 2px; }
+html[data-rportfolio-style] .portfolio-backup-list strong { color: var(--rp-ink); font-size: 0.75rem; }
+html[data-rportfolio-style] .portfolio-backup-list span { color: var(--rp-ink-muted); font-size: 0.67rem; }
+
+html[data-rportfolio-style] .portfolio-account-dialog { width: min(620px, calc(100vw - 24px)); max-width: 620px; }
+html[data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-body"] { display: grid; align-content: start; }
+html[data-rportfolio-style] .portfolio-account-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html[data-rportfolio-style] .portfolio-account-form label { min-width: 0; display: grid; gap: 6px; color: var(--rp-ink-muted); font-size: 0.72rem; font-weight: 680; }
+html[data-rportfolio-style] .portfolio-account-form label.is-wide { grid-column: 1 / -1; }
+html[data-rportfolio-style] .portfolio-account-form select { width: 100%; padding: 0 9px; font: inherit; }
+html[data-rportfolio-style] .portfolio-dialog-error { margin: 12px 0 0; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--rp-danger) 28%, transparent); border-radius: 8px; color: var(--rp-danger); background: color-mix(in srgb, var(--rp-danger) 7%, transparent); font-size: 0.72rem; }
+
+@media (max-width: 900px) {
+  html[data-rportfolio-style] .portfolio-workspace-head { align-items: flex-start; flex-direction: column; gap: 8px; }
+  html[data-rportfolio-style] .portfolio-tabs { width: 100%; }
+  html[data-rportfolio-style] .portfolio-tabs button { flex: 1; min-width: 0; }
+  html[data-rportfolio-style] .portfolio-cash-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .portfolio-metric:nth-child(2) { border-right: 0; }
+  html[data-rportfolio-style] .portfolio-metric:nth-child(-n + 2) { border-bottom: 1px solid var(--rp-line); }
+  html[data-rportfolio-style] .portfolio-account-row { grid-template-columns: minmax(0, 1fr) auto; }
+  html[data-rportfolio-style] .portfolio-account-row dl { grid-column: 1 / -1; grid-row: 2; }
+  html[data-rportfolio-style] .portfolio-account-state { grid-column: 1; grid-row: 3; }
+  html[data-rportfolio-style] .portfolio-row-actions { grid-column: 2; grid-row: 1; }
+  html[data-rportfolio-style] .portfolio-diagnostic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .portfolio-reconcile-table { overflow-x: auto; }
+  html[data-rportfolio-style] .portfolio-reconcile-table-head,
+  html[data-rportfolio-style] .portfolio-reconcile-row { min-width: 690px; }
+  html[data-rportfolio-style] .portfolio-holdings-slot { overflow: auto; }
+}
+
+@media (max-width: 560px) {
+  html[data-rportfolio-style] .portfolio-account-page,
+  html[data-rportfolio-style] .portfolio-reconcile-page,
+  html[data-rportfolio-style] .portfolio-data-page { padding: 10px; }
+  html[data-rportfolio-style] .portfolio-account-row dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .portfolio-reconcile-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .portfolio-reconcile-summary button { grid-column: 1 / -1; }
+  html[data-rportfolio-style] .portfolio-diagnostic-grid { grid-template-columns: 1fr; }
+  html[data-rportfolio-style] .portfolio-backup-list article { grid-template-columns: 1fr auto; }
+  html[data-rportfolio-style] .portfolio-backup-list article > span { grid-column: 1; }
+  html[data-rportfolio-style] .portfolio-backup-list article button { grid-column: 2; grid-row: 1 / span 2; }
+  html[data-rportfolio-style] .portfolio-account-form { grid-template-columns: 1fr; }
+  html[data-rportfolio-style] .portfolio-account-form label.is-wide { grid-column: auto; }
+  html[data-rportfolio-style] .portfolio-account-form label { font-size: 0.78rem; }
+  html[data-rportfolio-style] .portfolio-metric { padding: 10px 9px; }
+  html[data-rportfolio-style] .portfolio-metric strong { font-size: 0.8rem; white-space: nowrap; }
+  html[data-rportfolio-style] .portfolio-section-head { gap: 7px; }
+  html[data-rportfolio-style] .portfolio-section-head > div { display: grid; gap: 1px; }
+  html[data-rportfolio-style] .portfolio-account-row { gap: 9px; padding: 10px; }
+  html[data-rportfolio-style] .portfolio-account-identity { gap: 7px; }
+  html[data-rportfolio-style] .portfolio-account-identity strong { font-size: 0.75rem; }
+}

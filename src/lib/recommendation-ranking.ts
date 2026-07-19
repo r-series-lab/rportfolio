@@ -61,7 +61,7 @@ function rankRecommendation({
   strategyScore: StrategyScore;
 }): RankedRecommendation {
   const sell = order.side.toUpperCase() === "SELL";
-  const allowed = sell ? readiness.canExecute : readiness.canIncreaseRisk;
+  const allowed = sell ? readiness.canReduceRisk : readiness.canIncreaseRisk;
   const blocked = order.state === "已阻断" || !allowed || Boolean(guard?.blocked);
   const deviation = Math.abs(action?.weightDelta ?? parseWeight(order.weight));
   const deviationScore = Math.min(100, (deviation / 5) * 100);

@@ -1,0 +1,192 @@
+html[data-rportfolio-style] .review-workspace {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .review-workspace-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rp-line);
+  background: var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .review-workspace-head > div { min-width: 0; display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 3px 10px; }
+html[data-rportfolio-style] .review-workspace-head > div > span,
+html[data-rportfolio-style] .review-workspace-head small { color: var(--rp-ink-muted); font-size: 0.7rem; }
+html[data-rportfolio-style] .review-workspace-head > div > strong { color: var(--rp-ink); font-size: 0.86rem; }
+html[data-rportfolio-style] .review-workspace-head small { grid-column: 1 / -1; }
+
+html[data-rportfolio-style] .review-tabs { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--rp-line); border-radius: 8px; background: var(--rp-surface-soft); }
+html[data-rportfolio-style] .review-tabs button { min-width: 68px; height: 28px; border: 0; border-radius: 6px; color: var(--rp-ink-muted); background: transparent; font: inherit; font-size: 0.74rem; font-weight: 720; cursor: pointer; }
+html[data-rportfolio-style] .review-tabs button.is-active { color: var(--rp-ink); background: var(--rp-surface-raised); box-shadow: 0 1px 5px rgba(22, 35, 51, 0.08); }
+
+html[data-rportfolio-style] .review-page { min-width: 0; min-height: 0; overflow: auto; padding: 14px; }
+html[data-rportfolio-style] .review-command-bar,
+html[data-rportfolio-style] .review-cash-summary { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 7px 10px; border-block: 1px solid var(--rp-line); background: var(--rp-surface-soft); }
+html[data-rportfolio-style] .review-command-bar > div { display: flex; align-items: center; gap: 8px; }
+html[data-rportfolio-style] .review-command-bar label { color: var(--rp-ink-muted); font-size: 0.68rem; font-weight: 720; }
+html[data-rportfolio-style] .review-command-bar input { width: 142px; height: 31px; }
+html[data-rportfolio-style] .review-command-bar > span { flex: 1; color: var(--rp-ink-muted); font-size: 0.7rem; }
+html[data-rportfolio-style] .review-inline-message,
+html[data-rportfolio-style] .review-inline-warning { margin: 9px 0 0; color: var(--rp-ink-muted); font-size: 0.72rem; }
+html[data-rportfolio-style] .review-inline-warning { color: var(--rp-warning); }
+
+html[data-rportfolio-style] .review-close-readiness { --close-color: var(--rp-danger); margin-top: 10px; border: 1px solid var(--rp-line); border-left: 3px solid var(--close-color); border-radius: 8px; overflow: hidden; background: var(--rp-surface-raised); }
+html[data-rportfolio-style] .review-close-readiness.is-ready,
+html[data-rportfolio-style] .review-close-readiness.is-captured { --close-color: var(--rp-success); }
+html[data-rportfolio-style] .review-close-readiness.is-warning { --close-color: var(--rp-warning); }
+html[data-rportfolio-style] .review-close-readiness > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border-bottom: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .review-close-readiness > header > div { min-width: 0; display: grid; gap: 2px; }
+html[data-rportfolio-style] .review-close-readiness > header strong { color: var(--rp-ink); font-size: 0.76rem; }
+html[data-rportfolio-style] .review-close-readiness > header span { overflow-wrap: anywhere; color: var(--rp-ink-muted); font-size: 0.65rem; }
+html[data-rportfolio-style] .review-close-readiness > header em { flex: 0 0 auto; color: var(--close-color); font-size: 0.68rem; font-style: normal; font-weight: 740; }
+html[data-rportfolio-style] .review-close-readiness > div { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html[data-rportfolio-style] .review-close-readiness article { --check-color: var(--rp-danger); min-width: 0; display: grid; gap: 3px; padding: 9px 10px; border-right: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .review-close-readiness article:last-child { border-right: 0; }
+html[data-rportfolio-style] .review-close-readiness article.is-pass { --check-color: var(--rp-success); }
+html[data-rportfolio-style] .review-close-readiness article.is-warning { --check-color: var(--rp-warning); }
+html[data-rportfolio-style] .review-close-readiness article span,
+html[data-rportfolio-style] .review-close-readiness article small { overflow-wrap: anywhere; color: var(--rp-ink-muted); font-size: 0.62rem; }
+html[data-rportfolio-style] .review-close-readiness article strong { color: var(--check-color); font-size: 0.7rem; }
+
+html[data-rportfolio-style] .review-metric-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 12px; border-block: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .review-metric-grid article { min-width: 0; display: grid; gap: 4px; padding: 12px; border-right: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .review-metric-grid article:last-child { border-right: 0; }
+html[data-rportfolio-style] .review-metric-grid span,
+html[data-rportfolio-style] .review-metric-grid small { color: var(--rp-ink-muted); font-size: 0.65rem; }
+html[data-rportfolio-style] .review-metric-grid strong { overflow-wrap: anywhere; color: var(--rp-ink); font-size: 1rem; }
+html[data-rportfolio-style] .review-metric-grid .is-caution strong { color: var(--rp-warning); }
+
+html[data-rportfolio-style] .review-attribution-band { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr) auto); align-items: center; margin-top: 12px; padding: 11px 12px; border: 1px solid var(--rp-line); border-radius: 8px; background: var(--rp-surface-raised); }
+html[data-rportfolio-style] .review-attribution-band > div { min-width: 0; display: grid; gap: 4px; }
+html[data-rportfolio-style] .review-attribution-band span { color: var(--rp-ink-muted); font-size: 0.65rem; }
+html[data-rportfolio-style] .review-attribution-band strong { overflow-wrap: anywhere; color: var(--rp-ink); font-size: 0.82rem; }
+html[data-rportfolio-style] .review-attribution-band i { padding: 0 10px; color: var(--rp-ink-muted); font-style: normal; }
+
+html[data-rportfolio-style] .review-section-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 8px; }
+html[data-rportfolio-style] .review-section-head > div { display: flex; gap: 8px; align-items: baseline; }
+html[data-rportfolio-style] .review-section-head strong { color: var(--rp-ink); font-size: 0.82rem; }
+html[data-rportfolio-style] .review-section-head span { color: var(--rp-ink-muted); font-size: 0.68rem; }
+
+html[data-rportfolio-style] .review-table { min-width: 720px; border: 1px solid var(--rp-line); border-radius: 8px; overflow: hidden; }
+html[data-rportfolio-style] .review-table-head,
+html[data-rportfolio-style] .review-table-row { display: grid; grid-template-columns: 110px minmax(130px, 1fr) minmax(150px, 1fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr); align-items: center; gap: 12px; padding: 9px 11px; }
+html[data-rportfolio-style] .review-table-head { color: var(--rp-ink-muted); background: var(--rp-surface-soft); font-size: 0.66rem; font-weight: 720; }
+html[data-rportfolio-style] .review-table-row { border-top: 1px solid var(--rp-line); color: var(--rp-ink-secondary); font-size: 0.72rem; }
+html[data-rportfolio-style] .review-table-row strong { color: var(--rp-ink); }
+
+html[data-rportfolio-style] .review-cash-summary > div { display: grid; gap: 3px; padding-right: 18px; border-right: 1px solid var(--rp-line); }
+html[data-rportfolio-style] .review-cash-summary span { color: var(--rp-ink-muted); font-size: 0.67rem; }
+html[data-rportfolio-style] .review-cash-summary strong { color: var(--rp-ink); font-size: 0.86rem; }
+html[data-rportfolio-style] .review-cash-actions { margin-left: auto; display: flex; gap: 6px; }
+html[data-rportfolio-style] .review-cash-list { display: grid; gap: 7px; margin-top: 12px; }
+html[data-rportfolio-style] .review-cash-list article { min-width: 0; display: grid; grid-template-columns: 28px minmax(180px, 1fr) minmax(120px, auto) minmax(130px, auto) auto; align-items: center; gap: 12px; padding: 10px 11px; border: 1px solid var(--rp-line); border-radius: 8px; background: var(--rp-surface-raised); }
+html[data-rportfolio-style] .review-cash-list article > div:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+html[data-rportfolio-style] .review-cash-list article strong { color: var(--rp-ink); font-size: 0.76rem; }
+html[data-rportfolio-style] .review-cash-list article span { overflow-wrap: anywhere; color: var(--rp-ink-muted); font-size: 0.67rem; }
+html[data-rportfolio-style] .review-flow-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--rp-success); background: color-mix(in srgb, var(--rp-success) 11%, transparent); font-size: 0.9rem; font-weight: 800; }
+html[data-rportfolio-style] .review-flow-icon.is-withdrawal { color: var(--rp-warning); background: color-mix(in srgb, var(--rp-warning) 11%, transparent); }
+
+html[data-rportfolio-style] .review-outcome-page .recommendation-outcome-panel { margin: 0; }
+html[data-rportfolio-style] .review-promotion-summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 10px 12px; border-block: 1px solid var(--rp-line); background: var(--rp-surface-soft); }
+html[data-rportfolio-style] .review-promotion-summary > div { display: flex; align-items: center; gap: 9px; min-width: 0; }
+html[data-rportfolio-style] .review-promotion-summary svg { width: 18px; flex: 0 0 auto; color: var(--rp-success); }
+html[data-rportfolio-style] .review-promotion-summary span { color: var(--rp-ink-secondary); font-size: 0.7rem; }
+html[data-rportfolio-style] .review-promotion-summary dl { display: flex; gap: 18px; margin: 0; }
+html[data-rportfolio-style] .review-promotion-summary dl > div { display: grid; gap: 2px; text-align: right; }
+html[data-rportfolio-style] .review-promotion-summary dt { color: var(--rp-ink-muted); font-size: 0.62rem; }
+html[data-rportfolio-style] .review-promotion-summary dd { margin: 0; color: var(--rp-ink); font-size: 0.84rem; font-weight: 780; }
+
+html[data-rportfolio-style] .review-cohort-list { display: grid; gap: 8px; margin-top: 12px; }
+html[data-rportfolio-style] .review-cohort-list article { --tone-color: var(--rp-ink-muted); display: grid; gap: 9px; padding: 11px 12px; border: 1px solid var(--rp-line); border-left: 3px solid var(--tone-color); border-radius: 8px; background: var(--rp-surface-raised); }
+html[data-rportfolio-style] .review-cohort-list article.is-positive { --tone-color: var(--rp-success); }
+html[data-rportfolio-style] .review-cohort-list article.is-caution { --tone-color: var(--rp-warning); }
+html[data-rportfolio-style] .review-cohort-list article.is-negative { --tone-color: var(--rp-danger); }
+html[data-rportfolio-style] .review-cohort-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+html[data-rportfolio-style] .review-cohort-title > div { min-width: 0; display: grid; gap: 3px; }
+html[data-rportfolio-style] .review-cohort-title strong { color: var(--rp-ink); font-size: 0.8rem; }
+html[data-rportfolio-style] .review-cohort-title span,
+html[data-rportfolio-style] .review-cohort-list p,
+html[data-rportfolio-style] .review-cohort-list small { overflow-wrap: anywhere; color: var(--rp-ink-muted); font-size: 0.67rem; }
+html[data-rportfolio-style] .review-cohort-title em { color: var(--tone-color); font-size: 0.7rem; font-style: normal; font-weight: 760; }
+html[data-rportfolio-style] .review-cohort-list dl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0; }
+html[data-rportfolio-style] .review-cohort-list dl > div { display: grid; gap: 2px; }
+html[data-rportfolio-style] .review-cohort-list dt { color: var(--rp-ink-muted); font-size: 0.62rem; }
+html[data-rportfolio-style] .review-cohort-list dd { margin: 0; color: var(--rp-ink); font-size: 0.74rem; font-weight: 730; }
+html[data-rportfolio-style] .review-cohort-list p { margin: 0; color: var(--rp-ink-secondary); }
+
+html[data-rportfolio-style] .review-empty { min-height: 180px; display: grid; place-content: center; justify-items: center; gap: 5px; color: var(--rp-ink-muted); text-align: center; }
+html[data-rportfolio-style] .review-empty strong { color: var(--rp-ink); font-size: 0.84rem; }
+html[data-rportfolio-style] .review-empty span { font-size: 0.72rem; }
+
+html[data-rportfolio-style] .review-cash-dialog { width: min(620px, calc(100vw - 24px)); max-width: 620px; }
+html[data-rportfolio-style] .review-cash-dialog [data-slot="dialog-body"] { display: grid; align-content: start; gap: 14px; }
+html[data-rportfolio-style] .review-flow-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--rp-line); border-radius: 8px; background: var(--rp-surface-soft); }
+html[data-rportfolio-style] .review-flow-kind button { height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 6px; color: var(--rp-ink-muted); background: transparent; font: inherit; font-size: 0.74rem; font-weight: 720; cursor: pointer; }
+html[data-rportfolio-style] .review-flow-kind button.is-active { color: var(--rp-ink); background: var(--rp-surface-raised); box-shadow: 0 1px 4px rgba(22, 35, 51, 0.08); }
+html[data-rportfolio-style] .review-flow-kind svg { width: 15px; }
+html[data-rportfolio-style] .review-dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+html[data-rportfolio-style] .review-dialog-grid label { min-width: 0; display: grid; gap: 6px; }
+html[data-rportfolio-style] .review-dialog-grid label.is-wide { grid-column: 1 / -1; }
+html[data-rportfolio-style] .review-dialog-grid label > span { color: var(--rp-ink-muted); font-size: 0.72rem; font-weight: 720; }
+html[data-rportfolio-style] .review-dialog-grid select { width: 100%; padding: 0 9px; font: inherit; font-size: 0.76rem; }
+
+@media (max-width: 1100px) {
+  html[data-rportfolio-style] .review-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-metric-grid article:nth-child(3) { border-right: 0; }
+  html[data-rportfolio-style] .review-metric-grid article:nth-child(-n + 3) { border-bottom: 1px solid var(--rp-line); }
+  html[data-rportfolio-style] .review-attribution-band { grid-template-columns: repeat(5, minmax(90px, 1fr) auto); overflow-x: auto; }
+  html[data-rportfolio-style] .review-close-readiness > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-close-readiness article:nth-child(3) { border-right: 0; }
+  html[data-rportfolio-style] .review-close-readiness article:nth-child(-n + 3) { border-bottom: 1px solid var(--rp-line); }
+}
+
+@media (max-width: 760px) {
+  html[data-rportfolio-style] .review-workspace { height: 100%; min-height: 0; overflow: hidden; }
+  html[data-rportfolio-style] .review-workspace-head { align-items: flex-start; flex-direction: column; gap: 8px; }
+  html[data-rportfolio-style] .review-tabs { width: 100%; min-height: 52px; overflow-x: auto; }
+  html[data-rportfolio-style] .review-tabs button { min-height: 44px; height: 44px; flex: 1 0 74px; }
+  html[data-rportfolio-style] .review-page { min-height: 0; overflow: hidden auto; padding: 10px; }
+  html[data-rportfolio-style] .review-command-bar input,
+  html[data-rportfolio-style] .review-command-bar [data-slot="button"],
+  html[data-rportfolio-style] .review-cash-actions [data-slot="button"] { min-height: 44px; }
+  html[data-rportfolio-style] .review-table { min-width: 0; overflow-x: auto; }
+  html[data-rportfolio-style] .review-table-head,
+  html[data-rportfolio-style] .review-table-row { min-width: 720px; }
+  html[data-rportfolio-style] .review-promotion-summary { align-items: flex-start; flex-direction: column; }
+  html[data-rportfolio-style] .review-promotion-summary dl { width: 100%; justify-content: space-between; }
+  html[data-rportfolio-style] .review-cohort-list dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-cash-list article { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  html[data-rportfolio-style] .review-cash-list article > span { grid-column: 2 / 3; }
+}
+
+@media (max-width: 560px) {
+  html[data-rportfolio-style] .review-command-bar { align-items: stretch; flex-direction: column; }
+  html[data-rportfolio-style] .review-command-bar > span { flex: none; }
+  html[data-rportfolio-style] .review-command-bar button { width: 100%; }
+  html[data-rportfolio-style] .review-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-metric-grid article:nth-child(3) { border-right: 1px solid var(--rp-line); }
+  html[data-rportfolio-style] .review-metric-grid article:nth-child(even) { border-right: 0; }
+  html[data-rportfolio-style] .review-metric-grid article:nth-child(-n + 4) { border-bottom: 1px solid var(--rp-line); }
+  html[data-rportfolio-style] .review-cash-summary { align-items: stretch; flex-wrap: wrap; }
+  html[data-rportfolio-style] .review-cash-actions { width: 100%; margin-left: 0; }
+  html[data-rportfolio-style] .review-cash-actions button { flex: 1; }
+  html[data-rportfolio-style] .review-cohort-list dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-dialog-grid { grid-template-columns: 1fr; }
+  html[data-rportfolio-style] .review-dialog-grid label.is-wide { grid-column: auto; }
+  html[data-rportfolio-style] .review-flow-kind button,
+  html[data-rportfolio-style] .review-dialog-grid input,
+  html[data-rportfolio-style] .review-dialog-grid select { min-height: 44px; height: 44px; }
+  html[data-rportfolio-style] .review-close-readiness > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-rportfolio-style] .review-close-readiness article:nth-child(3) { border-right: 1px solid var(--rp-line); }
+  html[data-rportfolio-style] .review-close-readiness article:nth-child(even) { border-right: 0; }
+  html[data-rportfolio-style] .review-close-readiness article:nth-child(-n + 4) { border-bottom: 1px solid var(--rp-line); }
+}

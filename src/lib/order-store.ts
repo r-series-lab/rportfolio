@@ -53,6 +53,8 @@ export type OrderEvent = {
 
 export type OrderRecord = OrderIntent & {
   id: string;
+  accountId: string;
+  decisionId: string;
   intentKey: string;
   fingerprint: string;
   sourceKind: OrderSourceKind;
@@ -122,6 +124,7 @@ export type OrderCenterSummary = {
 };
 
 export type BrokerAccountOrderSnapshot = {
+  accountStoreId?: string;
   orders?: Array<Record<string, unknown>>;
   route?: string;
   syncedAt?: string;
@@ -165,6 +168,8 @@ export function createOrderRecordFromIntent({
   const record: OrderRecord = {
     ...intent,
     id,
+    accountId: "",
+    decisionId: intent.decisionId ?? "",
     key: id,
     intentKey: intent.key,
     fingerprint: orderIntentFingerprint(intent),
@@ -455,6 +460,8 @@ export function normalizeOrderRecord(order: OrderRecord, index = 0): OrderRecord
   return {
     ...partial,
     id,
+    accountId: partial.accountId ?? "",
+    decisionId: partial.decisionId ?? "",
     key: id,
     intentKey: partial.intentKey || partial.key || id,
     fingerprint: partial.fingerprint || orderIntentFingerprint(partial),
@@ -700,6 +707,7 @@ function applyBrokerOrderSnapshot(
   }, Number.isNaN(now.getTime()) ? new Date() : now);
   return {
     ...order,
+    accountId: snapshot.accountStoreId || order.accountId,
     filledAt: status === "filled" && !order.filledAt ? event.at : order.filledAt,
     orderRef: order.orderRef || rawText(raw, ["vtOrderId", "orderRef", "orderId"]),
     route: snapshot.route || order.route,

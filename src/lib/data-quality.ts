@@ -19,6 +19,13 @@ export type DataQualityAssessment = {
   severity: DataQualitySeverity;
 };
 
+export function isSampleDataReport(
+  report: Pick<MarketAnalysisReport, "providerNote" | "source" | "sourceLabel">,
+) {
+  const sourceName = report.sourceLabel || report.source || "未知来源";
+  return report.source.toLowerCase() === "sample" || /示例|演示/.test(`${sourceName} ${report.providerNote}`);
+}
+
 export function assessDataQuality(
   report: MarketAnalysisReport | null,
   reportIsCurrent: boolean,
@@ -35,7 +42,7 @@ export function assessDataQuality(
 
   const checks: DataQualityCheck[] = [];
   const sourceName = report.sourceLabel || report.source || "未知来源";
-  if (report.source === "sample" || /示例|演示/.test(`${sourceName} ${report.providerNote}`)) {
+  if (isSampleDataReport(report)) {
     checks.push({
       key: "source.sample",
       label: "数据来源",

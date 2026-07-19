@@ -1,7 +1,9 @@
 import type { BrokerAccountSnapshot } from "./broker-bridge";
 import type { HoldingRecord } from "./holdings";
+import { accountIdForBrokerSnapshot } from "./accounts";
 
 export type AccountBookAccount = {
+  id: string;
   key: string;
   bridge: string;
   route: string;
@@ -22,6 +24,7 @@ export type AccountBookAccount = {
 
 export type AccountBookPosition = {
   key: string;
+  accountId: string;
   accountKey: string;
   accountName: string;
   bridge: string;
@@ -60,6 +63,8 @@ export type PortfolioReconcileStatus = "matched" | "drift" | "missing" | "extra"
 
 export type PortfolioReconcileRow = {
   key: string;
+  accountId: string;
+  accountName: string;
   symbol: string;
   name: string;
   currency: string;
@@ -100,12 +105,7 @@ const VALUE_TOLERANCE_FLOOR = 10;
 const VALUE_TOLERANCE_RATE = 0.01;
 
 export function accountKeyForSnapshot(snapshot: BrokerAccountSnapshot) {
-  return [
-    cleanText(snapshot.bridge) || "unknown",
-    cleanText(snapshot.route) || "route",
-    cleanText(snapshot.accountId) || cleanText(snapshot.accountName) || "account",
-    cleanText(snapshot.currency) || "currency",
-  ].join(":");
+  return accountIdForBrokerSnapshot(snapshot);
 }
 
 export function mergeAccountSnapshot(
@@ -158,11 +158,25 @@ export function reconcileAccountBookWithHoldings(
   book: AccountBookSnapshot,
   holdings: HoldingRecord[],
 ): PortfolioReconcileResult {
+  if (!book.acceptedCount) {
+    return { rows: [], summary: summarizeReconcileRows([]) };
+  }
   const localHoldings = holdings.filter((holding) => holding.role === "real");
-  const localBySymbol = holdingsBySymbol(localHoldings);
-  const brokerBySymbol = positionsBySymbol(book.positions);
-  const symbols = Array.from(new Set([...localBySymbol.keys(), ...brokerBySymbol.keys()])).sort();
-  const rows = symbols.map((symbol) => reconcileSymbol(symbol, localBySymbol.get(symbol), brokerBySymbol.get(symbol) ?? []));
+  const localByKey = holdingsByAccountAndSymbol(localHoldings);
+  const brokerByKey = positionsByAccountAndSymbol(book.positions);
+  const keys = Array.from(new Set([...localByKey.keys(), ...brokerByKey.keys()])).sort();
+  const rows = keys.map((key) => {
+    const local = localByKey.get(key) ?? [];
+    const broker = brokerByKey.get(key) ?? [];
+    const sampleHolding = local[0];
+    const samplePosition = broker[0];
+    return reconcileSymbol(
+      sampleHolding?.symbol || samplePosition?.symbol || "",
+      sampleHolding?.accountId || samplePosition?.accountId || "",
+      local,
+      broker,
+    );
+  });
   const summary = summarizeReconcileRows(rows);
   return {
     rows: rows.sort(compareReconcileRows),
@@ -178,8 +192,10 @@ export function summarizeAccountBook(book: AccountBookSnapshot) {
 }
 
 function accountFromSnapshot(snapshot: BrokerAccountSnapshot): AccountBookAccount {
+  const id = accountIdForBrokerSnapshot(snapshot);
   return {
-    key: accountKeyForSnapshot(snapshot),
+    id,
+    key: id,
     bridge: cleanText(snapshot.bridge),
     route: cleanText(snapshot.route),
     accountId: cleanText(snapshot.accountId),
@@ -216,6 +232,7 @@ function positionFromRaw(
   const direction = cleanText(firstText(raw.direction, raw.side, raw.positionSide));
   return {
     key: `${account.key}:${symbol}:${direction || "net"}:${index}`,
+    accountId: account.id,
     accountKey: account.key,
     accountName: account.accountName,
     bridge: account.bridge,
@@ -237,13 +254,14 @@ function positionFromRaw(
 
 function reconcileSymbol(
   symbol: string,
-  holding: HoldingRecord | undefined,
+  accountId: string,
+  holdings: HoldingRecord[],
   positions: AccountBookPosition[],
 ): PortfolioReconcileRow {
   const brokerQuantity = sum(positions.map((position) => position.quantity));
   const brokerValue = sum(positions.map((position) => position.marketValue));
-  const localQuantity = holding?.quantity ?? 0;
-  const localValue = holding ? holding.quantity * holding.currentPrice : 0;
+  const localQuantity = sum(holdings.map((holding) => holding.quantity));
+  const localValue = sum(holdings.map((holding) => holding.quantity * holding.currentPrice));
   const quantityDiff = brokerQuantity - localQuantity;
   const valueDiff = brokerValue - localValue;
   const valueDiffPct = localValue > 0 ? (valueDiff / localValue) * 100 : null;
@@ -258,10 +276,12 @@ function reconcileSymbol(
     valueTolerance,
   });
   return {
-    key: symbol,
+    key: reconciliationKey(accountId, symbol),
+    accountId,
+    accountName: positions[0]?.accountName || (accountId ? accountId : "待归属"),
     symbol,
-    name: holding?.name || positions[0]?.name || symbol,
-    currency: holding?.currency || positions[0]?.currency || "",
+    name: holdings[0]?.name || positions[0]?.name || symbol,
+    currency: holdings[0]?.currency || positions[0]?.currency || "",
     status,
     tone: toneForStatus(status),
     localQuantity,
@@ -371,13 +391,28 @@ function compareReconcileRows(left: PortfolioReconcileRow, right: PortfolioRecon
   return Math.abs(right.valueDiff) - Math.abs(left.valueDiff);
 }
 
-function positionsBySymbol(positions: AccountBookPosition[]) {
+function positionsByAccountAndSymbol(positions: AccountBookPosition[]) {
   return positions.reduce((map, position) => {
-    const current = map.get(position.symbol) ?? [];
+    const key = reconciliationKey(position.accountId, position.symbol);
+    const current = map.get(key) ?? [];
     current.push(position);
-    map.set(position.symbol, current);
+    map.set(key, current);
     return map;
   }, new Map<string, AccountBookPosition[]>());
+}
+
+function holdingsByAccountAndSymbol(holdings: HoldingRecord[]) {
+  return holdings.reduce((map, holding) => {
+    const key = reconciliationKey(holding.accountId ?? "", holding.symbol);
+    const current = map.get(key) ?? [];
+    current.push(holding);
+    map.set(key, current);
+    return map;
+  }, new Map<string, HoldingRecord[]>());
+}
+
+function reconciliationKey(accountId: string, symbol: string) {
+  return `${cleanText(accountId) || "unassigned"}:${cleanSymbol(symbol)}`;
 }
 
 function holdingsBySymbol(holdings: HoldingRecord[]) {

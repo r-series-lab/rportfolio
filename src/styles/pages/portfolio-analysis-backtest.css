@@ -1,0 +1,125 @@
+/* Analysis backtest styles. Mechanically split by component ownership. */
+
+
+.backtest-panel {
+  padding: 9px 10px;
+}
+
+.backtest-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.backtest-section-title {
+  margin: 10px 0 0 2px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.backtest-stats article,
+
+.rule-list article {
+  min-width: 0;
+  border-radius: 9px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--line-soft);
+}
+
+.backtest-stats article {
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+}
+
+.backtest-stats span,
+
+.backtest-stats em,
+
+.backtest-stats small,
+
+.rule-list span,
+
+.rule-list em {
+  color: var(--text-muted);
+  font-size: 0.63rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.backtest-stats strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.backtest-stats small {
+  color: var(--text-secondary);
+  line-height: 1.18;
+}
+
+.rule-preview {
+  margin-top: 8px;
+}
+
+.rule-list-vertical {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.rule-list-vertical article {
+  min-height: 92px;
+}
+
+.rule-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(156px, 1fr));
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+
+.rule-list article {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+}
+
+.rule-list strong {
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.rule-list span,
+
+.rule-list em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rule-list article.is-positive strong {
+  color: var(--green);
+}
+
+.rule-list article.is-caution strong {
+  color: #d8c26b;
+}
+
+.rule-list article.is-negative strong {
+  color: var(--red);
+}
+
+@media (max-width: 820px) {
+
+  
+.rule-list-vertical {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .backtest-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

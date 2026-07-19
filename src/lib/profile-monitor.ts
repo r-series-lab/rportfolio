@@ -312,8 +312,8 @@ function monitorSummary(
 ) {
   if (!previous) return "已记录当前 Profile 基线，等待下一次状态变化。";
   if (autoQueueCount > 0) return `发现 ${autoQueueCount} 条新委托，可进入自动排队。`;
-  if (changed && duplicateCount > 0) return "Profile 有变化，但可执行委托已过滤重复。";
-  if (changed) return "Profile 有变化，但没有新增可执行委托。";
+  if (changed && duplicateCount > 0) return "Profile 有变化，但可建票委托已过滤重复。";
+  if (changed) return "Profile 有变化，但没有新增可建票委托。";
   if (refreshed) return "Profile 已刷新，交易条件未变化。";
   return "监测运行中，等待下一次 Profile 刷新。";
 }

@@ -10,10 +10,13 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNod
 import { isCashHolding, type PositionPlan } from "../lib/position-plan";
 import type { HoldingRecord } from "../lib/holdings";
 import { syncRealtimeAssetQuote, type RealtimeAssetQuoteSnapshot } from "../lib/realtime-quote";
+import { handleTabListKeyDown } from "../lib/tab-keyboard";
 import type { AssetStatus, MarketAnalysisReport, PriceActionSnapshot, TechnicalRow } from "../lib/types";
 import { formatMoney, formatNumber, formatPercent } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import "../styles/pages/asset-analysis.css";
+import "../styles/pages/asset-analysis-polish.css";
 
 type AssetAnalysisWorkspaceProps = {
   focusSymbol?: string;
@@ -30,6 +33,7 @@ type AssetAnalysisWorkspaceProps = {
 
 type AssetAnalysisFilter = "all" | "tradable" | "holdings" | "watch" | "profile";
 type AssetAnalysisSection = "overview" | "research" | "technical" | "records";
+type AssetMobilePane = "universe" | "research" | "actions";
 
 type AssetAnalysisRow = {
   key: string;
@@ -100,6 +104,7 @@ export function AssetAnalysisWorkspace({
   const [filter, setFilter] = useState<AssetAnalysisFilter>("tradable");
   const [selectedSymbol, setSelectedSymbol] = useState("");
   const [activeSection, setActiveSection] = useState<AssetAnalysisSection>("overview");
+  const [mobilePane, setMobilePane] = useState<AssetMobilePane>("research");
   const [liveQuotes, setLiveQuotes] = useState<Record<string, RealtimeAssetQuoteSnapshot>>({});
   const [liveQuoteSyncing, setLiveQuoteSyncing] = useState("");
   const [liveAutoRefresh, setLiveAutoRefresh] = useState(true);
@@ -128,6 +133,7 @@ export function AssetAnalysisWorkspace({
     setFilter("all");
     setQuery("");
     setSelectedSymbol(focusSymbol);
+    setMobilePane("research");
   }, [focusSymbol]);
 
   const syncActiveLiveQuote = useCallback(async (options: { silent?: boolean } = {}) => {
@@ -215,8 +221,44 @@ export function AssetAnalysisWorkspace({
         </div>
       </header>
 
+      <nav className="asset-analysis-mobile-nav" role="tablist" aria-label="研究工作区" onKeyDown={handleTabListKeyDown}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === "universe"}
+          tabIndex={mobilePane === "universe" ? 0 : -1}
+          className={mobilePane === "universe" ? "is-active" : undefined}
+          onClick={() => setMobilePane("universe")}
+        >
+          <SearchRoundedIcon fontSize="inherit" />
+          标的
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === "research"}
+          tabIndex={mobilePane === "research" ? 0 : -1}
+          className={mobilePane === "research" ? "is-active" : undefined}
+          onClick={() => setMobilePane("research")}
+        >
+          <QueryStatsRoundedIcon fontSize="inherit" />
+          研究
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === "actions"}
+          tabIndex={mobilePane === "actions" ? 0 : -1}
+          className={mobilePane === "actions" ? "is-active" : undefined}
+          onClick={() => setMobilePane("actions")}
+        >
+          <ShieldRoundedIcon fontSize="inherit" />
+          动作
+        </button>
+      </nav>
+
       <div className="asset-analysis-grid">
-        <aside className="asset-analysis-picker" aria-label="标的池">
+        <aside className={`asset-analysis-picker ${mobilePane === "universe" ? "is-mobile-pane-active" : ""}`} aria-label="标的池">
           <div className="asset-analysis-search">
             <SearchRoundedIcon fontSize="inherit" />
             <input
@@ -228,13 +270,14 @@ export function AssetAnalysisWorkspace({
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <div className="asset-analysis-filters" role="tablist" aria-label="标的范围">
+          <div className="asset-analysis-filters" role="tablist" aria-label="标的范围" onKeyDown={handleTabListKeyDown}>
             {FILTERS.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 role="tab"
                 aria-selected={filter === item.key}
+                tabIndex={filter === item.key ? 0 : -1}
                 className={filter === item.key ? "is-active" : undefined}
                 onClick={() => setFilter(item.key)}
               >
@@ -249,7 +292,10 @@ export function AssetAnalysisWorkspace({
                 key={row.key}
                 type="button"
                 className={`is-${row.tone} ${activeRow?.key === row.key ? "is-active" : ""}`}
-                onClick={() => setSelectedSymbol(row.symbol)}
+                onClick={() => {
+                  setSelectedSymbol(row.symbol);
+                  setMobilePane("research");
+                }}
               >
                 <div>
                   <strong>{row.symbol}</strong>
@@ -267,7 +313,7 @@ export function AssetAnalysisWorkspace({
           </div>
         </aside>
 
-        <main className="asset-analysis-main" aria-label="基金和 ETF 研究详情">
+        <main className={`asset-analysis-main ${mobilePane === "research" ? "is-mobile-pane-active" : ""}`} aria-label="基金和 ETF 研究详情">
           {activeRow && activeDecision ? (
             <>
               <LiveQuoteCard
@@ -394,7 +440,7 @@ export function AssetAnalysisWorkspace({
           )}
         </main>
 
-        <aside className="asset-analysis-rail workspace-inspector-rail" aria-label="标的动作">
+        <aside className={`asset-analysis-rail workspace-inspector-rail ${mobilePane === "actions" ? "is-mobile-pane-active" : ""}`} aria-label="标的动作">
           {activeRow && activeDecision ? (
             <>
               <section className={`asset-action-card is-${activeDecision.tone}`}>
@@ -514,7 +560,7 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
       actionLabel: "减仓观察",
       tone: "negative" as const,
       summary: priceBroken ? "价格行为已经转弱，优先控制仓位。" : "该标的处在弱势或风险灯号下，适合先控制仓位。",
-      detail: priceBroken ? row.priceAction?.summary ?? "结构破位，先等待修复。" : "真实持仓可以进入量化交易，但应先通过风控和目标带复核。",
+      detail: priceBroken ? row.priceAction?.summary ?? "结构破位，先等待修复。" : "本地持仓可以进入量化交易，但应先通过风控和目标带复核。",
     };
   }
   if (row.tradable && overheated) {
@@ -538,7 +584,7 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
       actionLabel: row.technical ? "交易前复核" : "补充指标",
       tone: "caution" as const,
       summary: row.technical ? "该标的可进入交易页，但当前信号不足，适合先小额模拟或等待确认。" : "该标的是可交易持仓，但缺少技术指标，建议先补齐行情和指标再执行。",
-      detail: "真实持仓可以进入量化交易；下单前仍需经过风控、目标带和执行方式确认。",
+      detail: "本地持仓可以进入量化交易；下单前仍需经过风控、目标带和执行方式确认。",
     };
   }
   if (row.registered) {
@@ -546,14 +592,14 @@ function decisionForAsset(row: AssetAnalysisRow, positionPlan: PositionPlan) {
       actionLabel: "继续观察",
       tone: "caution" as const,
       summary: "该标的已在本地资产池，但还不应直接交易。",
-      detail: "可以在持仓管理里调整角色、目标带和成本，再决定是否转为真实持仓。",
+      detail: "可以在持仓管理里调整角色、目标带和成本，再决定是否转为本地持仓。",
     };
   }
   return {
     actionLabel: "加入观察",
     tone: "neutral" as const,
     summary: "这是 Profile 里的研究标的，先进入观察池再评估是否可交易。",
-    detail: "加入观察不会进入委托队列；转为真实持仓后才会被量化交易识别。",
+    detail: "加入观察不会进入委托队列；转为本地持仓后才会被量化交易识别。",
   };
 }
 
@@ -615,7 +661,7 @@ function boundaryChecks(row: AssetAnalysisRow, decision: ReturnType<typeof decis
       label: "交易范围",
       value: row.tradable ? "可进入交易" : "研究/观察",
       tone: row.tradable ? "positive" as const : "caution" as const,
-      detail: row.tradable ? "真实持仓且非现金，可被量化交易页识别。" : "不会直接进入委托队列。",
+      detail: row.tradable ? "本地持仓且非现金，可被量化交易页识别。" : "不会直接进入委托队列。",
     },
     {
       key: "registry",
@@ -734,7 +780,7 @@ function buildAssetResearch(row: AssetAnalysisRow, report: MarketAnalysisReport,
         label: "进入路径",
         value: row.tradable ? "量化交易" : row.registered ? "持仓维护" : "加入观察",
         tone: strategyTone,
-        detail: row.tradable ? "真实持仓可进入交易页，再选择手动、模拟或通道执行。" : row.registered ? "先补角色、成本和目标带，再决定是否转真实持仓。" : "先进入观察池，不直接进入委托队列。",
+        detail: row.tradable ? "本地持仓可进入交易页，再选择手动、模拟或通道执行。" : row.registered ? "先补角色、成本和目标带，再决定是否转本地持仓。" : "先进入观察池，不直接进入委托队列。",
       },
       {
         key: "price-action",
@@ -998,14 +1044,14 @@ function rowPriority(row: AssetAnalysisRow) {
 
 function holdingSourceLabel(holding: HoldingRecord, cash = isCashHolding(holding)) {
   if (cash) return "现金";
-  if (holding.role === "real") return "真实持仓";
+  if (holding.role === "real") return "本地持仓";
   if (holding.role === "proxy") return "代理资产";
   return "观察资产";
 }
 
 function holdingRoleLabel(holding: HoldingRecord) {
   if (isCashHolding(holding)) return "现金";
-  if (holding.role === "real") return "真实持仓";
+  if (holding.role === "real") return "本地持仓";
   if (holding.role === "proxy") return "代理资产";
   return "观察资产";
 }

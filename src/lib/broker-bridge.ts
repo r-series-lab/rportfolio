@@ -87,6 +87,9 @@ export type BrokerAccountSnapshot = {
   accountName: string;
   currency: string;
   cash: number;
+  availableCash?: number;
+  settledCash?: number;
+  pendingSettlement?: number;
   marketValue: number;
   equity: number;
   positions: Array<Record<string, unknown>>;

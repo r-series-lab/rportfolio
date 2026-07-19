@@ -54,13 +54,90 @@ html[data-rportfolio-style] .quant-market-stage {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   overflow: hidden;
 }
 
 html[data-rportfolio-style] .quant-command-bar {
   min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+html[data-rportfolio-style] .quant-trading-title {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+html[data-rportfolio-style] .quant-trading-title strong {
+  overflow: hidden;
+  color: var(--rp-ink);
+  font-size: 0.9rem;
+  font-weight: 840;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-trading-title span {
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.66rem;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-environment-capsule {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--quant-line);
+  border-left: 3px solid var(--tone-color, var(--rp-accent));
+  border-radius: 999px;
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule span,
+html[data-rportfolio-style] .quant-environment-capsule strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.62rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-environment-capsule strong {
+  color: var(--rp-ink);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule.is-positive,
+html[data-rportfolio-style] .quant-lab-page .is-positive {
+  --tone-color: var(--rp-success);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule.is-caution,
+html[data-rportfolio-style] .quant-lab-page .is-caution {
+  --tone-color: var(--rp-warning);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule.is-negative,
+html[data-rportfolio-style] .quant-lab-page .is-negative {
+  --tone-color: var(--rp-danger);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule.is-neutral,
+html[data-rportfolio-style] .quant-lab-page .is-neutral {
+  --tone-color: var(--rp-ink-muted);
 }
 
 html[data-rportfolio-style] .quant-run-controls {
@@ -76,11 +153,10 @@ html[data-rportfolio-style] .quant-ledger-more-actions button,
 html[data-rportfolio-style] .quant-paper-button,
 html[data-rportfolio-style] .quant-secondary-button,
 html[data-rportfolio-style] .quant-ticket-primary-action,
-html[data-rportfolio-style] .quant-layer-close,
 html[data-rportfolio-style] .quant-replacement-actions button,
 html[data-rportfolio-style] .quant-override-button,
 html[data-rportfolio-style] .quant-control-panel button,
-html[data-rportfolio-style] .quant-dialog button:not(.quant-dialog-backdrop) {
+html[data-rportfolio-style] .quant-dialog button {
   min-height: 30px;
   border: 1px solid var(--quant-line);
   border-radius: var(--quant-control-radius);
@@ -114,7 +190,7 @@ html[data-rportfolio-style] .quant-run-controls button:hover,
 html[data-rportfolio-style] .quant-ledger-toolbar button:hover,
 html[data-rportfolio-style] .quant-ledger-more-actions button:hover,
 html[data-rportfolio-style] .quant-control-panel button:hover,
-html[data-rportfolio-style] .quant-dialog button:not(.quant-dialog-backdrop):hover {
+html[data-rportfolio-style] .quant-dialog button:hover {
   color: var(--rp-ink);
   border-color: var(--quant-line-strong);
   background: var(--quant-row-hover);
@@ -153,7 +229,7 @@ html[data-rportfolio-style] .quant-execution-rail .rail-card[data-slot="card"] {
 html[data-rportfolio-style] .quant-action-desk {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto auto auto fit-content(30vh) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   align-content: start;
   overflow: hidden;
 }
@@ -350,7 +426,6 @@ html[data-rportfolio-style] .quant-ledger-columns {
 html[data-rportfolio-style] .quant-suggestion-list {
   min-width: 0;
   min-height: 0;
-  max-height: min(30vh, 300px);
   overflow: auto;
   scrollbar-gutter: stable;
 }
@@ -373,6 +448,18 @@ html[data-rportfolio-style] .quant-suggestion-list article.is-selected {
   box-shadow: inset 3px 0 0 var(--rp-accent);
 }
 
+html[data-rportfolio-style] .quant-suggestion-list article.is-readonly {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone-color, var(--rp-ink-muted)) 8%, transparent), transparent 42%),
+    color-mix(in srgb, var(--quant-row) 72%, transparent);
+}
+
+html[data-rportfolio-style] .quant-suggestion-list article.is-readonly:hover {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone-color, var(--rp-ink-muted)) 10%, transparent), transparent 42%),
+    var(--quant-row-hover);
+}
+
 html[data-rportfolio-style] .quant-suggestion-select {
   min-width: 0;
   display: grid;
@@ -385,6 +472,14 @@ html[data-rportfolio-style] .quant-suggestion-select {
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+
+html[data-rportfolio-style] .quant-suggestion-list article.is-readonly .quant-suggestion-select,
+html[data-rportfolio-style] .quant-suggestion-select:disabled {
+  cursor: default;
+  color: inherit;
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
 }
 
 html[data-rportfolio-style] .quant-suggestion-select span,
@@ -437,9 +532,24 @@ html[data-rportfolio-style] .quant-ledger-side.is-sell {
   color: var(--rp-danger);
 }
 
+html[data-rportfolio-style] .quant-ledger-side.is-watch {
+  color: var(--rp-ink-muted);
+}
+
+html[data-rportfolio-style] .quant-ledger-priority {
+  display: grid;
+  gap: 2px;
+}
+
 html[data-rportfolio-style] .quant-ledger-priority strong {
   color: var(--tone-color, var(--rp-ink-secondary));
   font-size: 0.66rem;
+}
+
+html[data-rportfolio-style] .quant-ledger-priority small {
+  color: var(--rp-ink-muted);
+  font-size: 0.58rem;
+  font-weight: 640;
 }
 
 html[data-rportfolio-style] .quant-ledger-quick-action {
@@ -572,6 +682,10 @@ html[data-rportfolio-style] .quant-flow-compact {
   align-items: start;
 }
 
+html[data-rportfolio-style] .quant-ticket-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 html[data-rportfolio-style] .quant-ticket-grid .quant-inline-stat {
   min-height: 54px;
   align-content: center;
@@ -642,6 +756,44 @@ html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
 
 html[data-rportfolio-style] .quant-rail-head {
   padding: 0 2px 1px;
+}
+
+html[data-rportfolio-style] .quant-rail-tabs {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  padding: 2px;
+  border: 1px solid var(--quant-line);
+  border-radius: var(--quant-control-radius);
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-rail-tabs button {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: calc(var(--quant-control-radius) - 2px);
+  color: var(--rp-ink-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 780;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+html[data-rportfolio-style] .quant-rail-tabs button.is-active {
+  color: var(--rp-ink);
+  background: var(--rp-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--rp-accent-border);
+}
+
+html[data-rportfolio-style] .quant-execution-rail [hidden] {
+  display: none !important;
 }
 
 html[data-rportfolio-style] .quant-ledger-ticket {
@@ -865,23 +1017,23 @@ html[data-rportfolio-style] .quant-ticket-risk li {
 html[data-rportfolio-style] .quant-ticket-risk-summary.is-positive,
 html[data-rportfolio-style] .quant-lab-page .is-positive,
 html[data-rportfolio-style] .quant-lab-page .is-ready,
-html[data-rportfolio-style] body > .quant-dialog-layer .is-positive,
-html[data-rportfolio-style] body > .quant-dialog-layer .is-ready,
-html[data-rportfolio-style] body > .quant-control-panel .is-positive,
-html[data-rportfolio-style] body > .quant-control-panel .is-ready {
+html[data-rportfolio-style] .quant-dialog .is-positive,
+html[data-rportfolio-style] .quant-dialog .is-ready,
+html[data-rportfolio-style] .quant-control-panel .is-positive,
+html[data-rportfolio-style] .quant-control-panel .is-ready {
   color: var(--rp-success);
 }
 
 html[data-rportfolio-style] .quant-ticket-risk-summary.is-caution,
 html[data-rportfolio-style] .quant-lab-page .is-caution,
-html[data-rportfolio-style] body > .quant-dialog-layer .is-caution,
-html[data-rportfolio-style] body > .quant-control-panel .is-caution {
+html[data-rportfolio-style] .quant-dialog .is-caution,
+html[data-rportfolio-style] .quant-control-panel .is-caution {
   color: var(--rp-warning);
 }
 
 html[data-rportfolio-style] .quant-lab-page .is-negative,
-html[data-rportfolio-style] body > .quant-dialog-layer .is-negative,
-html[data-rportfolio-style] body > .quant-control-panel .is-negative {
+html[data-rportfolio-style] .quant-dialog .is-negative,
+html[data-rportfolio-style] .quant-control-panel .is-negative {
   color: var(--rp-danger);
 }
 
@@ -936,6 +1088,39 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
   background: var(--quant-row) !important;
 }
 
+html[data-rportfolio-style] .quant-account-selector {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .quant-account-selector > span {
+  color: var(--rp-ink-muted);
+  font-size: 0.67rem;
+  font-weight: 720;
+}
+
+html[data-rportfolio-style] .quant-account-selector select {
+  min-width: 0;
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid var(--quant-line);
+  border-radius: 7px;
+  color: var(--rp-ink);
+  background: var(--quant-row);
+  font: inherit;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 560px) {
+  html[data-rportfolio-style] .quant-account-selector {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
 html[data-rportfolio-style] .quant-order-list,
 html[data-rportfolio-style] .quant-account-list,
 html[data-rportfolio-style] .quant-reconcile-list,
@@ -959,7 +1144,6 @@ html[data-rportfolio-style] .quant-account-list article,
 html[data-rportfolio-style] .quant-reconcile-list article,
 html[data-rportfolio-style] .quant-backtest-orders article,
 html[data-rportfolio-style] .quant-log-panel article,
-html[data-rportfolio-style] .quant-log-dialog > article,
 html[data-rportfolio-style] .quant-paper-sim-latest {
   min-width: 0;
   display: grid;
@@ -1084,15 +1268,6 @@ html[data-rportfolio-style] .quant-paper-trade-progress span {
 html[data-rportfolio-style] .quant-paper-trade-groups {
   display: grid;
   gap: 6px;
-}
-
-html[data-rportfolio-style] .quant-control-backdrop,
-html[data-rportfolio-style] .quant-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 110;
-  border: 0;
-  background: rgba(0, 0, 0, 0.34);
 }
 
 html[data-rportfolio-style] .quant-control-panel,
@@ -1229,18 +1404,7 @@ html[data-rportfolio-style] .quant-watchlist-table small {
   grid-column: 2;
 }
 
-html[data-rportfolio-style] .quant-dialog-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 111;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-}
-
 html[data-rportfolio-style] .quant-dialog {
-  position: relative;
-  z-index: 112;
   min-width: 0;
   overflow: hidden;
 }
@@ -1258,12 +1422,17 @@ html[data-rportfolio-style] .quant-dialog-stack {
 html[data-rportfolio-style] .quant-qbot-presets,
 html[data-rportfolio-style] .quant-risk-switchboard,
 html[data-rportfolio-style] .quant-bridge-status-list,
-html[data-rportfolio-style] .quant-account-dialog,
-html[data-rportfolio-style] .quant-backtest-dialog,
-html[data-rportfolio-style] .quant-log-dialog {
+html[data-rportfolio-style] .quant-backtest-dialog {
   min-width: 0;
   display: grid;
   gap: 9px;
+}
+
+html[data-rportfolio-style] .quant-risk-summary-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
 }
 
 html[data-rportfolio-style] .quant-policy-controls {
@@ -1280,6 +1449,8 @@ html[data-rportfolio-style] .quant-policy-controls label {
 html[data-rportfolio-style] .quant-param input {
   min-width: 0;
   width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
   border: 1px solid var(--quant-line);
   border-radius: 8px;
   color: var(--rp-ink);
@@ -1517,7 +1688,6 @@ html[data-rportfolio-style] .quant-ledger-more-actions button,
 html[data-rportfolio-style] .quant-paper-button,
 html[data-rportfolio-style] .quant-secondary-button,
 html[data-rportfolio-style] .quant-ticket-primary-action,
-html[data-rportfolio-style] .quant-layer-close,
 html[data-rportfolio-style] .quant-replacement-actions button,
 html[data-rportfolio-style] .quant-override-button,
 html[data-rportfolio-style] .quant-rail-control[data-slot="button"],
@@ -1624,6 +1794,23 @@ html[data-rportfolio-style] .quant-flow-compact strong {
   font-size: 0.67rem;
 }
 
+html[data-rportfolio-style] .quant-flow-compact.quant-ticket-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-rportfolio-style] .quant-flow-compact.quant-ticket-flow span {
+  min-width: 0;
+  white-space: normal;
+}
+
+html[data-rportfolio-style] .quant-flow-compact.quant-ticket-flow span:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+html[data-rportfolio-style] .quant-flow-compact.quant-ticket-flow strong {
+  white-space: normal;
+}
+
 html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
   gap: 7px !important;
 }
@@ -1654,7 +1841,7 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
   box-shadow: var(--quant-inner-shadow) !important;
 }
 
-@media (min-width: 1241px) and (max-width: 1320px) {
+@media (min-width: 1200px) and (max-width: 1320px) {
   html[data-rportfolio-style] {
     --quant-rail-width: 304px;
     --quant-gap: 10px;
@@ -1672,11 +1859,26 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
   }
 
   html[data-rportfolio-style] .quant-market-stage {
-    grid-template-rows: auto minmax(0, 1fr) minmax(132px, auto);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   html[data-rportfolio-style] .quant-action-desk {
-    grid-template-rows: auto auto auto auto fit-content(22vh) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  }
+
+  html[data-rportfolio-style] .quant-command-bar {
+    grid-template-columns: minmax(160px, 0.62fr) minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  html[data-rportfolio-style] .quant-environment-capsule {
+    justify-content: flex-start;
+    gap: 5px;
+  }
+
+  html[data-rportfolio-style] .quant-environment-capsule span,
+  html[data-rportfolio-style] .quant-environment-capsule strong {
+    font-size: 0.58rem;
   }
 
   html[data-rportfolio-style] .quant-run-controls button,
@@ -1823,6 +2025,10 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
     gap: 5px;
   }
 
+  html[data-rportfolio-style] .quant-ticket-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   html[data-rportfolio-style] .quant-flow-compact span {
     min-height: 33px;
     padding: 5px 6px;
@@ -1931,10 +2137,19 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
   }
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1199px) {
   html[data-rportfolio-style] .quant-trading-grid {
     grid-template-columns: minmax(0, 1fr);
     overflow: auto;
+  }
+
+  html[data-rportfolio-style] .quant-command-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-rportfolio-style] .quant-environment-capsule {
+    justify-content: flex-start;
+    border-radius: var(--quant-control-radius);
   }
 
   html[data-rportfolio-style] .quant-market-stage {
@@ -1963,6 +2178,10 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
   html[data-rportfolio-style] .quant-adapter-capabilities,
   html[data-rportfolio-style] .quant-bridge-flags {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-rportfolio-style] .quant-risk-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   html[data-rportfolio-style] .quant-ledger-columns {
@@ -2010,6 +2229,15 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
     grid-template-columns: minmax(0, 1fr);
   }
 
+  html[data-rportfolio-style] .quant-risk-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-rportfolio-style] .quant-param input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
   html[data-rportfolio-style] .quant-suggestion-head,
   html[data-rportfolio-style] .quant-section-head,
   html[data-rportfolio-style] .quant-mini-head,
@@ -2033,5 +2261,452 @@ html[data-rportfolio-style] .quant-execution-rail .progressive-disclosure > summ
 
   html[data-rportfolio-style] .quant-ledger-quick-action {
     margin: 0 12px 10px;
+  }
+}
+
+/* Final execution rail pass: fixed-width macOS inspector with stable tab panels. */
+html[data-rportfolio-style] {
+  --quant-rail-width: 360px;
+  --quant-rail-panel-width: 100%;
+  --quant-rail-shell-radius: 16px;
+  --quant-rail-panel-radius: 13px;
+}
+
+html[data-rportfolio-style="light"] {
+  --quant-rail-shell: rgba(255, 255, 255, 0.52);
+  --quant-rail-panel: rgba(255, 255, 255, 0.58);
+  --quant-rail-tab: rgba(247, 250, 253, 0.72);
+  --quant-rail-tab-active: rgba(255, 255, 255, 0.92);
+}
+
+html[data-rportfolio-style="dark"] {
+  --quant-rail-shell: rgba(14, 20, 29, 0.68);
+  --quant-rail-panel: rgba(22, 30, 42, 0.62);
+  --quant-rail-tab: rgba(255, 255, 255, 0.045);
+  --quant-rail-tab-active: rgba(255, 255, 255, 0.105);
+}
+
+html[data-rportfolio-style] .quant-trading-grid {
+  grid-template-columns: minmax(0, 1fr) var(--quant-rail-width);
+}
+
+html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
+  box-sizing: border-box !important;
+  inline-size: var(--quant-rail-width) !important;
+  width: var(--quant-rail-width) !important;
+  min-inline-size: var(--quant-rail-width) !important;
+  max-inline-size: var(--quant-rail-width) !important;
+  align-content: start !important;
+  gap: 9px !important;
+  padding: 10px !important;
+  overflow: hidden auto !important;
+  border: 1px solid var(--quant-line) !important;
+  border-radius: var(--quant-rail-shell-radius) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent 160px),
+    var(--quant-rail-shell) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, black 12%, transparent) !important;
+  backdrop-filter: blur(24px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.18) !important;
+  scrollbar-gutter: stable;
+}
+
+html[data-rportfolio-style] .quant-execution-rail > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: var(--quant-rail-panel-width);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-rail-head {
+  padding: 0 2px 1px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-panel-title {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-panel-title > svg {
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border: 1px solid var(--quant-line);
+  border-radius: 9px;
+  color: var(--rp-ink-secondary);
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-panel-title strong {
+  font-size: 0.82rem;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-panel-title span {
+  font-size: 0.6rem;
+}
+
+html[data-rportfolio-style] .quant-rail-tabs {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  inline-size: var(--quant-rail-panel-width);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-color: var(--quant-line) !important;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent),
+    var(--quant-rail-tab);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, black 10%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+html[data-rportfolio-style] .quant-rail-tabs button {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 0.62rem;
+  letter-spacing: 0;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+html[data-rportfolio-style] .quant-rail-tabs button:hover {
+  color: var(--rp-ink);
+  background: color-mix(in srgb, var(--quant-rail-tab-active) 68%, transparent);
+}
+
+html[data-rportfolio-style] .quant-rail-tabs button.is-active {
+  color: var(--rp-ink);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 8%, transparent), transparent),
+    var(--quant-rail-tab-active);
+  box-shadow:
+    0 8px 18px color-mix(in srgb, black 13%, transparent),
+    inset 0 0 0 1px var(--rp-accent-border),
+    inset 0 1px 0 color-mix(in srgb, white 16%, transparent);
+}
+
+html[data-rportfolio-style] .quant-execution-rail > .quant-ledger-ticket,
+html[data-rportfolio-style] .quant-execution-rail > .rail-card[data-slot="card"] {
+  box-sizing: border-box !important;
+  inline-size: var(--quant-rail-panel-width) !important;
+  width: var(--quant-rail-panel-width) !important;
+  min-inline-size: 0 !important;
+  max-inline-size: var(--quant-rail-panel-width) !important;
+  flex: 0 0 auto !important;
+  gap: 9px !important;
+  padding: 10px !important;
+  overflow: hidden !important;
+  border-color: var(--quant-line) !important;
+  border-radius: var(--quant-rail-panel-radius) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent 150px),
+    var(--quant-rail-panel) !important;
+  box-shadow:
+    0 12px 26px color-mix(in srgb, black 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, black 10%, transparent) !important;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-section-head {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-section-head > svg {
+  justify-self: start;
+  color: var(--rp-ink-muted);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-section-head strong,
+html[data-rportfolio-style] .quant-ledger-ticket > header strong,
+html[data-rportfolio-style] .quant-ticket-identity strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-account-actions,
+html[data-rportfolio-style] .quant-execution-rail .quant-audit-actions,
+html[data-rportfolio-style] .quant-execution-rail .quant-order-actions {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 5px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-account-actions,
+html[data-rportfolio-style] .quant-execution-rail .quant-audit-actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-rail-control[data-slot="button"],
+html[data-rportfolio-style] .quant-execution-rail .quant-order-command[data-slot="button"],
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-action[data-slot="button"] {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-decision,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-panel,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-performance,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-exit-attribution,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-experiment,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-attribution,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-latest {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-facts,
+html[data-rportfolio-style] .quant-execution-rail .quant-order-center-summary,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-flow span:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-flow-compact span,
+html[data-rportfolio-style] .quant-execution-rail .quant-order-center-summary span,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip span,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance span,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics span,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups span,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-strip span {
+  min-width: 0;
+  min-height: 38px;
+  align-content: center;
+  padding: 6px 7px;
+  border-radius: 10px;
+  white-space: normal;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-flow-compact strong,
+html[data-rportfolio-style] .quant-execution-rail .quant-order-center-summary strong,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip strong,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance strong,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics strong,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance dl > div {
+  grid-template-columns: 38px minmax(0, 1fr);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance dd,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk-summary,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-note,
+html[data-rportfolio-style] .quant-execution-rail .quant-market-quote-card p,
+html[data-rportfolio-style] .quant-execution-rail .quant-account-sync p,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-card p,
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-headline span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list,
+html[data-rportfolio-style] .quant-execution-rail .quant-account-list,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list article,
+html[data-rportfolio-style] .quant-execution-rail .quant-account-list article,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-list article,
+html[data-rportfolio-style] .quant-execution-rail .quant-log-panel article {
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    color-mix(in srgb, var(--quant-row) 88%, transparent);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list article > p,
+html[data-rportfolio-style] .quant-execution-rail .quant-log-panel p,
+html[data-rportfolio-style] .quant-execution-rail .quant-reconcile-list small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-primary-action,
+html[data-rportfolio-style] .quant-execution-rail .quant-secondary-button {
+  width: 100%;
+  border-radius: 11px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail > .quant-ledger-ticket {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  overflow: visible !important;
+}
+
+html[data-rportfolio-style] .quant-execution-rail > .quant-ledger-ticket > * {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ledger-ticket > header {
+  padding-bottom: 7px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-identity {
+  gap: 2px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-identity strong {
+  font-size: 1.18rem;
+  line-height: 1.12;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-identity span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-decision {
+  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  gap: 7px;
+  padding: 9px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-decision p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 7px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-decision p strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-facts {
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-facts div {
+  min-height: 52px;
+  padding: 8px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk {
+  gap: 6px;
+  padding: 8px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance header,
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk > div {
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance dl {
+  gap: 4px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-guidance dd {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk-summary {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-risk .progressive-disclosure > summary {
+  min-height: 26px !important;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-flow {
+  margin-top: 1px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-flow span {
+  min-height: 34px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-primary-action {
+  min-height: 34px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-ticket-note {
+  margin: 0;
+  font-size: 0.6rem;
+  line-height: 1.3;
+}
+
+@media (min-width: 1200px) and (max-width: 1320px) {
+  html[data-rportfolio-style] {
+    --quant-rail-width: 328px;
+  }
+
+  html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
+    padding: 9px !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 1199px) {
+  html[data-rportfolio-style] {
+    --quant-rail-width: 100%;
+  }
+
+  html[data-rportfolio-style] .quant-execution-rail.workspace-inspector-rail {
+    inline-size: 100% !important;
+    width: 100% !important;
+    min-inline-size: 0 !important;
+    max-inline-size: 100% !important;
   }
 }

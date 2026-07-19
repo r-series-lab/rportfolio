@@ -25,9 +25,19 @@ export type RecommendationOutcome = {
   note: string;
 };
 
+export type RecommendationCohortEvidence = {
+  kind: "forward-live" | "simulation" | "unverified";
+  strategyVersion: string;
+  dataSignature: string;
+  trainingWindow: string;
+  validationWindow: string;
+  frozenAt: string;
+};
+
 export type RecommendationRecord = {
   id: string;
-  schemaVersion: 2;
+  decisionId: string;
+  schemaVersion: 3;
   createdAt: string;
   asOf: string;
   source: "daily-decision" | "ledger-batch" | "ticket" | "simulation";
@@ -37,6 +47,7 @@ export type RecommendationRecord = {
   strategyKey: string;
   strategyLabel: string;
   strategyScore: number;
+  cohortEvidence: RecommendationCohortEvidence;
   symbol: string;
   name: string;
   side: string;
@@ -64,10 +75,31 @@ export type RecommendationRecord = {
   dataSource: string;
   referencePrice: number | null;
   referencePriceSource: "technical-close" | "asset-close" | "unavailable";
+  disposition: RecommendationDisposition;
+  dispositionUpdatedAt: string | null;
+  deferredUntil: string | null;
+  decisionEvents: RecommendationDecisionEvent[];
   outcomes: RecommendationOutcome[];
 };
 
 export type RecommendationDecisionType = "increase" | "reduce" | "hold" | "wait" | "blocked" | "config";
+export type RecommendationDisposition = "pending" | "accepted" | "rejected" | "deferred" | "reviewed";
+export type RecommendationDecisionAction = "accept" | "reject" | "defer" | "review";
+
+export type RecommendationDecisionEvent = {
+  id: string;
+  action: RecommendationDecisionAction;
+  at: string;
+  note: string;
+  reviewAt: string | null;
+};
+
+export type RecordRecommendationDecisionInput = {
+  action: RecommendationDecisionAction;
+  at?: string;
+  note?: string;
+  reviewAt?: string | null;
+};
 
 const EVALUATION_HORIZONS = [5, 20, 60] as const;
 
@@ -93,9 +125,11 @@ export function recommendationRecordsForOrders({
   return orders.map((order, index) => {
     const reference = referencePriceFor(order.symbol, report);
     const ranking = rankings.find((item) => item.order.key === order.key);
+    const id = recommendationId(createdAt, order.symbol, order.side, index);
     return {
-    id: recommendationId(createdAt, order.symbol, order.side, index),
-    schemaVersion: 2,
+    id,
+    decisionId: order.decisionId || id,
+    schemaVersion: 3,
     createdAt,
     asOf: report.asOf,
     source,
@@ -105,6 +139,7 @@ export function recommendationRecordsForOrders({
     strategyKey: strategy.key,
     strategyLabel: strategy.label,
     strategyScore: score.score,
+    cohortEvidence: cohortEvidenceFor(report, source, strategy.key, createdAt),
     symbol: order.symbol,
     name: order.name,
     side: order.side,
@@ -126,6 +161,7 @@ export function recommendationRecordsForOrders({
     dataSource: report.source,
     referencePrice: reference.price,
     referencePriceSource: reference.source,
+    ...emptyDecisionLifecycle(),
     outcomes: EVALUATION_HORIZONS.map((horizonDays) => emptyOutcome(horizonDays, reference.price)),
   };
   });
@@ -149,9 +185,11 @@ export function recommendationRecordsForPositionPlan({
       const decisionType = decisionTypeForAction(action);
       const side = sideForDecisionType(decisionType);
       const guidance = executionGuidanceFor({ action, currentPrice: reference.price, report, side });
+      const id = dailyDecisionId(report.asOf, report.profileKey, action.symbol);
       return {
-        id: dailyDecisionId(report.asOf, report.profileKey, action.symbol),
-        schemaVersion: 2,
+        id,
+        decisionId: id,
+        schemaVersion: 3,
         createdAt,
         asOf: report.asOf,
         source: "daily-decision",
@@ -161,6 +199,7 @@ export function recommendationRecordsForPositionPlan({
         strategyKey: "portfolio-decision",
         strategyLabel: "组合决策",
         strategyScore: readiness.confidenceScore,
+        cohortEvidence: cohortEvidenceFor(report, "daily-decision", "portfolio-decision", createdAt),
         symbol: action.symbol,
         name: action.name,
         side,
@@ -183,6 +222,7 @@ export function recommendationRecordsForPositionPlan({
         dataSource: report.source,
         referencePrice: reference.price,
         referencePriceSource: reference.source,
+        ...emptyDecisionLifecycle(),
         outcomes: EVALUATION_HORIZONS.map((horizonDays) => emptyOutcome(horizonDays, reference.price)),
       };
     });
@@ -192,11 +232,49 @@ export async function appendRecommendationRecords(records: RecommendationRecord[
   if (!records.length) return loadRecommendationRecords();
   const current = await loadRecommendationRecords();
   const byId = new Map(current.map((record) => [record.id, record]));
-  records.forEach((record) => byId.set(record.id, record));
+  records.forEach((record) => {
+    const existing = byId.get(record.id);
+    byId.set(record.id, existing ? mergeGeneratedRecommendation(existing, record) : record);
+  });
   const next = [...byId.values()]
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
     .slice(-MAX_RECOMMENDATION_RECORDS);
   return saveRecommendationRecords(next);
+}
+
+export async function recordRecommendationDecision(
+  decisionId: string,
+  input: RecordRecommendationDecisionInput,
+) {
+  const current = await loadRecommendationRecords();
+  const next = applyRecommendationDecision(current, decisionId, input);
+  return saveRecommendationRecords(next);
+}
+
+export function applyRecommendationDecision(
+  records: RecommendationRecord[],
+  decisionId: string,
+  input: RecordRecommendationDecisionInput,
+) {
+  const at = validIso(input.at) ? String(input.at) : new Date().toISOString();
+  const reviewAt = input.action === "defer" && isDateKey(input.reviewAt) ? String(input.reviewAt) : null;
+  const event: RecommendationDecisionEvent = {
+    id: `decision-event-${safeIdPart(decisionId)}-${at}-${input.action}`,
+    action: input.action,
+    at,
+    note: input.note?.trim() ?? "",
+    reviewAt,
+  };
+  return records.map((record) => {
+    if (record.decisionId !== decisionId && record.id !== decisionId) return record;
+    return {
+      ...record,
+      disposition: dispositionForAction(input.action),
+      dispositionUpdatedAt: at,
+      deferredUntil: reviewAt,
+      decisionEvents: [...record.decisionEvents, event],
+    };
+  });
 }
 
 export async function loadRecommendationRecords(): Promise<RecommendationRecord[]> {
@@ -234,18 +312,32 @@ function normalizeRecommendationRecord(value: unknown): RecommendationRecord | n
     || typeof record.symbol !== "string"
     || typeof record.side !== "string") return null;
 
-  if (record.schemaVersion === 2 && Array.isArray(record.outcomes)) {
-    return record as RecommendationRecord;
+  const schemaVersion = (value as { schemaVersion?: number }).schemaVersion;
+  if ((schemaVersion === 2 || schemaVersion === 3) && Array.isArray(record.outcomes)) {
+    const normalized = record as unknown as RecommendationRecord;
+    return {
+      ...normalized,
+      schemaVersion: 3,
+      decisionId: typeof record.decisionId === "string" && record.decisionId ? record.decisionId : record.id,
+      cohortEvidence: normalizeCohortEvidence(record.cohortEvidence, record),
+      disposition: normalizeDisposition(record.disposition),
+      dispositionUpdatedAt: typeof record.dispositionUpdatedAt === "string" ? record.dispositionUpdatedAt : null,
+      deferredUntil: isDateKey(record.deferredUntil) ? record.deferredUntil : null,
+      decisionEvents: normalizeDecisionEvents(record.decisionEvents),
+    };
   }
 
-  if ((record as { schemaVersion?: number }).schemaVersion !== 1) return null;
+  if (schemaVersion !== 1) return null;
   const legacyOutcome = record.outcome;
   const legacyHorizon = typeof legacyOutcome?.horizonDays === "number" ? legacyOutcome.horizonDays : null;
   return {
-    ...(record as unknown as Omit<RecommendationRecord, "schemaVersion" | "referencePrice" | "referencePriceSource" | "outcomes">),
-    schemaVersion: 2,
+    ...(record as unknown as Omit<RecommendationRecord, "schemaVersion" | "cohortEvidence" | "referencePrice" | "referencePriceSource" | "outcomes">),
+    decisionId: record.id,
+    schemaVersion: 3,
+    cohortEvidence: unverifiedCohortEvidence(record),
     referencePrice: null,
     referencePriceSource: "unavailable",
+    ...emptyDecisionLifecycle(),
     outcomes: EVALUATION_HORIZONS.map((horizonDays) => ({
       ...emptyOutcome(horizonDays, null),
       status: legacyHorizon === horizonDays && legacyOutcome?.status === "evaluated" ? "evaluated" : "insufficient",
@@ -257,6 +349,124 @@ function normalizeRecommendationRecord(value: unknown): RecommendationRecord | n
       note: legacyHorizon === horizonDays ? legacyOutcome?.note ?? "旧记录缺少参考价。" : "旧记录缺少参考价，无法补算。",
     })),
   };
+}
+
+function emptyDecisionLifecycle(): Pick<
+  RecommendationRecord,
+  "disposition" | "dispositionUpdatedAt" | "deferredUntil" | "decisionEvents"
+> {
+  return {
+    disposition: "pending",
+    dispositionUpdatedAt: null,
+    deferredUntil: null,
+    decisionEvents: [],
+  };
+}
+
+function mergeGeneratedRecommendation(existing: RecommendationRecord, incoming: RecommendationRecord): RecommendationRecord {
+  const existingOutcomeByHorizon = new Map(existing.outcomes.map((outcome) => [outcome.horizonDays, outcome]));
+  return {
+    ...incoming,
+    createdAt: existing.createdAt,
+    decisionId: existing.decisionId || incoming.decisionId,
+    disposition: existing.disposition,
+    dispositionUpdatedAt: existing.dispositionUpdatedAt,
+    deferredUntil: existing.deferredUntil,
+    decisionEvents: existing.decisionEvents,
+    cohortEvidence: existing.cohortEvidence,
+    outcomes: incoming.outcomes.map((outcome) => existingOutcomeByHorizon.get(outcome.horizonDays) ?? outcome),
+  };
+}
+
+function cohortEvidenceFor(
+  report: MarketAnalysisReport,
+  source: RecommendationRecord["source"],
+  strategyKey: string,
+  frozenAt: string,
+): RecommendationCohortEvidence {
+  const calibration = report.profileCalibrationStatus;
+  const dataSignature = cleanText(calibration?.dataSignature);
+  const kind = source === "simulation" ? "simulation" : dataSignature ? "forward-live" : "unverified";
+  return {
+    kind,
+    strategyVersion: `${strategyKey}@${report.profileVersion || "1.0.0"}`,
+    dataSignature,
+    trainingWindow: cleanText(calibration?.trainingWindow),
+    validationWindow: cleanText(calibration?.validationWindow),
+    frozenAt,
+  };
+}
+
+function normalizeCohortEvidence(
+  value: unknown,
+  record: Partial<Pick<RecommendationRecord, "createdAt" | "profileVersion" | "strategyKey">>,
+): RecommendationCohortEvidence {
+  if (!value || typeof value !== "object") return unverifiedCohortEvidence(record);
+  const evidence = value as Partial<RecommendationCohortEvidence>;
+  const kind = evidence.kind === "forward-live" || evidence.kind === "simulation" ? evidence.kind : "unverified";
+  const dataSignature = cleanText(evidence.dataSignature);
+  return {
+    kind: kind === "forward-live" && !dataSignature ? "unverified" : kind,
+    strategyVersion: cleanText(evidence.strategyVersion) || `${record.strategyKey}@${record.profileVersion}`,
+    dataSignature,
+    trainingWindow: cleanText(evidence.trainingWindow),
+    validationWindow: cleanText(evidence.validationWindow),
+    frozenAt: validIso(evidence.frozenAt) ? evidence.frozenAt : cleanText(record.createdAt),
+  };
+}
+
+function unverifiedCohortEvidence(
+  record: Partial<Pick<RecommendationRecord, "createdAt" | "profileVersion" | "strategyKey">>,
+): RecommendationCohortEvidence {
+  return {
+    kind: "unverified",
+    strategyVersion: `${cleanText(record.strategyKey) || "legacy"}@${cleanText(record.profileVersion) || "legacy"}`,
+    dataSignature: "",
+    trainingWindow: "",
+    validationWindow: "",
+    frozenAt: validIso(record.createdAt) ? record.createdAt : "",
+  };
+}
+
+function dispositionForAction(action: RecommendationDecisionAction): RecommendationDisposition {
+  if (action === "accept") return "accepted";
+  if (action === "reject") return "rejected";
+  if (action === "defer") return "deferred";
+  return "reviewed";
+}
+
+function normalizeDisposition(value: unknown): RecommendationDisposition {
+  return value === "accepted" || value === "rejected" || value === "deferred" || value === "reviewed"
+    ? value
+    : "pending";
+}
+
+function normalizeDecisionEvents(value: unknown): RecommendationDecisionEvent[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const event = item as Partial<RecommendationDecisionEvent>;
+    if (!validIso(event.at) || !isDecisionAction(event.action)) return [];
+    return [{
+      id: typeof event.id === "string" && event.id ? event.id : `decision-event-${event.at}-${event.action}`,
+      action: event.action,
+      at: event.at,
+      note: typeof event.note === "string" ? event.note : "",
+      reviewAt: isDateKey(event.reviewAt) ? event.reviewAt : null,
+    }];
+  });
+}
+
+function isDecisionAction(value: unknown): value is RecommendationDecisionAction {
+  return value === "accept" || value === "reject" || value === "defer" || value === "review";
+}
+
+function validIso(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isDateKey(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function emptyOutcome(horizonDays: number, referencePrice: number | null): RecommendationOutcome {
@@ -309,6 +519,10 @@ function sideForDecisionType(decisionType: RecommendationDecisionType) {
 
 function normalizeSymbol(value: string) {
   return value.trim().toUpperCase();
+}
+
+function cleanText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function isPositiveNumber(value: unknown): value is number {

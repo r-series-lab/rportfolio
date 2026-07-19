@@ -1,63 +1,180 @@
-/* Portfolio analysis: report-first layout with a continuous inspector rail. */
-html[data-rportfolio-style] .analysis-page-stack {
-  position: relative !important;
-  inset: auto !important;
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) var(--rp-inspector-width) !important;
-  grid-template-rows: minmax(0, 1fr) !important;
-  gap: 0 !important;
-  overflow: hidden !important;
+/* Analysis indicators styles. Mechanically split by component ownership. */
+
+
+.technical-panel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.technical-table-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  border-radius: 9px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.018);
+  box-shadow:
+    inset -20px 0 24px rgba(10, 12, 15, 0.3),
+    inset 0 -18px 24px rgba(10, 12, 15, 0.2);
+}
+
+.technical-table-wrap table {
+  width: max(100%, calc(220px + var(--technical-column-count, 8) * 104px));
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.technical-table-wrap .MuiTableCell-root {
+  overflow: hidden;
+  padding: 9px 10px;
+  border-color: rgba(255, 255, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.technical-table-wrap .MuiTableCell-root:first-of-type {
+  width: 112px;
+}
+
+.technical-table-wrap .MuiTableCell-root:last-of-type {
+  width: 108px;
+}
+
+.technical-table-wrap .MuiTableHead-root .MuiTableCell-root {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #15191e;
+}
+
+.technical-table-wrap .MuiTableBody-root .MuiTableCell-root {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.technical-table-wrap .empty-table-cell {
+  height: 96px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.technical-table-wrap::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.technical-table-wrap::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.1));
+}
+
+.technical-table-wrap strong {
+  display: block;
+}
+
+html[data-rportfolio-style="light"] .technical-table-wrap {
+  border-color: rgba(42, 82, 132, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(248, 251, 255, 0.24)),
+    rgba(251, 253, 255, 0.72);
+  box-shadow:
+    inset -18px 0 24px rgba(46, 83, 126, 0.045),
+    inset 0 -14px 18px rgba(46, 83, 126, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-rportfolio-style="light"] .technical-table-wrap .MuiTableCell-root {
+  border-color: rgba(42, 82, 132, 0.09);
+}
+
+html[data-rportfolio-style="light"] .technical-table-wrap .MuiTableHead-root .MuiTableCell-root {
+  color: var(--text-secondary);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(238, 244, 251, 0.92));
+  border-bottom-color: rgba(42, 82, 132, 0.14);
+  box-shadow: inset 0 -1px 0 rgba(42, 82, 132, 0.06);
+}
+
+html[data-rportfolio-style="light"] .technical-table-wrap .MuiTableBody-root .MuiTableCell-root {
+  color: var(--text-primary);
   background: transparent;
 }
 
-html[data-rportfolio-style] .analysis-page-stack:not(.has-decision-rail) {
-  grid-template-columns: minmax(0, 1fr) !important;
+html[data-rportfolio-style="light"] .technical-table-wrap .MuiTableBody-root .MuiTableRow-root:hover .MuiTableCell-root {
+  background: rgba(37, 99, 235, 0.035);
 }
 
-html[data-rportfolio-style] .analysis-main-column,
-html[data-rportfolio-style] .decision-workspace,
-html[data-rportfolio-style] .decision-main-scroll {
-  min-width: 0;
-  min-height: 0;
-  max-width: none;
+
+html:not([data-rportfolio-style="light"]) .tab-content .technical-table-wrap {
+  border-color: rgba(102, 130, 160, 0.12);
+  background:
+    linear-gradient(145deg, rgba(127, 159, 194, 0.052), rgba(127, 159, 194, 0.012)),
+    rgba(7, 14, 22, 0.62);
+  box-shadow: inset 0 1px 0 rgba(196, 220, 255, 0.035);
 }
 
-html[data-rportfolio-style] .analysis-main-column {
-  overflow: hidden;
+@media (max-width: 820px) {
+
+  .technical-table-wrap {
+    overflow-x: auto;
+  }
+
+  .technical-table-wrap table {
+    min-width: 760px;
+  }
 }
 
-html[data-rportfolio-style] .decision-workspace {
-  height: 100%;
+
+.technical-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-html[data-rportfolio-style] .decision-main-scroll {
-  height: 100%;
-  display: grid;
-  align-content: start;
-  gap: var(--rp-section-gap);
-  padding: var(--rp-page-gutter);
-  overflow: hidden auto;
-  scrollbar-gutter: stable;
+
+.technical-table-wrap::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
 }
 
-html[data-rportfolio-style] .decision-summary-panel,
-html[data-rportfolio-style] .workbench-panel {
-  min-width: 0;
+
+.technical-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
 }
 
-html[data-rportfolio-style] .decision-heading,
-html[data-rportfolio-style] .decision-copy-panel,
-html[data-rportfolio-style] .decision-evidence-panel,
-html[data-rportfolio-style] .decision-position-panel,
-html[data-rportfolio-style] .analysis-page-stack .asset-panel,
-html[data-rportfolio-style] .analysis-page-stack .portfolio-panel,
-html[data-rportfolio-style] .analysis-page-stack .backtest-summary-panel,
-html[data-rportfolio-style] .analysis-page-stack .structure-panel,
-html[data-rportfolio-style] .analysis-page-stack .rules-panel,
+
+.technical-table-wrap:hover::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-hover);
+}
+
+
+html[data-rportfolio-style="light"] .technical-panel,
+
+html[data-rportfolio-style="dark"] .technical-panel {
+  min-width: 0 !important;
+  padding: 12px !important;
+  border: 1px solid var(--analysis-line) !important;
+  border-radius: 13px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.012)),
+    var(--analysis-glass-soft) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style="light"] .technical-table-wrap,
+
+html[data-rportfolio-style="dark"] .technical-table-wrap {
+  max-height: 520px !important;
+  overflow: auto !important;
+  scrollbar-gutter: stable !important;
+  border-color: var(--analysis-line) !important;
+  background: var(--analysis-control) !important;
+}
+
+
 html[data-rportfolio-style] .analysis-page-stack .technical-panel {
   border-color: var(--rp-hairline);
   border-radius: var(--rp-panel-radius);
@@ -69,175 +186,6 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel {
   -webkit-backdrop-filter: var(--rp-blur);
 }
 
-html[data-rportfolio-style] .analysis-page-stack .workbench-panel {
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-html[data-rportfolio-style] .analysis-page-stack .tab-strip {
-  position: sticky;
-  z-index: 5;
-  top: calc(-1 * var(--rp-page-gutter));
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--rp-hairline);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--rp-panel-strong) 88%, transparent);
-  box-shadow: var(--rp-panel-shadow);
-  backdrop-filter: var(--rp-blur);
-  -webkit-backdrop-filter: var(--rp-blur);
-}
-
-html[data-rportfolio-style] .analysis-page-stack .tab-strip button {
-  min-width: 0;
-  height: 34px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--rp-ink-secondary);
-  background: transparent;
-}
-
-html[data-rportfolio-style] .analysis-page-stack .tab-strip button:hover,
-html[data-rportfolio-style] .analysis-page-stack .tab-strip button.is-active {
-  border-color: var(--rp-hairline);
-  color: var(--rp-ink);
-  background: var(--rp-control-hover);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
-}
-
-html[data-rportfolio-style] .decision-rail.workspace-inspector-rail {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  align-content: start;
-  gap: 9px;
-  padding: var(--rp-page-gutter);
-  overflow: hidden auto;
-  border-left: 1px solid var(--rp-hairline);
-  background: var(--rp-sidebar-glass);
-  box-shadow: inset 1px 0 0 color-mix(in srgb, white 3%, transparent);
-  backdrop-filter: var(--rp-blur);
-  -webkit-backdrop-filter: var(--rp-blur);
-}
-
-html[data-rportfolio-style] .decision-rail.workspace-inspector-rail > .rail-card,
-html[data-rportfolio-style] .decision-rail.workspace-inspector-rail > .evidence-summary-panel {
-  box-sizing: border-box;
-  width: calc(100% + 16px) !important;
-  max-width: none !important;
-  margin-inline: -8px !important;
-  border-color: var(--rp-hairline);
-  border-radius: var(--rp-panel-radius);
-  background: var(--rp-panel-glass);
-  box-shadow: var(--rp-panel-shadow);
-}
-
-html[data-rportfolio-style] .analysis-page-stack .portfolio-holding-list,
-html[data-rportfolio-style] .analysis-page-stack .portfolio-exposure-rows {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-html[data-rportfolio-style] .analysis-page-stack .decision-heading h1,
-html[data-rportfolio-style] .analysis-page-stack .decision-position-range {
-  min-height: 1.1em !important;
-  padding-bottom: 2px !important;
-  overflow: visible !important;
-  line-height: 1.08 !important;
-}
-
-@media (max-width: 1120px) {
-  html[data-rportfolio-style][data-rportfolio-style] body .workspace-area > .analysis-page-stack {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(calc(100dvh - var(--window-drag-height)), auto) auto !important;
-    overflow: auto !important;
-  }
-
-  html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack > .analysis-main-column {
-    width: 100% !important;
-    min-height: calc(100dvh - var(--window-drag-height)) !important;
-  }
-
-  html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .decision-workspace,
-  html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack .decision-main-scroll {
-    width: 100% !important;
-    height: calc(100dvh - var(--window-drag-height)) !important;
-  }
-
-  html[data-rportfolio-style][data-rportfolio-style] body .analysis-page-stack > .decision-rail.workspace-inspector-rail {
-    position: static !important;
-    width: 100% !important;
-    min-width: 100% !important;
-    max-width: none !important;
-    justify-self: stretch !important;
-    min-height: 320px !important;
-    border-top: 1px solid var(--rp-hairline) !important;
-    border-left: 0 !important;
-  }
-}
-
-@media (max-width: 760px) {
-  html[data-rportfolio-style] .decision-main-scroll {
-    padding: 8px;
-  }
-
-  html[data-rportfolio-style] .analysis-page-stack .tab-strip {
-    overflow-x: auto;
-    grid-template-columns: repeat(5, minmax(72px, 1fr));
-  }
-}
-
-/* Light analysis inspector hierarchy: cooler rail, brighter modules, stronger separators. */
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail {
-  border-left-color: rgba(61, 84, 110, 0.2) !important;
-  border-right-color: rgba(61, 84, 110, 0.1) !important;
-  background:
-    linear-gradient(180deg, rgba(244, 248, 252, 0.92), rgba(222, 232, 243, 0.96) 112px),
-    rgba(222, 232, 243, 0.96) !important;
-  box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.72),
-    -10px 0 24px rgba(52, 73, 96, 0.055) !important;
-}
-
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail > .rail-card,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail > .evidence-summary-panel {
-  border-color: rgba(63, 87, 114, 0.16) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.48), transparent 68%),
-    rgba(247, 250, 253, 0.7) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.84),
-    0 8px 18px rgba(55, 76, 99, 0.045) !important;
-}
-
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail > .rail-risk-card {
-  border-bottom-color: rgba(63, 87, 114, 0.16) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.52), transparent 70%),
-    rgba(241, 246, 251, 0.76) !important;
-  box-shadow: inset 0 -1px 0 rgba(63, 87, 114, 0.08) !important;
-}
-
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-risk-grid article,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-quality-row,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-transition-row,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-trigger-list article,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-position-list article,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-internal-grid article,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .rail-scope-line,
-html[data-rportfolio-style="light"] .analysis-page-stack .decision-rail.workspace-inspector-rail .evidence-summary-panel.is-compact .evidence-columns > div {
-  border-color: rgba(63, 87, 114, 0.14) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent),
-    rgba(250, 252, 255, 0.62) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
-}
-
-/* Technical indicators: compact analytical toolbar and quieter data typography. */
 html[data-rportfolio-style] .analysis-page-stack .technical-panel {
   --technical-accent: color-mix(in srgb, rgb(var(--yellow-rgb)) 72%, var(--rp-ink-secondary));
   gap: 0 !important;
@@ -392,6 +340,7 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-
 }
 
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary,
+
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list article {
   min-width: 0;
   display: grid;
@@ -407,6 +356,7 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-
 }
 
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary span,
+
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list span {
   overflow: hidden;
   color: var(--rp-ink-muted);
@@ -417,6 +367,7 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-
 }
 
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary strong,
+
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list strong {
   overflow: hidden;
   color: var(--rp-ink);
@@ -427,6 +378,7 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-
 }
 
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-summary p,
+
 html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-signal-list p {
   min-width: 0;
   margin: 0;
@@ -473,17 +425,6 @@ html[data-rportfolio-style] .analysis-page-stack .technical-panel .price-action-
   }
 }
 
-/* Final inspector alignment: every top-level module uses the risk block's full-width baseline. */
-html[data-rportfolio-style] .analysis-page-stack .decision-rail.workspace-inspector-rail > .rail-card,
-html[data-rportfolio-style] .analysis-page-stack .decision-rail.workspace-inspector-rail > .evidence-summary-panel {
-  box-sizing: border-box !important;
-  width: calc(100% + 16px) !important;
-  max-width: none !important;
-  margin-right: -8px !important;
-  margin-left: -8px !important;
-}
-
-/* Light technical workspace: separate the analytical surface from the page canvas. */
 html[data-rportfolio-style="light"] .analysis-page-stack .technical-panel {
   border-color: rgba(59, 81, 106, 0.2) !important;
   background:

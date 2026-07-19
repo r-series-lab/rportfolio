@@ -6,6 +6,7 @@ export type RecommendationReadiness = {
   autoExecutionAllowed: boolean;
   canExecute: boolean;
   canIncreaseRisk: boolean;
+  canReduceRisk: boolean;
   confidenceLabel: string;
   confidenceScore: number;
   dataQuality: DataQualityAssessment;
@@ -45,8 +46,30 @@ export function recommendationReadinessFor({
   if (!report || !reportIsCurrent) {
     return makeReadiness(false, false, confidenceLabel, confidenceScore, "先刷新组合报告，再生成交易建议。", "待更新", "caution");
   }
+  if (!plan.valuation.canCalculate) {
+    return makeReadiness(false, false, confidenceLabel, confidenceScore, plan.valuation.detail, plan.valuation.label, "negative");
+  }
   if (dataQuality.blocksExecution) {
-    return makeReadiness(false, false, confidenceLabel, confidenceScore, dataQuality.detail, dataQuality.label, "negative");
+    return makeReadiness(
+      plan.valuation.riskReductionAllowed,
+      false,
+      confidenceLabel,
+      confidenceScore,
+      `${dataQuality.detail} 仍可复核降低风险的动作。`,
+      plan.valuation.riskReductionAllowed ? "只减不加" : dataQuality.label,
+      plan.valuation.riskReductionAllowed ? "caution" : "negative",
+    );
+  }
+  if (!plan.valuation.riskIncreaseAllowed) {
+    return makeReadiness(
+      plan.valuation.riskReductionAllowed,
+      false,
+      confidenceLabel,
+      confidenceScore,
+      `${plan.valuation.detail} 仍可复核降低风险的动作。`,
+      "估值待确认",
+      "caution",
+    );
   }
   if (!plan.hasCashInstrument) {
     return makeReadiness(true, false, confidenceLabel, confidenceScore, "缺少现金或货基记录；允许减仓，不生成新增风险仓位。", "只减不加", "caution");
@@ -119,5 +142,16 @@ function readiness(
   autoExecutionAllowed = false,
   validationLabel = "未达到执行级",
 ): Omit<RecommendationReadiness, "dataQuality"> {
-  return { autoExecutionAllowed, canExecute, canIncreaseRisk, confidenceLabel, confidenceScore, detail, label, validationLabel, tone };
+  return {
+    autoExecutionAllowed,
+    canExecute,
+    canIncreaseRisk,
+    canReduceRisk: canExecute,
+    confidenceLabel,
+    confidenceScore,
+    detail,
+    label,
+    validationLabel,
+    tone,
+  };
 }

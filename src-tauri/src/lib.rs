@@ -95,6 +95,92 @@ fn save_trades(
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
+fn load_accounts(app: tauri::AppHandle) -> Result<core::AccountStoreSnapshot, String> {
+    let path = accounts_path(&app)?;
+    core::load_accounts_from_path(&path).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn save_accounts(
+    app: tauri::AppHandle,
+    snapshot: core::AccountStoreSnapshot,
+) -> Result<core::AccountStoreSnapshot, String> {
+    let path = accounts_path(&app)?;
+    core::save_accounts_to_path(&path, snapshot).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn load_performance_ledger(
+    app: tauri::AppHandle,
+) -> Result<core::PerformanceLedgerSnapshot, String> {
+    let path = performance_ledger_path(&app)?;
+    core::load_performance_ledger_from_path(&path).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn save_performance_ledger(
+    app: tauri::AppHandle,
+    snapshot: core::PerformanceLedgerSnapshot,
+) -> Result<core::PerformanceLedgerSnapshot, String> {
+    let path = performance_ledger_path(&app)?;
+    core::save_performance_ledger_to_path(&path, snapshot).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn load_statement_imports(
+    app: tauri::AppHandle,
+) -> Result<core::StatementImportLedgerSnapshot, String> {
+    let path = statement_imports_path(&app)?;
+    core::load_statement_imports_from_path(&path).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn save_statement_imports(
+    app: tauri::AppHandle,
+    snapshot: core::StatementImportLedgerSnapshot,
+) -> Result<core::StatementImportLedgerSnapshot, String> {
+    let path = statement_imports_path(&app)?;
+    core::save_statement_imports_to_path(&path, snapshot).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn create_data_backup(app: tauri::AppHandle) -> Result<core::DataBackupSummary, String> {
+    let dir = app_data_path(&app)?;
+    core::create_data_backup_in_dir(&dir, "manual").map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn list_data_backups(app: tauri::AppHandle) -> Result<Vec<core::DataBackupSummary>, String> {
+    let dir = app_data_path(&app)?;
+    core::list_data_backups_in_dir(&dir).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn restore_data_backup(
+    app: tauri::AppHandle,
+    backup_id: String,
+) -> Result<core::DataRestoreResult, String> {
+    let dir = app_data_path(&app)?;
+    core::restore_data_backup_in_dir(&dir, &backup_id).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn get_data_diagnostics(app: tauri::AppHandle) -> Result<core::DataDiagnostics, String> {
+    let dir = app_data_path(&app)?;
+    core::data_diagnostics_for_dir(&dir).map_err(|error| error.message)
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
 fn load_orders(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let path = orders_path(&app)?;
     core::load_orders_from_path(&path).map_err(|error| error.message)
@@ -264,6 +350,30 @@ fn holdings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 }
 
 #[cfg(feature = "desktop")]
+fn app_data_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+
+    app.path()
+        .app_data_dir()
+        .map_err(|error| format!("cannot resolve app data directory: {error}"))
+}
+
+#[cfg(feature = "desktop")]
+fn accounts_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app_data_path(app)?.join("accounts.json"))
+}
+
+#[cfg(feature = "desktop")]
+fn performance_ledger_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app_data_path(app)?.join("performance-ledger.json"))
+}
+
+#[cfg(feature = "desktop")]
+fn statement_imports_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app_data_path(app)?.join("statement-imports.json"))
+}
+
+#[cfg(feature = "desktop")]
 fn trades_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
 
@@ -358,6 +468,16 @@ pub fn run() {
             save_holdings,
             load_trades,
             save_trades,
+            load_accounts,
+            save_accounts,
+            load_performance_ledger,
+            save_performance_ledger,
+            load_statement_imports,
+            save_statement_imports,
+            create_data_backup,
+            list_data_backups,
+            restore_data_backup,
+            get_data_diagnostics,
             load_orders,
             save_orders,
             load_recommendations,

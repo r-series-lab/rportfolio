@@ -1,12 +1,19 @@
 import type { HoldingRecord, HoldingRole } from "./holdings";
 import { isHoldingRecord } from "./holdings";
 import { isCashHolding } from "./position-plan";
+import {
+  DEFAULT_PORTFOLIO_VALUATION_SETTINGS,
+  holdingCostValueInBase,
+  holdingMarketValueInBase,
+  type PortfolioValuationSettings,
+} from "./portfolio-valuation";
 import type { LightStatus, PortfolioHolding, PortfolioProfile } from "./types";
 
 export function portfolioProfileFromHoldings(
   storedHoldings: HoldingRecord[],
   fallback: PortfolioProfile,
   marketRiskScore: number,
+  valuation: Partial<PortfolioValuationSettings> = DEFAULT_PORTFOLIO_VALUATION_SETTINGS,
 ): PortfolioProfile {
   const localHoldings = storedHoldings.filter(isHoldingRecord);
   if (!localHoldings.length) {
@@ -14,9 +21,9 @@ export function portfolioProfileFromHoldings(
   }
 
   const realHoldings = localHoldings.filter((holding) => holding.role === "real");
-  const realMarketValue = realHoldings.reduce((sum, holding) => sum + marketValueOf(holding), 0);
+  const realMarketValue = realHoldings.reduce((sum, holding) => sum + (holdingMarketValueInBase(holding, valuation) ?? 0), 0);
   const portfolioHoldings = localHoldings
-    .map((holding) => portfolioHoldingFromLocal(holding, realMarketValue))
+    .map((holding) => portfolioHoldingFromLocal(holding, realMarketValue, valuation))
     .sort((left, right) => {
       const kindOrder = assetKindOrder(left.assetKind);
       const rightKindOrder = assetKindOrder(right.assetKind);
@@ -56,7 +63,7 @@ export function portfolioProfileFromHoldings(
   );
   const weightedRiskScore = Math.round((100 - healthScore) * 0.5 + concentrationScore * 0.22 + marketRiskScore * 0.28);
   const roleCounts = countRoles(localHoldings);
-  const maxTargetDriftValue = maxTargetDrift(localHoldings, realMarketValue);
+  const maxTargetDriftValue = maxTargetDrift(localHoldings, realMarketValue, valuation);
 
   return {
     totalWeight,
@@ -83,7 +90,7 @@ export function portfolioProfileFromHoldings(
         key: "local_holdings_linked",
         label: "本地持仓",
         tone: "positive",
-        detail: `组合分析已使用本地真实持仓计算健康度；代理和观察资产不计入仓位健康度。`,
+        detail: `组合分析已使用本地持仓计算健康度；代理和观察资产不计入仓位健康度。`,
       },
       {
         key: "local_concentration",
@@ -107,9 +114,13 @@ export function localHoldingsCounts(storedHoldings: HoldingRecord[]) {
   return countRoles(storedHoldings.filter(isHoldingRecord));
 }
 
-function portfolioHoldingFromLocal(holding: HoldingRecord, realMarketValue: number): PortfolioHolding {
-  const value = marketValueOf(holding);
-  const costValue = holding.quantity * holding.costPrice;
+function portfolioHoldingFromLocal(
+  holding: HoldingRecord,
+  realMarketValue: number,
+  valuation: Partial<PortfolioValuationSettings>,
+): PortfolioHolding {
+  const value = holdingMarketValueInBase(holding, valuation) ?? 0;
+  const costValue = holdingCostValueInBase(holding, valuation) ?? 0;
   const pnlPct = costValue > 0 ? ((value - costValue) / costValue) * 100 : null;
   const weight = holding.role === "real" && realMarketValue > 0 ? (value / realMarketValue) * 100 : 0;
   const cash = isCashHolding(holding);
@@ -135,10 +146,6 @@ function portfolioHoldingFromLocal(holding: HoldingRecord, realMarketValue: numb
     ma20Gap: null,
     note: noteForHolding(holding, pnlPct, drift),
   };
-}
-
-function marketValueOf(holding: HoldingRecord) {
-  return holding.quantity * holding.currentPrice;
 }
 
 function localHealthScore(pnlPct: number | null, drift: number, hasPrice: boolean) {
@@ -179,7 +186,7 @@ function noteForHolding(holding: HoldingRecord, pnlPct: number | null, drift: nu
   if (holding.targetWeight > 0 && drift >= 12) return "偏离目标权重较大";
   if (pnlPct !== null && pnlPct < -8) return "账面亏损较大";
   if (pnlPct !== null && pnlPct > 12) return "盈利扩张，注意回撤";
-  return holding.notes || "本地真实持仓";
+  return holding.notes || "本地持仓";
 }
 
 function exposureGroup(kind: "sector" | "style" | "exposure", holdings: PortfolioHolding[]) {
@@ -214,10 +221,14 @@ function targetDriftDetail(maxDrift: number) {
   return `最大目标偏离 ${round1(maxDrift)}%，仓位结构仍可控。`;
 }
 
-function maxTargetDrift(holdings: HoldingRecord[], realMarketValue: number) {
+function maxTargetDrift(
+  holdings: HoldingRecord[],
+  realMarketValue: number,
+  valuation: Partial<PortfolioValuationSettings>,
+) {
   return holdings.reduce((max, holding) => {
     if (holding.role !== "real" || isCashHolding(holding) || holding.targetWeight <= 0 || realMarketValue <= 0) return max;
-    const weight = (marketValueOf(holding) / realMarketValue) * 100;
+    const weight = ((holdingMarketValueInBase(holding, valuation) ?? 0) / realMarketValue) * 100;
     return Math.max(max, Math.abs(weight - holding.targetWeight));
   }, 0);
 }

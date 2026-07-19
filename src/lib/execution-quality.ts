@@ -81,7 +81,7 @@ export function evaluateExecutionQuality({
   const checks: ExecutionQualityCheck[] = [];
 
   if (instrumentKind === "fund") {
-    checks.push(...fundExecutionChecks(report, policy));
+    checks.push(...fundExecutionChecks(report, policy, side));
     return {
       checks,
       limitHint: "下一净值",
@@ -143,6 +143,7 @@ export function evaluateExecutionQuality({
 function fundExecutionChecks(
   report: MarketAnalysisReport,
   policy: ProfileExecutionPolicy,
+  side: string,
 ): ExecutionQualityCheck[] {
   const checks: ExecutionQualityCheck[] = [];
   const fund = report.profileFund;
@@ -151,8 +152,10 @@ function fundExecutionChecks(
     checks.push({
       key: "fund.freshness.block",
       label: "基金披露",
-      severity: "block",
-      detail: `基金持仓披露已 ${ageDays} 天，先更新资料再交易。`,
+      severity: isBuy(side) ? "block" : "warn",
+      detail: isBuy(side)
+        ? `基金持仓披露已 ${ageDays} 天，先更新资料再买入。`
+        : `基金持仓披露已 ${ageDays} 天，不阻断降低风险的赎回。`,
       overridable: true,
     });
   } else if (typeof ageDays === "number" && ageDays > policy.fundWarnHoldingsAgeDays) {

@@ -7,10 +7,53 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
+type DialogFocusMemory = React.MutableRefObject<HTMLElement | null>
+
+const DialogFocusContext = React.createContext<DialogFocusMemory | null>(null)
+
+function captureActiveElement(target: DialogFocusMemory) {
+  target.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+}
+
 function Dialog({
+  defaultOpen,
+  onOpenChange,
+  open,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const previousFocusRef = React.useRef<HTMLElement | null>(null)
+  const wasOpenRef = React.useRef(Boolean(defaultOpen))
+
+  // Controlled dialogs can be opened by buttons outside Radix's DialogTrigger.
+  // Capture during that render, before the portal moves focus into the dialog.
+  if (open === true && !wasOpenRef.current && typeof document !== "undefined") {
+    captureActiveElement(previousFocusRef)
+  }
+
+  React.useLayoutEffect(() => {
+    if (open !== undefined) wasOpenRef.current = open
+  }, [open])
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen && typeof document !== "undefined") captureActiveElement(previousFocusRef)
+      wasOpenRef.current = nextOpen
+      onOpenChange?.(nextOpen)
+    },
+    [onOpenChange]
+  )
+
+  return (
+    <DialogFocusContext.Provider value={previousFocusRef}>
+      <DialogPrimitive.Root
+        data-slot="dialog"
+        defaultOpen={defaultOpen}
+        onOpenChange={handleOpenChange}
+        open={open}
+        {...props}
+      />
+    </DialogFocusContext.Provider>
+  )
 }
 
 function DialogTrigger({
@@ -50,16 +93,38 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  mobileMode = "modal",
+  onCloseAutoFocus,
+  onOpenAutoFocus,
   showCloseButton = true,
+  size = "md",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  mobileMode?: "modal" | "sheet"
   showCloseButton?: boolean
+  size?: "sm" | "md" | "lg" | "workspace"
 }) {
+  const rootFocusRef = React.useContext(DialogFocusContext)
+  const fallbackFocusRef = React.useRef<HTMLElement | null>(null)
+  const previousFocusRef = rootFocusRef ?? fallbackFocusRef
+
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-size={size}
+        data-mobile-mode={mobileMode}
+        onOpenAutoFocus={(event) => {
+          if (!previousFocusRef.current) captureActiveElement(previousFocusRef)
+          onOpenAutoFocus?.(event)
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event)
+          if (event.defaultPrevented || !previousFocusRef.current?.isConnected) return
+          event.preventDefault()
+          previousFocusRef.current.focus()
+        }}
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
@@ -75,13 +140,24 @@ function DialogContent({
               size="icon-sm"
             >
               <XIcon
+                aria-hidden="true"
               />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">关闭弹窗</span>
             </Button>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>
+  )
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("min-h-0 overflow-y-auto", className)}
+      {...props}
+    />
   )
 }
 
@@ -156,6 +232,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

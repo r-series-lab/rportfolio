@@ -1,10 +1,18 @@
 import type { HoldingRecord } from "./holdings";
 import { isHoldingRecord } from "./holdings";
+import {
+  convertCurrency,
+  normalizePortfolioValuationSettings,
+  type PortfolioValuationSettings,
+} from "./portfolio-valuation";
 
 export type TradeSide = "buy" | "sell";
 
 export type TradeRecord = {
   id: string;
+  accountId?: string;
+  decisionId?: string;
+  orderId?: string;
   symbol: string;
   name: string;
   side: TradeSide;
@@ -36,6 +44,7 @@ export type TradeHabit = {
 };
 
 export type TradePosition = {
+  accountId: string;
   symbol: string;
   name: string;
   currency: string;
@@ -50,6 +59,7 @@ export type TradePosition = {
 
 export type TradeReconcileItem = {
   key: string;
+  accountId: string;
   symbol: string;
   name: string;
   currency: string;
@@ -81,6 +91,9 @@ export function isTradeRecord(value: unknown): value is TradeRecord {
   const item = value as Partial<TradeRecord>;
   return (
     typeof item.id === "string" &&
+    (item.accountId === undefined || typeof item.accountId === "string") &&
+    (item.decisionId === undefined || typeof item.decisionId === "string") &&
+    (item.orderId === undefined || typeof item.orderId === "string") &&
     typeof item.symbol === "string" &&
     typeof item.name === "string" &&
     (item.side === "buy" || item.side === "sell") &&
@@ -132,7 +145,9 @@ export function tradePositionsFromTrades(trades: TradeRecord[]): TradePosition[]
   });
 
   for (const trade of sorted) {
-    const existing = states.get(trade.symbol) ?? {
+    const stateKey = `${trade.accountId ?? ""}:${trade.symbol}`;
+    const existing = states.get(stateKey) ?? {
+      accountId: trade.accountId ?? "",
       symbol: trade.symbol,
       name: trade.name,
       currency: trade.currency,
@@ -166,7 +181,7 @@ export function tradePositionsFromTrades(trades: TradeRecord[]): TradePosition[]
     }
 
     existing.averageCost = existing.quantity > 0 ? existing.costValue / existing.quantity : 0;
-    states.set(trade.symbol, existing);
+    states.set(stateKey, existing);
   }
 
   return [...states.values()].map((position) => ({
@@ -178,21 +193,35 @@ export function tradePositionsFromTrades(trades: TradeRecord[]): TradePosition[]
   }));
 }
 
-export function analyzeTradeHabit(trades: TradeRecord[], holdings: HoldingRecord[], totalValue: number, now = new Date()): TradeHabit {
+export function analyzeTradeHabit(
+  trades: TradeRecord[],
+  holdings: HoldingRecord[],
+  totalValue: number,
+  valuation?: Partial<PortfolioValuationSettings>,
+  now = new Date(),
+): TradeHabit {
   const validTrades = trades.filter(isTradeRecord);
   const validHoldings = holdings.filter(isHoldingRecord);
+  const valuationSettings = valuation ? normalizePortfolioValuationSettings(valuation) : null;
+  const amountFor = (trade: TradeRecord) => {
+    const amount = tradeAmount(trade);
+    if (!valuationSettings) return amount;
+    return convertCurrency(amount, trade.currency, valuationSettings.baseCurrency, valuationSettings) ?? 0;
+  };
   const cutoff30 = daysBefore(now, 30);
   const cutoff90 = daysBefore(now, 90);
   const recent30 = validTrades.filter((trade) => tradeDateOf(trade) >= cutoff30);
   const recent90 = validTrades.filter((trade) => tradeDateOf(trade) >= cutoff90);
   const recentBuyTrades = recent90.filter((trade) => trade.side === "buy");
-  const totalRecentAmount = recent30.reduce((sum, trade) => sum + tradeAmount(trade), 0);
+  const totalRecentAmount = recent30.reduce((sum, trade) => sum + amountFor(trade), 0);
   const averageAmount = recent30.length ? totalRecentAmount / recent30.length : 0;
-  const largestTrade = [...recent30].sort((left, right) => tradeAmount(right) - tradeAmount(left))[0] ?? null;
-  const largestTradeWeight = largestTrade && totalValue > 0 ? (tradeAmount(largestTrade) / totalValue) * 100 : null;
+  const largestTrade = [...recent30].sort((left, right) => amountFor(right) - amountFor(left))[0] ?? null;
+  const largestTradeWeight = largestTrade && totalValue > 0 ? (amountFor(largestTrade) / totalValue) * 100 : null;
   const repeatBuySymbol = mostRepeatedBuySymbol(recentBuyTrades);
   const lossAverageCount = recentBuyTrades.filter((trade) => {
-    const holding = validHoldings.find((item) => item.symbol === trade.symbol);
+    const holding = validHoldings.find((item) =>
+      item.symbol === trade.symbol && (item.accountId ?? "") === (trade.accountId ?? ""),
+    );
     if (!holding) return false;
     const costValue = holding.quantity * holding.costPrice;
     const marketValue = holding.quantity * holding.currentPrice;
@@ -219,7 +248,10 @@ export function analyzeTradeHabit(trades: TradeRecord[], holdings: HoldingRecord
     summary: habitSummary({ lossAverageCount, repeatBuySymbol, trades30d: recent30.length }),
     trades30d: recent30.length,
     averageAmount,
-    averageAmountLabel: formatAmount(averageAmount, dominantCurrency(validTrades, validHoldings)),
+    averageAmountLabel: formatAmount(
+      averageAmount,
+      valuationSettings?.baseCurrency ?? dominantCurrency(validTrades, validHoldings),
+    ),
     largestTradeWeight,
     largestTradeWeightLabel: largestTradeWeight === null ? "—" : `${round1(largestTradeWeight)}%`,
     repeatBuySymbol,
@@ -345,10 +377,15 @@ function mostRepeatedBuySymbol(trades: TradeRecord[]) {
 }
 
 function reconcilePosition(position: TradePosition, holdings: HoldingRecord[]): TradeReconcileItem {
-  const holding = holdings.find((item) => item.symbol === position.symbol && item.role === "real") ?? null;
+  const holding = holdings.find((item) =>
+    item.symbol === position.symbol
+    && item.role === "real"
+    && (item.accountId ?? "") === position.accountId,
+  ) ?? null;
   if (!holding) {
     return {
-      key: `missing-${position.symbol}`,
+      key: `missing-${position.accountId || "unassigned"}-${position.symbol}`,
+      accountId: position.accountId,
       symbol: position.symbol,
       name: position.name,
       currency: position.currency,
@@ -373,7 +410,8 @@ function reconcilePosition(position: TradePosition, holdings: HoldingRecord[]): 
   const matched = quantityMatched && costMatched;
 
   return {
-    key: `reconcile-${position.symbol}`,
+    key: `reconcile-${position.accountId || "unassigned"}-${position.symbol}`,
+    accountId: position.accountId,
     symbol: position.symbol,
     name: position.name || holding.name,
     currency: position.currency || holding.currency,

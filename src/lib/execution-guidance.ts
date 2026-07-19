@@ -26,7 +26,7 @@ export function executionGuidanceFor({
 
   if (!action || !normalizedSide) {
     return {
-      triggerCondition: "先从建议账本选择一条可执行建议",
+      triggerCondition: "先从建议账本选择一条可建票建议",
       limitPriceRange: "—",
       invalidationCondition: "没有选中建议，不生成交易票",
       reviewAt,
