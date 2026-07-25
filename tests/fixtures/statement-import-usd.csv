@@ -1,0 +1,5 @@
+record_type,external_id,account_name,account_id,currency,date,symbol,name,asset_type,quantity,price,cost_price,fee,side,kind,amount,settled_cash,available_cash,quote_as_of,usd_cny_rate
+ACCOUNT,,美元验收账户,QA-US-1,USD,2026-07-16,,,,,,,,,,,1000,900,,
+POSITION,,美元验收账户,QA-US-1,USD,2026-07-16,AAPL,Apple,stock,2,210,180,,,,,,,2026-07-16,
+TRADE,QA-T-1,美元验收账户,QA-US-1,USD,2026-07-16,AAPL,Apple,stock,1,205,205,1,buy,,,,,,
+CASH_FLOW,QA-F-1,美元验收账户,QA-US-1,USD,2026-07-16,,,,,,,,,deposit,100,,,,7.1

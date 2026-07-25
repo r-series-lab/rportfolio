@@ -1,0 +1,163 @@
+/* Deferred orders execution rail styles. */
+html[data-rportfolio-style] .quant-audit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html[data-rportfolio-style] .quant-no-orders {
+  min-height: 120px;
+  display: grid;
+  place-content: center;
+  gap: 5px;
+  padding: 18px;
+  text-align: center;
+  color: var(--rp-ink-muted);
+}
+
+html[data-rportfolio-style] .quant-no-orders svg {
+  justify-self: center;
+  font-size: 1.4rem;
+}
+
+html[data-rportfolio-style] .quant-no-orders strong {
+  color: var(--rp-ink);
+  font-size: 0.84rem;
+}
+
+html[data-rportfolio-style] .quant-order-list {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+html[data-rportfolio-style] .quant-order-list {
+  max-height: min(38vh, 360px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+html[data-rportfolio-style] .quant-order-list article {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid var(--quant-line);
+  border-radius: 9px;
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-order-list article {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+html[data-rportfolio-style] .quant-order-list article > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--rp-ink-muted);
+  font-size: 0.62rem;
+}
+
+html[data-rportfolio-style] .quant-order-list strong {
+  overflow: hidden;
+  color: var(--rp-ink);
+  font-size: 0.74rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-order-list span,
+
+html[data-rportfolio-style] .quant-order-list em {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-order-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+html[data-rportfolio-style] .quant-order-command[data-slot="button"] {
+  border-color: var(--quant-line);
+  color: var(--rp-ink-secondary);
+  background: var(--quant-row);
+  box-shadow: none;
+}
+
+html[data-rportfolio-style] .quant-order-command.is-submit[data-slot="button"] {
+  color: var(--rp-success);
+}
+
+html[data-rportfolio-style] .quant-order-command.is-cancel[data-slot="button"] {
+  color: var(--rp-danger);
+}
+
+html[data-rportfolio-style] .quant-order-command[data-slot="button"] {
+  border-color: var(--quant-line) !important;
+  border-radius: var(--quant-control-radius) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent),
+    var(--quant-row) !important;
+  box-shadow: var(--quant-inner-shadow) !important;
+}
+
+@media (min-width: 1200px) and (max-width: 1320px) {
+
+  html[data-rportfolio-style] .quant-order-command[data-slot="button"] {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-audit-actions,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-actions {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 5px;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-audit-actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-command[data-slot="button"] {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list article {
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    color-mix(in srgb, var(--quant-row) 88%, transparent);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-order-list article > p {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}

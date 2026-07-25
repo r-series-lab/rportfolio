@@ -1,0 +1,374 @@
+/* Quant simulation styles. Mechanically split by component ownership. */
+
+
+
+html[data-rportfolio-style] .quant-paper-button {
+  min-height: 30px;
+  border: 1px solid var(--quant-line);
+  border-radius: var(--quant-control-radius);
+  color: var(--rp-ink-secondary);
+  background: var(--quant-row);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+
+html[data-rportfolio-style] .quant-paper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+
+html[data-rportfolio-style] .quant-paper-button svg {
+  font-size: 1rem;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-strip span,
+
+html[data-rportfolio-style] .quant-paper-performance span,
+
+html[data-rportfolio-style] .quant-paper-attribution span,
+
+html[data-rportfolio-style] .quant-paper-trade-metrics span,
+
+html[data-rportfolio-style] .quant-paper-trade-groups span {
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--quant-line);
+  border-radius: 999px;
+  color: var(--rp-ink-muted);
+  background: var(--quant-row);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-strip strong,
+
+html[data-rportfolio-style] .quant-paper-performance strong,
+
+html[data-rportfolio-style] .quant-paper-attribution strong,
+
+html[data-rportfolio-style] .quant-paper-trade-metrics strong,
+
+html[data-rportfolio-style] .quant-paper-trade-groups strong {
+  color: var(--rp-ink);
+  font-weight: 820;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-strip,
+
+html[data-rportfolio-style] .quant-paper-performance,
+
+html[data-rportfolio-style] .quant-paper-attribution > div,
+
+html[data-rportfolio-style] .quant-paper-trade-metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+html[data-rportfolio-style] .quant-paper-button {
+  border-color: var(--rp-accent-border);
+  color: var(--rp-ink);
+  background: var(--rp-accent-soft);
+}
+
+html[data-rportfolio-style] .quant-paper-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-card p {
+  margin: 0;
+  color: var(--rp-ink-muted);
+  font-size: 0.64rem;
+  line-height: 1.42;
+}
+
+
+html[data-rportfolio-style] .quant-paper-trade-performance,
+
+html[data-rportfolio-style] .quant-paper-exit-attribution,
+
+html[data-rportfolio-style] .quant-paper-experiment,
+
+html[data-rportfolio-style] .quant-paper-attribution {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--quant-line);
+  border-radius: 10px;
+  background: var(--quant-row);
+}
+
+
+html[data-rportfolio-style] .quant-paper-trade-performance header,
+
+html[data-rportfolio-style] .quant-paper-exit-attribution header,
+
+html[data-rportfolio-style] .quant-paper-experiment header,
+
+html[data-rportfolio-style] .quant-paper-attribution header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip {
+  gap: 6px;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip span {
+  min-height: 30px;
+  align-content: center;
+  padding: 6px 7px;
+  border-radius: 8px;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-latest {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid var(--quant-line);
+  border-radius: 9px;
+  background: var(--quant-row);
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-latest strong {
+  overflow: hidden;
+  color: var(--rp-ink);
+  font-size: 0.74rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-latest span,
+
+html[data-rportfolio-style] .quant-paper-sim-latest em {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-paper-sim-headline {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+html[data-rportfolio-style] .quant-paper-sim-headline strong {
+  color: var(--rp-ink);
+  font-size: 0.86rem;
+}
+
+html[data-rportfolio-style] .quant-paper-sim-headline span,
+
+html[data-rportfolio-style] .quant-paper-sim-policy {
+  margin: 0;
+  color: var(--rp-ink-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+html[data-rportfolio-style] .quant-paper-evidence-strip {
+  border-color: var(--quant-line);
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-paper-detail-stack {
+  display: grid;
+  gap: 8px;
+}
+
+html[data-rportfolio-style] .quant-paper-trade-progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rp-ink-muted) 14%, transparent);
+}
+
+html[data-rportfolio-style] .quant-paper-trade-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rp-accent);
+}
+
+html[data-rportfolio-style] .quant-paper-trade-groups {
+  display: grid;
+  gap: 6px;
+}
+
+
+html[data-rportfolio-style] .quant-paper-button {
+  border-color: var(--quant-line) !important;
+  border-radius: var(--quant-control-radius) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent),
+    var(--quant-row) !important;
+  box-shadow: var(--quant-inner-shadow) !important;
+}
+
+
+html[data-rportfolio-style] .quant-paper-sim-strip span,
+
+html[data-rportfolio-style] .quant-paper-performance span,
+
+html[data-rportfolio-style] .quant-paper-attribution span,
+
+html[data-rportfolio-style] .quant-paper-trade-metrics span,
+
+html[data-rportfolio-style] .quant-paper-trade-groups span {
+  border-color: var(--quant-line);
+  border-radius: var(--quant-control-radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    var(--quant-row);
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip span {
+  min-height: 28px;
+  padding: 5px 7px;
+  border-radius: 8px;
+}
+
+@media (min-width: 1200px) and (max-width: 1320px) {
+
+  
+  html[data-rportfolio-style] .quant-paper-button {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+
+  
+  html[data-rportfolio-style] .quant-paper-sim-card p {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 960px) {
+  
+  html[data-rportfolio-style] .quant-paper-sim-strip,
+
+  html[data-rportfolio-style] .quant-paper-performance,
+
+  html[data-rportfolio-style] .quant-paper-attribution > div,
+
+  html[data-rportfolio-style] .quant-paper-trade-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+
+  
+  html[data-rportfolio-style] .quant-paper-sim-strip,
+
+  html[data-rportfolio-style] .quant-paper-performance,
+
+  html[data-rportfolio-style] .quant-paper-attribution > div,
+
+  html[data-rportfolio-style] .quant-paper-trade-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-performance,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-exit-attribution,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-experiment,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-attribution,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-latest {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip span,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance span,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics span,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups span {
+  min-width: 0;
+  min-height: 38px;
+  align-content: center;
+  padding: 6px 7px;
+  border-radius: 10px;
+  white-space: normal;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-strip strong,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-performance strong,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-metrics strong,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-trade-groups strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-card p,
+
+html[data-rportfolio-style] .quant-execution-rail .quant-paper-sim-headline span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}

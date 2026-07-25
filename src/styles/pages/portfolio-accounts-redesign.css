@@ -1,0 +1,626 @@
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace {
+  --rp-line: var(--rpd-line);
+  --rp-line-soft: var(--rpd-line);
+  --rp-surface-raised: var(--rpd-surface);
+  --rp-surface-soft: var(--rpd-surface-muted);
+  --rp-ink: var(--rpd-text-strong);
+  --rp-ink-secondary: var(--rpd-text-secondary);
+  --rp-ink-muted: var(--rpd-text-muted);
+  --rp-accent: var(--rpd-focus);
+  --rp-warning: var(--rpd-warning);
+  --rp-danger: var(--rpd-danger);
+  --rp-success: var(--rpd-success);
+  color: var(--rpd-text);
+  background: var(--rpd-canvas);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-head {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--rpd-line);
+  background: var(--rpd-surface);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-title {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: center;
+  justify-content: start;
+  gap: 3px 9px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-title h1 {
+  margin: 0;
+  color: var(--rpd-text-strong);
+  font-size: 18px;
+  font-weight: 740;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-title > span {
+  align-self: end;
+  padding-bottom: 1px;
+  color: var(--rpd-text-secondary);
+  font-size: 11px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-title small {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs {
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button {
+  position: relative;
+  min-width: 58px;
+  height: 100%;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  color: var(--rpd-text-muted);
+  background: transparent;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button::after {
+  position: absolute;
+  right: 11px;
+  bottom: -1px;
+  left: 11px;
+  height: 2px;
+  content: "";
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button:hover {
+  color: var(--rpd-text);
+  background: var(--rpd-row-hover);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button.is-active {
+  color: var(--rpd-focus);
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button.is-active::after {
+  background: var(--rpd-focus);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button:focus-visible {
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--rpd-focus-ring);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-page,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-reconcile-page,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-data-page {
+  padding: 0 16px 16px;
+  color: var(--rpd-text);
+  background: var(--rpd-canvas);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-cash-summary {
+  margin: 0 -16px;
+  border-top: 0;
+  border-bottom: 1px solid var(--rpd-line);
+  background: var(--rpd-surface);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric {
+  min-height: 70px;
+  align-content: center;
+  gap: 4px;
+  padding: 0 16px;
+  border-right: 1px solid var(--rpd-line);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric span {
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric strong {
+  color: var(--rpd-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric.is-caution strong {
+  color: var(--rpd-warning);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head {
+  min-height: 50px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--rpd-line);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head > div {
+  gap: 6px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head > div > strong {
+  color: var(--rpd-text-strong);
+  font-size: 12px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head span {
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head [data-slot="button"] {
+  min-height: 30px;
+  border-radius: 4px;
+  color: #fff;
+  background: #55769a;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] .portfolio-section-head [data-slot="button"] {
+  color: #e8f1fb;
+  background: #345a83;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-table-head,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(360px, 2.1fr) minmax(110px, 0.62fr) 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-table-head {
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--rpd-text-muted);
+  background: var(--rpd-surface-muted);
+  font-size: 9px;
+  font-weight: 620;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-cash-head {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-list {
+  display: block;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row {
+  min-height: 62px;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--rpd-line);
+  border-radius: 0;
+  background: var(--rpd-surface);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row:hover {
+  background: var(--rpd-row-hover);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row.is-archived {
+  opacity: 0.58;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-identity {
+  gap: 9px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-identity i {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rpd-control-border);
+  border-radius: 4px;
+  color: var(--rpd-focus);
+  background: var(--rpd-surface-muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-identity > div,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-state {
+  gap: 2px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-identity strong {
+  overflow: hidden;
+  color: var(--rpd-text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-identity span,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-state small {
+  overflow: hidden;
+  color: var(--rpd-text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dl {
+  gap: 8px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dt {
+  display: none;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--rpd-text-strong);
+  font-size: 11px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-state > span {
+  color: var(--rpd-text-secondary);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-row-actions {
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-row-actions [data-slot="button"] {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border-radius: 4px;
+  color: var(--rpd-text-secondary);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-empty-state {
+  min-height: 260px;
+  color: var(--rpd-text-muted);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-empty-state strong {
+  color: var(--rpd-text-strong);
+  font-size: 13px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-empty-state span {
+  font-size: 10px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-inline-warning,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-data-message {
+  color: var(--rpd-warning);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog[data-slot="dialog-content"] {
+  --rp-dialog-width: 500px !important;
+  border-color: var(--rpd-line-strong) !important;
+  border-radius: 8px !important;
+  color: var(--rpd-text) !important;
+  background: var(--rpd-surface) !important;
+  box-shadow: 0 24px 70px rgb(10 18 28 / 24%) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] .portfolio-account-dialog[data-slot="dialog-content"] {
+  box-shadow: 0 28px 80px rgb(0 0 0 / 48%) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] [data-slot="dialog-overlay"]:has(~ .portfolio-account-dialog) {
+  background: rgb(14 24 36 / 24%) !important;
+  backdrop-filter: blur(3px) !important;
+  -webkit-backdrop-filter: blur(3px) !important;
+}
+
+html[data-rportfolio-style="dark"][data-rportfolio-style] [data-slot="dialog-overlay"]:has(~ .portfolio-account-dialog) {
+  background: rgb(0 0 0 / 48%) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-header"] {
+  min-height: 58px;
+  padding: 11px 48px 10px 16px;
+  border-bottom: 1px solid var(--rpd-line);
+  background: var(--rpd-surface-muted);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-title"] {
+  color: var(--rpd-text-strong) !important;
+  font-size: 15px !important;
+  font-weight: 720 !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-description"] {
+  color: var(--rpd-text-muted) !important;
+  font-size: 10px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog > [data-slot="dialog-close"] {
+  top: 14px !important;
+  right: 14px !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border-color: var(--rpd-control-border) !important;
+  border-radius: 4px !important;
+  color: var(--rpd-text-secondary) !important;
+  background: var(--rpd-control) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-body"] {
+  padding: 14px 16px;
+  background: var(--rpd-surface);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog .rp-dialog-context {
+  margin: 0 0 12px;
+  padding: 0 0 12px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 2px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--rpd-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog .rp-dialog-context > svg {
+  width: 15px;
+  color: var(--rpd-focus);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog .rp-dialog-context strong {
+  color: var(--rpd-text-strong);
+  font-size: 11px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog .rp-dialog-context span {
+  color: var(--rpd-text-muted);
+  font-size: 9px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-form {
+  gap: 11px 12px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-form label {
+  gap: 5px;
+  color: var(--rpd-text-secondary);
+  font-size: 10px;
+  font-weight: 620;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="input"],
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog select {
+  min-height: 34px;
+  height: 34px;
+  border-color: var(--rpd-control-border) !important;
+  border-radius: 4px !important;
+  color: var(--rpd-text) !important;
+  background: var(--rpd-control) !important;
+  font-size: 11px !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="input"]:focus-visible,
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog select:focus-visible {
+  border-color: var(--rpd-focus) !important;
+  box-shadow: 0 0 0 3px var(--rpd-focus-ring) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-footer"] {
+  min-height: 52px;
+  padding: 9px 16px !important;
+  border-color: var(--rpd-line) !important;
+  border-radius: 0 0 8px 8px !important;
+  background: var(--rpd-surface-muted) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-footer"] [data-slot="button"] {
+  min-height: 32px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-footer"] [data-variant="default"] {
+  color: #fff;
+  background: #55769a;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-dialog-error {
+  margin: 10px 0 0;
+  padding: 8px 9px;
+  border-color: var(--rpd-danger-border);
+  border-radius: 4px;
+  color: var(--rpd-danger);
+  background: var(--rpd-danger-soft);
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-head {
+    min-height: 94px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 54px 40px;
+    gap: 0;
+    padding: 0;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-workspace-title {
+    padding: 0 12px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs {
+    width: 100%;
+    border-top: 1px solid var(--rpd-line);
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button {
+    min-width: 0;
+    flex: 1;
+    padding: 0 4px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-table-head,
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row {
+    grid-template-columns: minmax(190px, 1fr) auto;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-table-head {
+    display: none;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row {
+    min-height: 0;
+    gap: 9px;
+    padding: 10px 4px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dl {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 9px 0 0;
+    border-top: 1px solid var(--rpd-line);
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dt {
+    display: block;
+    color: var(--rpd-text-muted);
+    font-size: 9px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-state {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-row-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-page,
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-reconcile-page,
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-data-page {
+    padding: 0 10px 10px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-cash-summary {
+    margin: 0 -10px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric {
+    min-height: 58px;
+    padding: 0 10px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-metric strong {
+    font-size: 13px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-section-head {
+    min-height: 46px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px 14px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-row dd {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 680px) {
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog[data-slot="dialog-content"] {
+    --rp-dialog-width: 100vw !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-header"] {
+    min-height: 64px;
+    padding: 12px 58px 11px 14px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog > [data-slot="dialog-close"] {
+    top: 10px !important;
+    right: 10px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-body"] {
+    padding: 14px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-form {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-form label.is-wide {
+    grid-column: auto;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-form label,
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog .rp-dialog-context span {
+    font-size: 12px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="input"],
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog select {
+    min-height: 44px;
+    height: 44px;
+    font-size: 16px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-footer"] {
+    min-height: 66px;
+    padding: 11px 14px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] .portfolio-account-dialog [data-slot="dialog-footer"] [data-slot="button"] {
+    min-height: 44px;
+  }
+}

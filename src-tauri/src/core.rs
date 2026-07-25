@@ -15,8 +15,6 @@ const MIN_DAILY_BARS: usize = 220;
 const PRICE_BAR_LOOKBACK: usize = 90;
 const BACKTEST_SAMPLE_SPACING_DAYS: usize = 5;
 const DEFAULT_PROFILE_KEY: &str = "us-core";
-const DEFAULT_QBOT_PATH: &str = "/Users/ikiru/Documents/Qbot";
-const DEFAULT_VNPY_PATH: &str = "/Users/ikiru/Documents/vnpy";
 const QBOT_ADAPTER_SCRIPT: &str = include_str!("../adapters/qbot_adapter.py");
 const VNPY_ADAPTER_SCRIPT: &str = include_str!("../adapters/vnpy_adapter.py");
 const YAHOO_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
@@ -4665,12 +4663,12 @@ pub fn probe_broker_bridge(request: BrokerBridgeProbeRequest) -> Vec<BrokerBridg
         .qbot_path
         .filter(|value| !value.trim().is_empty())
         .or_else(|| std::env::var("RPORTFOLIO_QBOT_PATH").ok())
-        .unwrap_or_else(|| DEFAULT_QBOT_PATH.to_string());
+        .unwrap_or_else(|| default_bridge_workspace("Qbot"));
     let vnpy_path = request
         .vnpy_path
         .filter(|value| !value.trim().is_empty())
         .or_else(|| std::env::var("RPORTFOLIO_VNPY_PATH").ok())
-        .unwrap_or_else(|| DEFAULT_VNPY_PATH.to_string());
+        .unwrap_or_else(|| default_bridge_workspace("vnpy"));
     let python = request
         .python
         .filter(|value| !value.trim().is_empty())
@@ -5770,13 +5768,27 @@ fn resolved_bridge_path(bridge: &str) -> String {
         std::env::var("RPORTFOLIO_QBOT_PATH")
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| DEFAULT_QBOT_PATH.to_string())
+            .unwrap_or_else(|| default_bridge_workspace("Qbot"))
     } else {
         std::env::var("RPORTFOLIO_VNPY_PATH")
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| DEFAULT_VNPY_PATH.to_string())
+            .unwrap_or_else(|| default_bridge_workspace("vnpy"))
     }
+}
+
+fn default_bridge_workspace(folder: &str) -> String {
+    let documents_dir =
+        dirs::document_dir().or_else(|| dirs::home_dir().map(|home| home.join("Documents")));
+    default_bridge_workspace_from(documents_dir, folder)
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn default_bridge_workspace_from(documents_dir: Option<PathBuf>, folder: &str) -> PathBuf {
+    documents_dir
+        .unwrap_or_else(|| PathBuf::from("Documents"))
+        .join(folder)
 }
 
 fn resolved_python() -> String {
@@ -17973,6 +17985,20 @@ fn round(value: f64, digits: u32) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bridge_workspace_defaults_are_user_portable() {
+        let documents = PathBuf::from("home").join("Documents");
+
+        assert_eq!(
+            default_bridge_workspace_from(Some(documents.clone()), "Qbot"),
+            documents.join("Qbot")
+        );
+        assert_eq!(
+            default_bridge_workspace_from(None, "vnpy"),
+            PathBuf::from("Documents").join("vnpy")
+        );
+    }
 
     #[test]
     fn parses_eastmoney_daily_klines_in_ohlcv_order() {

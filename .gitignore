@@ -20,6 +20,13 @@ test-results
 /.visual-*.html
 /.rportfolio-*.png
 /rportfolio-*-preview.png
+/qa-*.png
+/design-artifacts/
+/design-audit/
+/design-references/
+/design-system/rportfolio/redesign/
+/design/*.png
+/design/icon-concepts/*.png
 
 # Editor directories and files
 .vscode/*

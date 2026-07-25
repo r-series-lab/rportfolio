@@ -1,0 +1,292 @@
+{
+  "$schema": "https://r.rurie.top/schemas/r-app.manifest.schema.json",
+  "schemaVersion": 1,
+  "identity": {
+    "slug": "rportfolio",
+    "repo": "rportfolio",
+    "name": "rPortfolio",
+    "binary": "rportfolio",
+    "package": "rportfolio",
+    "coreCrate": "rportfolio",
+    "tauriCrate": "rportfolio",
+    "identifier": "app.rseries.rportfolio"
+  },
+  "product": {
+    "architecture": "modular-workbench",
+    "category": "本地组合决策工作台",
+    "tagline": "把市场判断、组合执行与复盘连成证据链。",
+    "description": "结合真实账户、持仓与市场数据，组织风险检查、组合计划、人工决策、纸面执行和结果归因。",
+    "stage": "开发预览",
+    "localFirst": true,
+    "nonGoals": [
+      "承诺投资收益或提供不可解释的黑盒买卖点",
+      "在无人值守状态下提交真实订单",
+      "缺少价格、账户、汇率、基准或日期对齐时放行风险增加动作"
+    ]
+  },
+  "website": {
+    "publish": true,
+    "index": "03",
+    "accent": "#0b9f72",
+    "accentSoft": "#d7f5e9",
+    "platforms": ["macOS", "Windows", "CLI"],
+    "formats": ["CNY / USD", "Profile", "CSV", "JSON CLI"],
+    "facts": [
+      { "label": "决策模式", "value": "人工确认与审计闭环" },
+      { "label": "账户币种", "value": "CNY / USD" },
+      { "label": "执行边界", "value": "不无人值守下真实订单" }
+    ],
+    "capabilities": [
+      {
+        "icon": "WalletCards",
+        "title": "组合真值",
+        "body": "管理账户、现金、持仓、交易和估值，对账单先预览、校验和去重再写入。"
+      },
+      {
+        "icon": "ScanSearch",
+        "title": "资产研究",
+        "body": "从组合或 Profile 标的进入单资产视图，检查行情、技术结构、边界与执行路线。"
+      },
+      {
+        "icon": "Scale",
+        "title": "组合决策",
+        "body": "把概览、结构、回测、规则和指标放进可复核的证据视图。"
+      },
+      {
+        "icon": "Waypoints",
+        "title": "量化回放",
+        "body": "组合信号、仓位、退出、风险、执行和评估策略，运行纸面成交与晋级检查。"
+      },
+      {
+        "icon": "ClipboardCheck",
+        "title": "复盘归因",
+        "body": "连接建议、委托、成交、日终估值和后续结果，保留完整审计链。"
+      },
+      {
+        "icon": "Gauge",
+        "title": "透明风险评分",
+        "body": "按 Profile 计算可解释的风险维度、触发规则、价格线和历史检验。"
+      }
+    ],
+    "workflow": [
+      {
+        "label": "真值",
+        "title": "对齐账户与市场输入",
+        "body": "确认现金、持仓、价格、汇率、基准和日期处在同一估值口径。"
+      },
+      {
+        "label": "分析",
+        "title": "形成可解释的组合计划",
+        "body": "检查技术结构、风险规则、历史回测与仓位约束，不依赖黑盒信号。"
+      },
+      {
+        "label": "决策",
+        "title": "由人接受、拒绝或延期",
+        "body": "保留建议版本、信心、失效条件、复核日期与关联执行记录。"
+      },
+      {
+        "label": "复盘",
+        "title": "用结果推动策略晋级",
+        "body": "在数据完整时记录正式快照，并把结果归因回策略和建议。"
+      }
+    ],
+    "boundary": {
+      "title": "它是决策工作台，不是收益承诺",
+      "body": "rPortfolio 用于风险监控、人工决策与执行参考。缺少价格、账户、汇率、基准或日期对齐时会阻断风险增加动作，也不会无人值守地下真实订单。"
+    },
+    "releaseSummary": "首个预览版本建立透明风险评分、市场灯号、技术检查、回测输出与稳定 JSON CLI。",
+    "screenshots": []
+  },
+  "documentation": [
+    {
+      "id": "overview",
+      "label": "产品与使用概览",
+      "description": "工作区、数据源、评分模型、CLI 与数据边界。",
+      "group": "开始使用",
+      "source": "README.md"
+    },
+    {
+      "id": "product-architecture",
+      "label": "产品架构",
+      "description": "产品目标、领域分层、金融不变量与模块迁移顺序。",
+      "group": "架构",
+      "source": "docs/product-architecture.md"
+    },
+    {
+      "id": "strategy-architecture",
+      "label": "策略架构",
+      "description": "策略 policy、扩展合同、晋级门槛和回放约束。",
+      "group": "架构",
+      "source": "docs/strategy-architecture.md"
+    },
+    {
+      "id": "quant-trading",
+      "label": "量化交易架构",
+      "description": "当前落地范围、扩展方式、后续顺序与设计原则。",
+      "group": "架构",
+      "source": "docs/quant-trading-architecture.md"
+    },
+    {
+      "id": "release-workflow",
+      "label": "发布流程",
+      "description": "源码检查、服务器 Tag、GitHub 云端构建与 Draft Release 复核边界。",
+      "group": "版本",
+      "source": "docs/RELEASE_WORKFLOW.md"
+    },
+    {
+      "id": "changelog",
+      "label": "更新日志",
+      "description": "按版本记录产品能力和合同变化。",
+      "group": "版本",
+      "source": "CHANGELOG.md"
+    }
+  ],
+  "localization": {
+    "defaultLocale": "zh",
+    "translations": {
+      "en": {
+        "product": {
+          "category": "Local portfolio decision workbench",
+          "tagline": "Connect market judgment, portfolio execution, and review into an evidence chain.",
+          "description": "Combine account truth, holdings, and market data to organize risk checks, portfolio plans, human decisions, paper execution, and outcome attribution.",
+          "stage": "Development preview",
+          "nonGoals": [
+            "Promise investment returns or provide opaque buy and sell signals",
+            "Submit live orders without an actively supervising user",
+            "Allow risk-increasing actions when prices, accounts, FX, benchmarks, or dates are not aligned"
+          ]
+        },
+        "website": {
+          "facts": [
+            { "label": "Decision model", "value": "Human confirmation and audit loop" },
+            { "label": "Account currencies", "value": "CNY / USD" },
+            { "label": "Execution boundary", "value": "No unattended live orders" }
+          ],
+          "capabilities": [
+            {
+              "icon": "WalletCards",
+              "title": "Portfolio truth",
+              "body": "Manage accounts, cash, holdings, trades, and valuations, with statement batches previewed, validated, and deduplicated before local writes."
+            },
+            {
+              "icon": "ScanSearch",
+              "title": "Asset research",
+              "body": "Open a single-asset view from portfolio or profile symbols to inspect market snapshots, technical structure, constraints, and execution paths."
+            },
+            {
+              "icon": "Scale",
+              "title": "Portfolio decisions",
+              "body": "Bring overview, structure, backtests, rules, and metrics into one reviewable evidence surface."
+            },
+            {
+              "icon": "Waypoints",
+              "title": "Quant replay",
+              "body": "Compose signal, sizing, scaling, exit, risk, execution, and evaluation policies for paper fills and promotion checks."
+            },
+            {
+              "icon": "ClipboardCheck",
+              "title": "Outcome attribution",
+              "body": "Connect recommendations, orders, fills, end-of-day valuations, and later outcomes in a complete audit trail."
+            },
+            {
+              "icon": "Gauge",
+              "title": "Transparent risk scoring",
+              "body": "Calculate explainable risk dimensions, triggered rules, price levels, and historical validation from a versioned profile."
+            }
+          ],
+          "workflow": [
+            {
+              "label": "Truth",
+              "title": "Align account and market inputs",
+              "body": "Confirm that cash, positions, prices, FX, benchmarks, and dates share one valuation basis."
+            },
+            {
+              "label": "Analyze",
+              "title": "Build an explainable portfolio plan",
+              "body": "Review technical structure, risk rules, historical backtests, and sizing constraints without relying on an opaque signal."
+            },
+            {
+              "label": "Decide",
+              "title": "Accept, reject, or defer as a human",
+              "body": "Preserve the recommendation version, confidence, invalidation conditions, review date, and linked execution records."
+            },
+            {
+              "label": "Review",
+              "title": "Use outcomes to promote strategies",
+              "body": "Record formal snapshots only when data is complete, then attribute outcomes back to the strategy and recommendation."
+            }
+          ],
+          "boundary": {
+            "title": "A decision workbench, not a return promise",
+            "body": "rPortfolio supports risk monitoring, human decisions, and execution reference. It blocks risk-increasing actions when prices, accounts, FX, benchmarks, or dates are misaligned, and it does not place unattended live orders."
+          },
+          "releaseSummary": "The first preview establishes transparent risk scoring, market regime signals, technical checks, backtest output, and a stable JSON CLI."
+        },
+        "documentation": [
+          {
+            "id": "overview",
+            "label": "Product and usage overview",
+            "description": "Work areas, data sources, CLI, scoring model, portfolio truth, and financial safety boundaries.",
+            "group": "Getting started",
+            "source": "README_EN.md",
+            "reviewedForVersion": "0.1.0"
+          },
+          {
+            "id": "release-workflow",
+            "label": "Release workflow",
+            "description": "Source checks, server-created Tags, GitHub builds, and the Draft Release review boundary.",
+            "group": "Releases",
+            "source": "docs/RELEASE_WORKFLOW_EN.md",
+            "reviewedForVersion": "0.1.0"
+          },
+          {
+            "id": "changelog",
+            "label": "Changelog",
+            "description": "Product capabilities and contract changes by version.",
+            "group": "Releases",
+            "source": "CHANGELOG_EN.md",
+            "reviewedForVersion": "0.1.0"
+          }
+        ]
+      }
+    }
+  },
+  "cli": {
+    "contractVersion": 1,
+    "jsonFlagPosition": "global-before-command",
+    "infoCommand": ["--json", "info"],
+    "capabilitiesCommand": ["--json", "capabilities"],
+    "doctorCommand": ["--json", "score", "--source", "sample"],
+    "domains": ["profiles", "sources", "score"],
+    "highRiskPolicy": "CLI 当前保持只读；涉及真实账户或订单的桌面动作必须先完成数据对齐和风险检查，并由用户显式确认。"
+  },
+  "runtime": {
+    "configKind": "json",
+    "configPath": "~/.rportfolio/profiles/*.json",
+    "stateKind": "files",
+    "storagePath": "Tauri 应用数据目录中的版本化 JSON 快照与备份",
+    "secretPolicy": "付费数据源密钥和券商凭据必须保存在应用包与仓库之外；诊断和备份不得复制原始对账单或凭据正文。"
+  },
+  "quality": {
+    "requiredScripts": [
+      "dev",
+      "build",
+      "check",
+      "manifest:check",
+      "manifest:check:release",
+      "repo:check",
+      "release:check",
+      "rustfmt:check",
+      "test",
+      "test:scripts",
+      "web:build",
+      "rust-check",
+      "rust-test"
+    ],
+    "validationCommands": [
+      "npm run check",
+      "npm run manifest:check:release",
+      "npm run release:check"
+    ]
+  }
+}

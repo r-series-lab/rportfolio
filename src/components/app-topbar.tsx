@@ -1,4 +1,6 @@
 import DataUsageRoundedIcon from "@mui/icons-material/DataUsageRounded";
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
@@ -12,6 +14,7 @@ import {
 import type {
   ProfileSummary,
 } from "../lib/types";
+import type { RPortfolioStyleMode } from "../theme/r-theme";
 import { MarketDatePicker } from "./market-date-picker";
 
 type AppTopbarProps = {
@@ -26,11 +29,13 @@ type AppTopbarProps = {
 
 type AppTitlebarActionsProps = {
   onOpenProfileConfig: () => void;
+  onToggleStyleMode: () => void;
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
   sourceDetail: string;
   sourceLabel: string;
   sourceQuality: "pass" | "warn" | "block";
+  styleMode: RPortfolioStyleMode;
 };
 
 export function AppTopbar({
@@ -90,11 +95,13 @@ export function AppTopbar({
 
 export function AppTitlebarActions({
   onOpenProfileConfig,
+  onToggleStyleMode,
   onToggleSidebar,
   sidebarCollapsed,
   sourceDetail,
   sourceLabel,
   sourceQuality,
+  styleMode,
 }: AppTitlebarActionsProps) {
   return (
     <>
@@ -123,6 +130,17 @@ export function AppTitlebarActions({
             <span>{sourceLabel}</span>
             <i aria-label={sourceQuality === "pass" ? "数据可信" : sourceQuality === "warn" ? "数据待确认" : "数据阻断"} />
           </button>
+        </Tooltip>
+        <Tooltip title={styleMode === "dark" ? "切换到亮色" : "切换到暗色"}>
+          <span>
+            <IconButton
+              className="titlebar-icon-button theme-mode-button"
+              aria-label={styleMode === "dark" ? "切换到亮色" : "切换到暗色"}
+              onClick={onToggleStyleMode}
+            >
+              {styleMode === "dark" ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Profile 配置">
           <span>

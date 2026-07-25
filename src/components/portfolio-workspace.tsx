@@ -1,4 +1,4 @@
-import { Archive, DatabaseBackup, Landmark, Pencil, Plus, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
+import { Archive, Check, DatabaseBackup, Landmark, Pencil, Plus, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { accountBookFromSnapshots, reconcileAccountBookWithHoldings } from "../lib/account-book";
 import {
@@ -18,6 +18,7 @@ import {
 } from "../lib/data-safety";
 import type { HoldingRecord } from "../lib/holdings";
 import type { PortfolioValuationSettings, SupportedCurrency } from "../lib/portfolio-valuation";
+import { handleTabListKeyDown } from "../lib/tab-keyboard";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -30,6 +31,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import "../styles/pages/portfolio-accounts.css";
+import "../styles/pages/portfolio-accounts-redesign.css";
 
 type PortfolioTab = "accounts" | "holdings" | "import" | "reconcile" | "data";
 
@@ -217,18 +219,20 @@ export function PortfolioWorkspace({
   return (
     <section className="portfolio-workspace" aria-label="组合账户">
       <header className="portfolio-workspace-head">
-        <div>
-          <span>组合账户</span>
-          <strong>{accountSummary.accountCount ? `${accountSummary.activeCount} 个活跃账户` : "尚未建立账户"}</strong>
+        <div className="portfolio-workspace-title">
+          <h1>组合账户</h1>
+          <span>{accountSummary.accountCount ? `${accountSummary.activeCount} 个活跃账户` : "尚未建立账户"}</span>
           <small>{persistenceMessage}</small>
         </div>
-        <nav className="portfolio-tabs" aria-label="组合账户视图">
+        <nav className="portfolio-tabs" role="tablist" aria-label="组合账户视图" onKeyDown={handleTabListKeyDown}>
           {PORTFOLIO_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              tabIndex={activeTab === tab.key ? 0 : -1}
               className={activeTab === tab.key ? "is-active" : undefined}
-              aria-current={activeTab === tab.key ? "page" : undefined}
               onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
@@ -263,37 +267,45 @@ export function PortfolioWorkspace({
           </div>
 
           {accounts.length ? (
-            <div className="portfolio-account-list">
-              {accounts.map((account) => (
-                <article key={account.id} className={`portfolio-account-row is-${account.status}`}>
-                  <div className="portfolio-account-identity">
-                    <i aria-hidden="true">{account.currency === "CNY" ? "¥" : "$"}</i>
-                    <div>
-                      <strong>{account.name}</strong>
-                      <span>{account.source === "manual" ? "手工账户" : account.route || account.broker} · {account.currency}</span>
+            <>
+              <div className="portfolio-account-table-head" aria-hidden="true">
+                <span>账户 / 币种</span>
+                <span className="portfolio-account-cash-head"><span>可用</span><span>已结算</span><span>待交收</span><span>市值</span></span>
+                <span>状态 / 更新</span>
+                <span>操作</span>
+              </div>
+              <div className="portfolio-account-list">
+                {accounts.map((account) => (
+                  <article key={account.id} className={`portfolio-account-row is-${account.status}`}>
+                    <div className="portfolio-account-identity">
+                      <i aria-hidden="true">{account.currency === "CNY" ? "¥" : "$"}</i>
+                      <div>
+                        <strong>{account.name}</strong>
+                        <span>{account.source === "manual" ? "手工账户" : account.route || account.broker} · {account.currency}</span>
+                      </div>
                     </div>
-                  </div>
-                  <dl>
-                    <div><dt>可用</dt><dd>{formatMoney(account.availableCash, account.currency)}</dd></div>
-                    <div><dt>已结算</dt><dd>{formatMoney(account.settledCash, account.currency)}</dd></div>
-                    <div><dt>待交收</dt><dd>{formatSignedMoney(account.pendingSettlement, account.currency)}</dd></div>
-                    <div><dt>市值</dt><dd>{formatMoney(account.marketValue, account.currency)}</dd></div>
-                  </dl>
-                  <div className="portfolio-account-state">
-                    <span>{accountStatusLabel(account)}</span>
-                    <small>{formatAccountTimestamp(account)}</small>
-                  </div>
-                  <div className="portfolio-row-actions">
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`编辑 ${account.name}`} title="编辑账户" onClick={() => openEditAccount(account)}>
-                      <Pencil aria-hidden="true" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`${account.status === "archived" ? "启用" : "归档"} ${account.name}`} title={account.status === "archived" ? "启用账户" : "归档账户"} onClick={() => toggleAccountArchived(account)}>
-                      {account.status === "archived" ? <RotateCcw aria-hidden="true" /> : <Archive aria-hidden="true" />}
-                    </Button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                    <dl>
+                      <div><dt>可用</dt><dd>{formatMoney(account.availableCash, account.currency)}</dd></div>
+                      <div><dt>已结算</dt><dd>{formatMoney(account.settledCash, account.currency)}</dd></div>
+                      <div><dt>待交收</dt><dd>{formatSignedMoney(account.pendingSettlement, account.currency)}</dd></div>
+                      <div><dt>市值</dt><dd>{formatMoney(account.marketValue, account.currency)}</dd></div>
+                    </dl>
+                    <div className="portfolio-account-state">
+                      <span>{accountStatusLabel(account)}</span>
+                      <small>{formatAccountTimestamp(account)}</small>
+                    </div>
+                    <div className="portfolio-row-actions">
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`编辑 ${account.name}`} title="编辑账户" onClick={() => openEditAccount(account)}>
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`${account.status === "archived" ? "启用" : "归档"} ${account.name}`} title={account.status === "archived" ? "启用账户" : "归档账户"} onClick={() => toggleAccountArchived(account)}>
+                        {account.status === "archived" ? <RotateCcw aria-hidden="true" /> : <Archive aria-hidden="true" />}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="portfolio-empty-state">
               <strong>建立第一个人民币或美元账户</strong>
@@ -389,17 +401,17 @@ export function PortfolioWorkspace({
       ) : null}
 
       <Dialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen}>
-        <DialogContent className="portfolio-account-dialog" mobileMode="sheet" showCloseButton size="md">
+        <DialogContent className="portfolio-account-dialog" mobileMode="sheet" showCloseButton size="sm">
           <form className="rp-dialog-form" onSubmit={submitAccount}>
             <DialogHeader>
               <DialogTitle>{editingAccount ? "编辑账户" : "新建账户"}</DialogTitle>
-              <DialogDescription>{editingSyncedAccount ? "同步账户的币种与现金由原始数据源更新。" : "人民币与美元账户使用独立现金账本。"}</DialogDescription>
+              <DialogDescription>{editingSyncedAccount ? "同步字段由原始数据源更新。" : "独立维护人民币或美元现金口径。"}</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <div className="rp-dialog-context">
                 <Landmark aria-hidden="true" />
-                <strong>{editingAccount ? "保持账户标识稳定" : "建立可执行现金来源"}</strong>
-                <span>币种与现金口径会参与组合估值和下单预算；导入账户的同步字段不会在这里被静默覆盖。</span>
+                <strong>{editingAccount ? "保持账户标识稳定" : "现金口径用于估值和预算"}</strong>
+                <span>同步账户的币种与现金只由数据源更新；手工账户可在此维护。</span>
               </div>
               <div className="portfolio-account-form">
                 <label><span>账户名称</span><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} autoFocus /></label>
@@ -413,7 +425,7 @@ export function PortfolioWorkspace({
             </DialogBody>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAccountDialogOpen(false)}>取消</Button>
-              <Button type="submit">保存账户</Button>
+              <Button type="submit"><Check aria-hidden="true" />保存账户</Button>
             </DialogFooter>
           </form>
         </DialogContent>

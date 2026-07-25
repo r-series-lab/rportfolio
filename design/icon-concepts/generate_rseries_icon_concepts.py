@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 ROOT = Path(__file__).resolve().parent
+WORKSPACE_ROOT = ROOT.parents[2]
 SIZE = 1024
 TILE = (30, 30, 994, 994)
 RADIUS = 155
@@ -337,14 +338,15 @@ def make_family_strip(paths: list[tuple[Concept, Path]]) -> Image.Image:
         (
             "Reference",
             "rDevTool",
-            Path("/Users/ikiru/Documents/r-series-public/rdevtool/src-tauri/icons/rdevtool-app-icon-source.png"),
+            WORKSPACE_ROOT / "rdevtool/src-tauri/icons/rdevtool-app-icon-source.png",
         ),
         (
             "Reference",
             "rCodexManager",
-            Path("/Users/ikiru/Documents/r-series-public/rcodexmanager/src-tauri/icons/rcodexmanager-app-icon-source.png"),
+            WORKSPACE_ROOT / "rcodexmanager/src-tauri/icons/rcodexmanager-app-icon-source.png",
         ),
     ]
+    icons = [item for item in icons if item[2].exists()]
     icons += [(f"Option {concept.key}", f"rPortfolio {concept.key}", path) for concept, path in paths]
 
     gap = 280

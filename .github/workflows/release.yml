@@ -1,4 +1,4 @@
-name: Release preview desktop packages
+name: Release Desktop Preview
 
 on:
   workflow_dispatch:
@@ -9,10 +9,35 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  source-check:
+    name: Validate release source
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: npm ci
+      - run: npm run manifest:check:release
+      - run: npm run release:check
+      - run: npm run check
+
   build:
     name: Build ${{ matrix.label }}
+    needs: source-check
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -28,12 +53,12 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: lts/*
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -49,9 +74,9 @@ jobs:
         run: npm run tauri -- build --target ${{ matrix.target }}
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: rriskradar-${{ matrix.target }}
+          name: rPortfolio-${{ matrix.target }}-preview
           if-no-files-found: error
           path: |
             target/${{ matrix.target }}/release/bundle/**/*.dmg
@@ -59,7 +84,7 @@ jobs:
             target/${{ matrix.target }}/release/bundle/**/*.msi
             target/${{ matrix.target }}/release/bundle/**/*.exe
 
-  publish:
+  publish-draft:
     name: Create draft GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -69,18 +94,27 @@ jobs:
 
     steps:
       - name: Download package artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
 
+      - name: Generate SHA-256 checksums
+        run: |
+          find release-assets -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          mv SHA256SUMS.txt release-assets/SHA256SUMS.txt
+
       - name: Publish draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
-          prerelease: false
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           files: release-assets/**
           body: |
-            Stage-one preview desktop packages.
+            rPortfolio 预览构建 / preview build.
 
-            macOS packages are ad-hoc signed but not Developer ID signed or notarized. Windows packages are not Authenticode signed. macOS Gatekeeper and Windows SmartScreen may show warnings.
+            当前 macOS 包仅使用 ad-hoc 签名，未完成 Developer ID 签名与公证；Windows 包未完成 Authenticode 签名。该 Release 保持 Draft，不应作为正式下载入口。
+
+            macOS artifacts are currently ad-hoc signed and not notarized. Windows artifacts are not Authenticode signed. Keep this release as a Draft and do not expose it as a stable download.

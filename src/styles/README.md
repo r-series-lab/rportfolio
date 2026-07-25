@@ -14,8 +14,8 @@ Page styles are side-effect imports of their lazy workspace module so Vite emits
 - `today-workspace.tsx` -> `pages/today.css`
 - `portfolio-workspace.tsx`, `holdings-workspace.tsx`, and `statement-import-panel.tsx` -> their portfolio page files
 - `asset-analysis-workspace.tsx` -> `pages/asset-analysis.css` and its polish layer
-- `analysis-workspace.tsx` -> `pages/portfolio-analysis.css` and its polish layer
-- `quant-lab-workspace.tsx` -> `pages/quant-lab.css`
+- `analysis-workspace.tsx` -> `pages/portfolio-analysis-shared.css`; `analysis-tabs/*` -> the matching overview, structure, backtest, rules, or indicators stylesheet
+- `quant-lab-workspace.tsx` -> `pages/quant-lab-shared.css`; deferred dialogs, simulation, orders, account, and logs modules each own their matching quant stylesheet
 - `review-workspace.tsx` -> `pages/review.css`
 - `settings-panel.tsx` -> `pages/settings.css` and its polish layer
 

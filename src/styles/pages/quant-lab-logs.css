@@ -1,0 +1,43 @@
+/* Deferred logs execution rail styles. */
+html[data-rportfolio-style] .quant-log-panel {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+html[data-rportfolio-style] .quant-log-panel article {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid var(--quant-line);
+  border-radius: 9px;
+  background: var(--quant-row);
+}
+
+html[data-rportfolio-style] .quant-log-panel span,
+
+html[data-rportfolio-style] .quant-log-panel p {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rp-ink-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-log-panel article {
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent),
+    color-mix(in srgb, var(--quant-row) 88%, transparent);
+}
+
+html[data-rportfolio-style] .quant-execution-rail .quant-log-panel p {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}

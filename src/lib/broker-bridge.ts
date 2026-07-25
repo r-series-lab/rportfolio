@@ -136,41 +136,41 @@ const PREVIEW_BRIDGES: BrokerBridgeStatus[] = [
   {
     bridge: "qbot",
     label: "Qbot TradeEngine",
-    path: "/Users/ikiru/Documents/Qbot",
-    pathExists: true,
+    path: "~/Documents/Qbot",
+    pathExists: false,
     adapterExists: false,
-    pythonOk: true,
+    pythonOk: false,
     commandAvailable: false,
     routeLabel: "Qbot Bridge",
-    summary: "Qbot adapter not ready",
-    warnings: ["浏览器预览模式；Tauri 内会调用 Rust command 探测本地 Qbot。"],
+    summary: "浏览器预览不执行本机探测",
+    warnings: ["仅展示通道合同；请在 Tauri 应用内探测本机 Qbot。"],
     capabilities: ["trader_opts", "login", "get_positions", "start_trade"],
     commandPreview: [
-      "cd /Users/ikiru/Documents/Qbot",
+      "cd ~/Documents/Qbot",
       "python3 -c \"from qbot.engine.trade.trade_engine import TradeEngine\"",
     ],
   },
   {
     bridge: "vnpy",
     label: "vn.py Gateway",
-    path: "/Users/ikiru/Documents/vnpy",
-    pathExists: true,
-    adapterExists: true,
-    pythonOk: true,
-    commandAvailable: true,
+    path: "~/Documents/vnpy",
+    pathExists: false,
+    adapterExists: false,
+    pythonOk: false,
+    commandAvailable: false,
     routeLabel: "vn.py Gateway",
-    summary: "vn.py gateway adapter ready",
-    warnings: ["浏览器预览模式；Tauri 内会调用 Rust command 探测本地 vn.py。"],
+    summary: "浏览器预览不执行本机探测",
+    warnings: ["仅展示通道合同；请在 Tauri 应用内探测本机 vn.py。"],
     capabilities: ["EventEngine", "MainEngine", "BaseGateway", "send_order"],
     commandPreview: [
-      "cd /Users/ikiru/Documents/vnpy",
+      "cd ~/Documents/vnpy",
       "python3 -c \"from vnpy.trader.gateway import BaseGateway\"",
     ],
   },
 ];
 
 export async function probeBrokerBridge(request: BrokerBridgeProbeRequest = {}): Promise<BrokerBridgeStatus[]> {
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauriRuntime()) {
     return invoke<BrokerBridgeStatus[]>("probe_broker_bridge", { request });
   }
 
@@ -181,7 +181,7 @@ export async function probeBrokerBridge(request: BrokerBridgeProbeRequest = {}):
 }
 
 export async function routeQuantOrder(request: QuantOrderRouteRequest): Promise<QuantOrderRouteResult> {
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauriRuntime()) {
     return invoke<QuantOrderRouteResult>("route_quant_order", { request });
   }
 
@@ -223,14 +223,14 @@ export async function syncOrderStatus(request: OrderCommandRequest): Promise<Ord
 }
 
 export async function syncAccount(request: BrokerAccountSyncRequest): Promise<BrokerAccountSnapshot> {
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauriRuntime()) {
     return invoke<BrokerAccountSnapshot>("sync_account", { request });
   }
   return previewAccountSnapshot(request);
 }
 
 export async function syncMarketQuote(request: MarketQuoteRequest): Promise<MarketQuoteSnapshot> {
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauriRuntime()) {
     return invoke<MarketQuoteSnapshot>("sync_market_quote", { request });
   }
   return previewMarketQuoteSnapshot(request);
@@ -241,10 +241,14 @@ async function invokeOrderCommand(
   command: string,
   request: OrderCommandRequest,
 ): Promise<OrderCommandResult> {
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauriRuntime()) {
     return invoke<OrderCommandResult>(command, { request });
   }
   return previewOrderCommand(action, request);
+}
+
+function isTauriRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 function previewOrderCommand(action: OrderCommandAction, request: OrderCommandRequest): OrderCommandResult {

@@ -1,0 +1,9 @@
+# Local design evidence is retained on the development machine and regenerated
+# when the product UI is ready for a coordinated screenshot pass.
+/qa-*.png
+/design-artifacts/
+/design-audit/
+/design-references/
+/design-system/rportfolio/redesign/
+/design/*.png
+/design/icon-concepts/*.png

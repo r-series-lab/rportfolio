@@ -1,0 +1,437 @@
+html[data-rportfolio-style="light"] {
+  --rpd-canvas: #f6f7f9;
+  --rpd-surface: #ffffff;
+  --rpd-surface-muted: #f7f8fa;
+  --rpd-inspector: #fbfcfd;
+  --rpd-text-strong: #141923;
+  --rpd-text: #202735;
+  --rpd-text-secondary: #4d586b;
+  --rpd-text-muted: #778397;
+  --rpd-text-subtle: #a5adba;
+  --rpd-line: #e4e7ec;
+  --rpd-line-strong: #d5d9e1;
+  --rpd-control: #ffffff;
+  --rpd-control-border: #d8dde6;
+  --rpd-control-border-hover: #adb8c8;
+  --rpd-row-hover: #f5f8fd;
+  --rpd-selection: #eef5ff;
+  --rpd-focus: #246bde;
+  --rpd-focus-ring: rgb(36 107 222 / 16%);
+  --rpd-success: #14824f;
+  --rpd-success-soft: #edf8f2;
+  --rpd-success-border: #cce9d9;
+  --rpd-warning: #b46a00;
+  --rpd-warning-soft: #fff7e8;
+  --rpd-warning-border: #f0d7a9;
+  --rpd-danger: #d83a42;
+  --rpd-danger-soft: #fff1f2;
+  --rpd-danger-border: #f3c7ca;
+}
+
+html[data-rportfolio-style="dark"] {
+  --rpd-canvas: #0d1216;
+  --rpd-surface: #11171b;
+  --rpd-surface-muted: #151c21;
+  --rpd-inspector: #12191d;
+  --rpd-text-strong: #f2f4f6;
+  --rpd-text: #dce1e6;
+  --rpd-text-secondary: #b1bac5;
+  --rpd-text-muted: #818d99;
+  --rpd-text-subtle: #59636d;
+  --rpd-line: #252e34;
+  --rpd-line-strong: #323c43;
+  --rpd-control: #171e23;
+  --rpd-control-border: #333d45;
+  --rpd-control-border-hover: #53606b;
+  --rpd-row-hover: #151d22;
+  --rpd-selection: #142133;
+  --rpd-focus: #3d8bfd;
+  --rpd-focus-ring: rgb(61 139 253 / 20%);
+  --rpd-success: #45c681;
+  --rpd-success-soft: #10271c;
+  --rpd-success-border: #245a3c;
+  --rpd-warning: #e9a23b;
+  --rpd-warning-soft: #2a2112;
+  --rpd-warning-border: #62481e;
+  --rpd-danger: #ff5964;
+  --rpd-danger-soft: #2b171a;
+  --rpd-danger-border: #6d2d34;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] {
+  scrollbar-color: var(--rpd-control-border-hover) transparent;
+  scrollbar-width: thin;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] *,
+html[data-rportfolio-style][data-rportfolio-style] *::before,
+html[data-rportfolio-style][data-rportfolio-style] *::after {
+  box-sizing: border-box;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] *::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] *::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--rpd-text-muted) 48%, transparent);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] *::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--rpd-text-muted) 72%, transparent);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body {
+  color: var(--rpd-text);
+  background: var(--rpd-canvas);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-drag-region {
+  height: 44px;
+  border-bottom: 1px solid var(--rpd-line);
+  background: var(--rpd-surface);
+  box-shadow: none;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-shell {
+  height: calc(100vh - 44px);
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--rpd-canvas);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-shell > .workspace-shell,
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell:not(.is-sidebar-collapsed),
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr) !important;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--rpd-canvas);
+  box-shadow: none;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed {
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell > .app-menu,
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed > .app-menu {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  gap: 4px !important;
+  padding: 14px 8px !important;
+  border: 0;
+  border-right: 1px solid var(--rpd-line) !important;
+  border-radius: 0 !important;
+  overflow: hidden auto;
+  background: var(--rpd-surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand {
+  height: 48px !important;
+  min-height: 48px !important;
+  display: flex !important;
+  align-items: center;
+  gap: 0;
+  margin: 0 !important;
+  padding: 0 10px 10px !important;
+  border: 0;
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand > span {
+  display: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand strong {
+  display: block !important;
+  overflow: hidden;
+  color: var(--rpd-text-strong);
+  font-size: 19px;
+  font-weight: 730;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button,
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu > button {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 44px !important;
+  min-height: 44px !important;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  justify-content: stretch;
+  gap: 9px !important;
+  padding: 0 10px !important;
+  border: 1px solid transparent;
+  border-radius: 4px !important;
+  color: var(--rpd-text-secondary);
+  background: transparent;
+  box-shadow: none !important;
+  font: inherit;
+  cursor: pointer;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button::before {
+  position: absolute;
+  inset: 7px auto 7px -8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  content: "";
+  background: transparent;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button:hover {
+  color: var(--rpd-text);
+  background: var(--rpd-row-hover);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button.is-active {
+  border-color: transparent !important;
+  color: var(--rpd-focus) !important;
+  background: var(--rpd-selection) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button.is-active::before {
+  background: var(--rpd-focus);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button .MuiSvgIcon-root {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button span,
+html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button strong {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu-brand {
+  visibility: hidden !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu > button {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 0 !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu > button span {
+  display: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell > .workspace-area,
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed > .workspace-area {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: auto;
+  background: var(--rpd-canvas);
+  box-shadow: none;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .workspace-area:has(.today-workspace) {
+  overflow: hidden;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions,
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions {
+  z-index: 30;
+  top: 6px;
+  height: 32px;
+  align-items: center;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions {
+  left: 8px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body:has(.workspace-shell.is-sidebar-collapsed) .window-leading-actions {
+  left: 8px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions {
+  right: 8px;
+  gap: 5px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions .titlebar-icon-button.MuiIconButton-root,
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root,
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions .rail-collapse-titlebar-button.MuiIconButton-root {
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border: 1px solid var(--rpd-control-border) !important;
+  border-radius: 4px !important;
+  color: var(--rpd-text-secondary) !important;
+  background: var(--rpd-control) !important;
+  box-shadow: none !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root svg {
+  width: 16px;
+  height: 16px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status {
+  width: auto;
+  min-width: 0;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--rpd-control-border);
+  border-radius: 4px;
+  color: var(--rpd-text-secondary);
+  background: var(--rpd-control);
+  box-shadow: none;
+  font-size: 10px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status:hover,
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .titlebar-icon-button.MuiIconButton-root:hover,
+html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions .titlebar-icon-button.MuiIconButton-root:hover {
+  border-color: var(--rpd-control-border-hover) !important;
+  color: var(--rpd-text) !important;
+  background: var(--rpd-row-hover) !important;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status i {
+  width: 5px;
+  height: 5px;
+}
+
+@media (max-width: 760px) {
+  html[data-rportfolio-style][data-rportfolio-style] body .window-leading-actions {
+    display: none;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status span {
+    display: none;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .window-titlebar-actions .global-source-status {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .app-shell > .workspace-shell,
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell:not(.is-sidebar-collapsed),
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) 56px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell > .app-menu,
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed > .app-menu {
+    z-index: 20;
+    grid-row: 2;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 56px !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0 !important;
+    padding: 4px !important;
+    border: 0 !important;
+    border-top: 1px solid var(--rpd-line-strong) !important;
+    overflow: hidden;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .app-menu-brand {
+    display: none !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button,
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu > button {
+    height: 48px !important;
+    min-height: 48px !important;
+    display: grid;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 18px auto !important;
+    justify-items: center;
+    align-content: center;
+    gap: 3px !important;
+    padding: 0 2px !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button::before {
+    inset: auto 20% -4px;
+    width: auto;
+    height: 2px;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed .app-menu > button span,
+  html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button span {
+    display: block !important;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .app-menu > button strong {
+    max-width: 100%;
+    font-size: 9px !important;
+    text-align: center;
+  }
+
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell > .workspace-area,
+  html[data-rportfolio-style][data-rportfolio-style] body .workspace-shell.is-sidebar-collapsed > .workspace-area {
+    grid-row: 1;
+  }
+}

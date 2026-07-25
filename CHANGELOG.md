@@ -1,8 +1,20 @@
-# Changelog
+# 更新日志
+
+[English](CHANGELOG_EN.md)
+
+## 未发布
+
+### 变更
+
+- 将中英文更新日志拆分为独立单一来源，在 Manifest 中登记英文文档，并将其纳入当前版本复核。
 
 ## 0.1.0
 
-- Initial rPortfolio desktop MVP.
-- Computes a transparent 0-100 market risk score for SPY, QQQ, SMH, NVDA, IWM, and VIX.
-- Includes technical indicators, ticker lights, sector strength, natural-language risk reasons, and SPY 5/10/20 day backtest output.
-- Includes native CLI commands with stable `--json` output: `info`, `capabilities`, and `score`.
+- 首个 rPortfolio 桌面 MVP。
+- 为 SPY、QQQ、SMH、NVDA、IWM 和 VIX 计算透明的 0–100 市场风险评分。
+- 提供技术指标、标的状态灯、板块强度、自然语言风险原因，以及 SPY 的 5/10/20 日回测输出。
+- 提供具有稳定 `--json` 输出的原生 CLI 命令：`info`、`capabilities` 和 `score`。
+- 新增中英文仓库文档、可机器检查的源码边界，以及由服务器创建 Tag 的 Draft Release 流程。
+- 新增发布门禁，拒绝尚未针对当前应用版本完成复核的本地化文档。
+- 为 Tauri WebView 启用严格的生产环境 CSP、隔离的 Vite HMR 策略和冻结的 JavaScript 原型。
+- 统一中文 README、架构文档索引和根级发布说明，使其符合中英文“服务器创建 Tag + Draft Release”发布合同。

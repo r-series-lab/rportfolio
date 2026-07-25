@@ -707,6 +707,7 @@ function App() {
         <div className="window-drag-region" data-tauri-drag-region />
         <AppTitlebarActions
           onOpenProfileConfig={openProfileConfig}
+          onToggleStyleMode={() => setStyleMode((current) => current === "dark" ? "light" : "dark")}
           onToggleSidebar={toggleSidebar}
           sidebarCollapsed={effectiveSidebarCollapsed}
           sourceDetail={recommendationReadiness.dataQuality.detail}
@@ -714,6 +715,7 @@ function App() {
             ? report.sourceLabel
             : dataSources.find((item) => item.key === source)?.name ?? source}
           sourceQuality={recommendationReadiness.dataQuality.severity}
+          styleMode={styleMode}
         />
         {analysisToolbarVisible ? (
         <div
@@ -778,11 +780,17 @@ function App() {
             >
             {activeWorkspace === "today" ? (
               <TodayWorkspace
+                baseCurrency={normalizedPortfolioValuation.baseCurrency}
                 inbox={todayInbox}
                 loading={loading}
-                profileName={profiles.find((item) => item.key === profile)?.name ?? profile}
+                onAsOfChange={setAsOf}
+                profileKey={profile}
+                profiles={profiles}
                 onDecisionAction={handleDecisionAction}
                 onOpenExecution={openDecisionExecution}
+                onProfileChange={setProfile}
+                portfolioValue={activePositionPlan.totalValue}
+                usdCnyRate={normalizedPortfolioValuation.usdCnyRate}
               />
             ) : null}
 
