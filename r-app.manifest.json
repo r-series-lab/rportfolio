@@ -95,7 +95,14 @@
       "body": "rPortfolio 用于风险监控、人工决策与执行参考。缺少价格、账户、汇率、基准或日期对齐时会阻断风险增加动作，也不会无人值守地下真实订单。"
     },
     "releaseSummary": "首个预览版本建立透明风险评分、市场灯号、技术检查、回测输出与稳定 JSON CLI。",
-    "screenshots": []
+    "screenshots": [
+      {
+        "id": "portfolio-workspace-demo",
+        "source": "docs/assets/rportfolio-workspace-demo.png",
+        "alt": "rPortfolio 组合决策工作台，展示虚构的 Demo Growth Index 和 Demo Dividend Fund 数据",
+        "caption": "公开文档截图只使用虚构的指数、基金、代码和净值，所有数值均为演示数据。"
+      }
+    ]
   },
   "documentation": [
     {
@@ -104,6 +111,13 @@
       "description": "工作区、数据源、评分模型、CLI 与数据边界。",
       "group": "开始使用",
       "source": "README.md"
+    },
+    {
+      "id": "demo-data",
+      "label": "演示数据与界面截图",
+      "description": "公开文档使用的虚构基金、指数 Profile 和截图边界。",
+      "group": "开始使用",
+      "source": "docs/demo-data.md"
     },
     {
       "id": "product-architecture",
@@ -229,6 +243,14 @@
             "description": "Work areas, data sources, CLI, scoring model, portfolio truth, and financial safety boundaries.",
             "group": "Getting started",
             "source": "README_EN.md",
+            "reviewedForVersion": "0.1.0"
+          },
+          {
+            "id": "demo-data",
+            "label": "Demo data and screenshots",
+            "description": "Synthetic fund and index profiles used in public documentation and interface captures.",
+            "group": "Getting started",
+            "source": "docs/demo-data-en.md",
             "reviewedForVersion": "0.1.0"
           },
           {

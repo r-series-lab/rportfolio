@@ -22,6 +22,12 @@ Profile / data source -> market analysis -> portfolio plan -> human decision
 -> order and fill -> end-of-day snapshot -> attribution and strategy review
 ```
 
+## Public demo interface
+
+![rPortfolio portfolio decision workbench demo](docs/assets/rportfolio-workspace-demo.png)
+
+Repository and website captures use only fictional `Demo Growth Index`, `Demo Dividend Fund`, `DGI-100`, and `DDF-042` data. They contain no real account, personal holding, order, or performance history. See [Demo data and screenshots](docs/demo-data-en.md) for the boundary.
+
 ## Quick Start
 
 ```bash

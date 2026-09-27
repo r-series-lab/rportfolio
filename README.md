@@ -32,6 +32,12 @@ Profile / 数据源 → 市场分析 → 组合计划 → 人工决策
 → 委托与成交 → 日终快照 → 结果归因与策略晋级
 ```
 
+## 公开演示界面
+
+![rPortfolio 组合决策工作台演示](docs/assets/rportfolio-workspace-demo.png)
+
+仓库和官网截图只使用虚构的 `Demo Growth Index`、`Demo Dividend Fund`、`DGI-100` 与 `DDF-042` 数据，不包含真实账户、个人持仓、订单或收益历史。完整说明见[演示数据与界面截图](docs/demo-data.md)。
+
 ## 快速开始
 
 ```bash
