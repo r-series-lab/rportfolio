@@ -1,6 +1,6 @@
 [package]
 name = "rportfolio"
-version = "0.1.0"
+version = "0.1.4"
 description = "A configurable portfolio analysis workbench built with Tauri"
 authors = ["r"]
 edition = "2021"

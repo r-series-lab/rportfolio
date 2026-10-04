@@ -8,6 +8,15 @@
 
 - Splits the Chinese and English changelogs into separate sources of truth, registers the English document in the Manifest, and includes it in the current-version review.
 
+## 0.1.4
+
+Public Preview update adding refreshed portfolio, quant, holdings, and review workspaces with supporting documentation.
+
+### Changed
+
+- Updated the analysis, holdings, quant, review, and today workspace surfaces and state presentation.
+- Added bilingual workspace guides, public screenshots, and a screenshot-backed promo-video project.
+
 ## 0.1.0
 
 - Initial rPortfolio desktop MVP.
