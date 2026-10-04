@@ -883,3 +883,423 @@ html[data-rportfolio-style] .today-empty-state.is-complete svg { color: var(--rp
   html[data-rportfolio-style] .today-evidence-panel > div span:nth-child(2) { border-right: 0; }
   html[data-rportfolio-style] .today-evidence-panel > div span:last-child { grid-column: 1 / -1; padding-left: 0; }
 }
+
+/* ---------------------------------------------------------------- */
+/* Style polish: tone-tinted metric tiles, refined empty & blockers  */
+/* ---------------------------------------------------------------- */
+
+html[data-rportfolio-style] .today-metrics {
+  gap: 8px;
+  padding: 10px 14px 12px;
+  background: var(--rpd-canvas);
+}
+
+html[data-rportfolio-style] .today-metric {
+  position: relative;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--rpd-line);
+  border-radius: 10px;
+  background: var(--rpd-surface);
+  box-shadow: 0 1px 3px rgba(22, 35, 51, 0.04);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+html[data-rportfolio-style] .today-metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--rpd-line-strong);
+  opacity: 0.55;
+}
+
+html[data-rportfolio-style] .today-metric:hover {
+  border-color: var(--rpd-line-strong);
+  box-shadow: 0 3px 10px rgba(22, 35, 51, 0.07);
+  transform: translateY(-1px);
+}
+
+html[data-rportfolio-style] .today-metric.is-active { background: var(--rpd-selection); border-color: color-mix(in srgb, var(--rpd-focus) 26%, var(--rpd-line)); }
+html[data-rportfolio-style] .today-metric.is-active::before { background: var(--rpd-focus); opacity: 1; }
+html[data-rportfolio-style] .today-metric.is-danger { background: var(--rpd-danger-soft); border-color: color-mix(in srgb, var(--rpd-danger) 26%, var(--rpd-line)); }
+html[data-rportfolio-style] .today-metric.is-danger::before { background: var(--rpd-danger); opacity: 1; }
+html[data-rportfolio-style] .today-metric.is-positive { background: var(--rpd-success-soft); border-color: color-mix(in srgb, var(--rpd-success) 26%, var(--rpd-line)); }
+html[data-rportfolio-style] .today-metric.is-positive::before { background: var(--rpd-success); opacity: 1; }
+
+html[data-rportfolio-style] .today-metric span {
+  font-weight: 640;
+  letter-spacing: 0.015em;
+}
+
+html[data-rportfolio-style] .today-metric strong {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+html[data-rportfolio-style] .today-empty-state {
+  gap: 10px;
+  padding: 22px 16px;
+}
+
+html[data-rportfolio-style] .today-empty-state svg {
+  width: 40px;
+  height: 40px;
+  padding: 9px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--rpd-line-strong);
+  border-radius: 50%;
+  color: var(--rpd-text-subtle);
+}
+
+html[data-rportfolio-style] .today-empty-state.is-complete svg {
+  border-color: color-mix(in srgb, var(--rpd-success) 40%, var(--rpd-line));
+  background: var(--rpd-success-soft);
+  color: var(--rpd-success);
+}
+
+html[data-rportfolio-style] .today-empty-state strong {
+  font-size: 13px;
+  font-weight: 720;
+}
+
+html[data-rportfolio-style] .today-empty-state span {
+  max-width: 300px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+html[data-rportfolio-style] .today-queue-blockers article,
+html[data-rportfolio-style] .today-blockers article {
+  position: relative;
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .today-queue-blockers article::before,
+html[data-rportfolio-style] .today-blockers article::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--rpd-danger);
+}
+
+html[data-rportfolio-style] .today-queue-blockers article.is-warning::before,
+html[data-rportfolio-style] .today-blockers article.is-warning::before {
+  background: var(--rpd-warning);
+}
+
+html[data-rportfolio-style] .today-queue-blockers article.is-info::before,
+html[data-rportfolio-style] .today-blockers article.is-info::before {
+  background: var(--rpd-focus);
+}
+
+html[data-rportfolio-style] .today-decision-row {
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+html[data-rportfolio-style] .today-decision-row:hover {
+  box-shadow: inset 0 0 0 1px var(--rpd-line-strong);
+}
+
+html[data-rportfolio-style] .today-decision-row.is-active {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rpd-focus) 55%, transparent);
+}
+
+/* ==================================================================
+   Premium layer: workspace identity, gradient metric tiles,
+   refined ledger typography and inspector hierarchy.
+   ================================================================== */
+
+/* --- Command bar: taller, gradient wash, refined title lockup ----- */
+html[data-rportfolio-style] .today-commandbar {
+  gap: 20px;
+  min-height: 64px;
+  padding: 12px 20px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rpd-surface) 55%, var(--rpd-canvas)) 0%, var(--rpd-surface) 100%);
+}
+
+html[data-rportfolio-style] .today-title-block h1 {
+  align-items: baseline;
+  gap: 9px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+}
+
+html[data-rportfolio-style] .today-title-block h1 i {
+  transform: translateY(-1px);
+  color: var(--rpd-text-subtle);
+  font-weight: 400;
+}
+
+html[data-rportfolio-style] .today-title-block h1 strong {
+  color: var(--rpd-focus);
+  font-weight: 780;
+  letter-spacing: -0.014em;
+}
+
+html[data-rportfolio-style] .today-title-block p {
+  margin-top: 3px;
+  color: var(--rpd-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+html[data-rportfolio-style] .today-context-controls select,
+html[data-rportfolio-style] .today-context-controls input {
+  border-radius: 8px;
+  box-shadow: var(--rp-tile-shadow);
+}
+
+html[data-rportfolio-style] .today-data-stamp {
+  align-self: center;
+  padding: 4px 10px;
+  border: 1px solid var(--rpd-line);
+  border-radius: 999px;
+  background: var(--rpd-surface-muted);
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.03em;
+}
+
+/* --- Metric tiles: gradient wash, top accent, hero numerals ------- */
+html[data-rportfolio-style] .today-metrics {
+  gap: 10px;
+  padding: 14px 20px 16px;
+  background: var(--rpd-canvas);
+  border-bottom: 1px solid var(--rpd-line);
+}
+
+html[data-rportfolio-style] .today-metric {
+  --tile-tone: var(--rpd-text-subtle);
+  padding: 11px 14px 12px;
+  border: 1px solid var(--rpd-line);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tile-tone) 7%, transparent) 0%, transparent 62%),
+    var(--rpd-surface);
+  box-shadow:
+    var(--rp-tile-shadow),
+    inset 0 1px 0 var(--rp-inset-highlight);
+  transition: border-color 170ms ease, box-shadow 170ms ease, transform 170ms ease;
+}
+
+html[data-rportfolio-style] .today-metric::before {
+  inset: -1px 14px auto;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 3px 3px;
+  background: var(--tile-tone);
+  opacity: 0.75;
+}
+
+html[data-rportfolio-style] .today-metric:hover {
+  border-color: var(--rpd-line-strong);
+  box-shadow: 0 6px 16px rgba(22, 35, 51, 0.09);
+  transform: translateY(-1.5px);
+}
+
+html[data-rportfolio-style] .today-metric span {
+  color: var(--rpd-text-muted);
+  font-size: 11px;
+  font-weight: 680;
+  letter-spacing: 0.05em;
+}
+
+html[data-rportfolio-style] .today-metric strong {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+html[data-rportfolio-style] .today-metric.is-active { --tile-tone: var(--rpd-focus); background: linear-gradient(180deg, color-mix(in srgb, var(--rpd-focus) 9%, transparent) 0%, transparent 62%), var(--rpd-surface); }
+html[data-rportfolio-style] .today-metric.is-danger { --tile-tone: var(--rpd-danger); background: linear-gradient(180deg, color-mix(in srgb, var(--rpd-danger) 8%, transparent) 0%, transparent 62%), var(--rpd-surface); }
+html[data-rportfolio-style] .today-metric.is-positive { --tile-tone: var(--rpd-success); background: linear-gradient(180deg, color-mix(in srgb, var(--rpd-success) 8%, transparent) 0%, transparent 62%), var(--rpd-surface); }
+
+html[data-rportfolio-style] .today-metric.is-active strong { color: var(--rpd-focus); }
+html[data-rportfolio-style] .today-metric.is-danger strong { color: var(--rpd-danger); }
+html[data-rportfolio-style] .today-metric.is-positive strong { color: var(--rpd-success); }
+
+/* --- Ledger: overline head, refined rows and chips ---------------- */
+html[data-rportfolio-style] .today-section-header {
+  flex-basis: 50px;
+  padding: 0 20px;
+  background:
+    linear-gradient(180deg, var(--rpd-surface) 0%, color-mix(in srgb, var(--rpd-surface) 62%, var(--rpd-canvas)) 100%);
+}
+
+html[data-rportfolio-style] .today-section-header strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+
+html[data-rportfolio-style] .today-section-header strong::before {
+  content: "";
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--rpd-focus);
+}
+
+html[data-rportfolio-style] .today-table-head {
+  padding: 0 20px;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+}
+
+html[data-rportfolio-style] .today-decision-row {
+  min-height: 74px;
+  padding: 10px 20px;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+html[data-rportfolio-style] .today-decision-row::before {
+  width: 3px;
+}
+
+html[data-rportfolio-style] .today-decision-row.is-active {
+  outline: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--rpd-focus) 8%, transparent) 0%, transparent 55%),
+    var(--rpd-selection);
+  box-shadow: inset 3px 0 0 var(--rpd-focus), inset 0 0 0 1px color-mix(in srgb, var(--rpd-focus) 24%, transparent);
+}
+
+html[data-rportfolio-style] .today-priority i {
+  border-color: color-mix(in srgb, currentColor 36%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+html[data-rportfolio-style] .today-decision-identity strong {
+  font-size: 12.5px;
+  font-weight: 740;
+  letter-spacing: 0.01em;
+}
+
+html[data-rportfolio-style] .today-decision-identity small {
+  font-size: 10.5px;
+}
+
+/* --- Blockers: tinted cards with icon chips ----------------------- */
+html[data-rportfolio-style] .today-queue-blockers article,
+html[data-rportfolio-style] .today-blockers article {
+  align-items: center;
+  padding: 12px 20px;
+  transition: background-color 140ms ease;
+}
+
+html[data-rportfolio-style] .today-queue-blockers article:hover,
+html[data-rportfolio-style] .today-blockers article:hover {
+  background: color-mix(in srgb, var(--rpd-danger-soft) 55%, transparent);
+}
+
+html[data-rportfolio-style] .today-queue-blockers article::before,
+html[data-rportfolio-style] .today-blockers article::before {
+  width: 3px;
+}
+
+/* --- Inspector: elevated panel with sectioned hierarchy ----------- */
+html[data-rportfolio-style] .today-inspector {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rpd-surface) 40%, var(--rpd-inspector, var(--rpd-canvas))) 0%, var(--rpd-surface) 120px);
+}
+
+html[data-rportfolio-style] .today-inspector-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--rpd-line);
+}
+
+html[data-rportfolio-style] .today-inspector-header strong,
+html[data-rportfolio-style] .today-inspector-header h2 {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .today-inspector-reason,
+html[data-rportfolio-style] .today-evidence-panel,
+html[data-rportfolio-style] .today-risk-check {
+  padding: 13px 18px;
+}
+
+html[data-rportfolio-style] .today-inspector-reason > strong,
+html[data-rportfolio-style] .today-evidence-panel > header > strong,
+html[data-rportfolio-style] .today-risk-check > header > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 0;
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+  font-weight: 740;
+  letter-spacing: 0.09em;
+}
+
+html[data-rportfolio-style] .today-evidence-panel > header,
+html[data-rportfolio-style] .today-risk-check > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+html[data-rportfolio-style] .today-evidence-panel > header > span,
+html[data-rportfolio-style] .today-risk-check > header > span {
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--rpd-focus) 30%, var(--rpd-line));
+  border-radius: 999px;
+  background: var(--rpd-selection);
+  color: var(--rpd-focus);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+}
+
+html[data-rportfolio-style] .today-decision-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 2px 18px;
+  border: 1px solid var(--rpd-line);
+  border-radius: 10px;
+  background: var(--rpd-line);
+  box-shadow: var(--rp-tile-shadow);
+  overflow: hidden;
+}
+
+html[data-rportfolio-style] .today-decision-facts > div {
+  padding: 9px 12px;
+  background: var(--rpd-surface);
+}
+
+html[data-rportfolio-style] .today-decision-facts dt {
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+  font-weight: 660;
+  letter-spacing: 0.04em;
+}
+
+html[data-rportfolio-style] .today-decision-facts dd {
+  margin-top: 2px;
+  color: var(--rpd-text-strong);
+  font-size: 12.5px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .today-actions {
+  padding: 14px 18px 16px;
+}

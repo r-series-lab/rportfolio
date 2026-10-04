@@ -1787,6 +1787,9 @@ html[data-rportfolio-style="light"] {
   --rp-pane-top: rgba(238, 244, 250, 0.96);
   --rp-surface-bg: rgba(248, 251, 254, 0.72);
   --rp-surface-strong: rgba(252, 254, 255, 0.9);
+  --rp-surface-raised: rgba(252, 254, 255, 0.88);
+  --rp-inset-highlight: rgba(255, 255, 255, 0.65);
+  --rp-tile-shadow: 0 1px 2px rgba(22, 35, 51, 0.04);
   --rp-surface-soft: rgba(239, 245, 251, 0.58);
   --rp-surface-line: rgba(71, 92, 116, 0.105);
   --rp-surface-line-soft: rgba(71, 92, 116, 0.065);
@@ -1803,6 +1806,9 @@ html[data-rportfolio-style="dark"] {
   --rp-pane-top: rgba(15, 21, 30, 0.96);
   --rp-surface-bg: rgba(15, 21, 30, 0.7);
   --rp-surface-strong: rgba(17, 24, 34, 0.86);
+  --rp-surface-raised: rgba(18, 25, 36, 0.84);
+  --rp-inset-highlight: rgba(255, 255, 255, 0.05);
+  --rp-tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   --rp-surface-soft: rgba(12, 18, 27, 0.58);
   --rp-surface-line: rgba(202, 219, 238, 0.09);
   --rp-surface-line-soft: rgba(202, 219, 238, 0.055);

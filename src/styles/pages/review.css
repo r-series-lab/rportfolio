@@ -190,3 +190,319 @@ html[data-rportfolio-style] .review-dialog-grid select { width: 100%; padding: 0
   html[data-rportfolio-style] .review-close-readiness article:nth-child(even) { border-right: 0; }
   html[data-rportfolio-style] .review-close-readiness article:nth-child(-n + 4) { border-bottom: 1px solid var(--rp-line); }
 }
+
+/* ---------------------------------------------------------------- */
+/* Style polish: readiness tiles, metric cards, refined empty state  */
+/* ---------------------------------------------------------------- */
+
+html[data-rportfolio-style] .review-close-readiness > div {
+  background: var(--rp-surface-soft);
+}
+
+html[data-rportfolio-style] .review-close-readiness article {
+  --check-soft: color-mix(in srgb, var(--check-color) 8%, transparent);
+  position: relative;
+  background: var(--check-soft);
+  transition: background-color 140ms ease;
+}
+
+html[data-rportfolio-style] .review-close-readiness article::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--check-color);
+  opacity: 0.5;
+}
+
+html[data-rportfolio-style] .review-close-readiness article.is-pass { --check-soft: color-mix(in srgb, var(--rp-success) 7%, transparent); }
+html[data-rportfolio-style] .review-close-readiness article.is-warning { --check-soft: color-mix(in srgb, var(--rp-warning) 8%, transparent); }
+html[data-rportfolio-style] .review-close-readiness article.is-pass::after { opacity: 0.35; }
+
+html[data-rportfolio-style] .review-close-readiness article strong {
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .review-metric-grid {
+  gap: 1px;
+  margin-top: 12px;
+  border: 1px solid var(--rp-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--rp-line);
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .review-metric-grid article {
+  background: var(--rp-surface-raised);
+  transition: background-color 140ms ease;
+}
+
+html[data-rportfolio-style] .review-metric-grid article:hover {
+  background: color-mix(in srgb, var(--rp-selection) 46%, var(--rp-surface-raised));
+}
+
+html[data-rportfolio-style] .review-metric-grid span,
+html[data-rportfolio-style] .review-metric-grid small {
+  font-weight: 680;
+  letter-spacing: 0.012em;
+}
+
+html[data-rportfolio-style] .review-metric-grid strong {
+  font-size: 1.06rem;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .review-attribution-band {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .review-attribution-band i {
+  font-weight: 640;
+}
+
+html[data-rportfolio-style] .review-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 200px;
+  padding: 24px 18px;
+  border: 1.5px dashed var(--rp-line-strong);
+  border-radius: 10px;
+  background: var(--rp-surface-soft);
+  text-align: center;
+}
+
+html[data-rportfolio-style] .review-empty strong {
+  font-size: 0.84rem;
+}
+
+html[data-rportfolio-style] .review-empty span {
+  max-width: 320px;
+  line-height: 1.6;
+}
+
+html[data-rportfolio-style] .review-table {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .review-table-row {
+  transition: background-color 120ms ease;
+}
+
+html[data-rportfolio-style] .review-table-row:hover {
+  background: color-mix(in srgb, var(--rp-selection) 42%, transparent);
+}
+
+/* ==================================================================
+   Premium layer: workspace identity, gradient readiness tiles,
+   professional metric cards and refined attribution band.
+   ================================================================== */
+
+/* --- Workspace head: title lockup + pill tabs ---------------------- */
+html[data-rportfolio-style] .review-workspace-head {
+  min-height: 58px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-surface-raised) 50%, var(--rp-canvas)) 0%, var(--rp-surface-raised) 100%);
+}
+
+html[data-rportfolio-style] .review-workspace-head > div > strong {
+  font-size: 0.94rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+html[data-rportfolio-style] .review-workspace-head > div > span {
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .review-tabs {
+  height: 32px;
+  padding: 3px;
+  border-radius: 9px;
+}
+
+html[data-rportfolio-style] .review-tabs button {
+  height: 100%;
+  min-height: 0;
+  padding: 0 13px;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  font-weight: 680;
+  transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+html[data-rportfolio-style] .review-tabs button:hover {
+  color: var(--rp-ink-secondary);
+  background: color-mix(in srgb, var(--rp-selection) 45%, transparent);
+}
+
+html[data-rportfolio-style] .review-tabs button.is-active {
+  color: var(--rp-ink);
+  background: var(--rp-panel-strong);
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.1), inset 0 1px 0 var(--rp-inset-highlight);
+}
+
+/* --- Command bar: refined date control ----------------------------- */
+html[data-rportfolio-style] .review-command-bar {
+  min-height: 54px;
+  padding: 8px 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-surface-raised) 45%, transparent) 0%, transparent 100%);
+  border-bottom: 1px solid var(--rp-line);
+}
+
+html[data-rportfolio-style] .review-command-bar label {
+  letter-spacing: 0.04em;
+}
+
+/* --- Readiness: status dots + gradient tiles ----------------------- */
+html[data-rportfolio-style] .review-close-readiness {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .review-close-readiness > header {
+  padding: 11px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--close-color) 5%, transparent), transparent 85%);
+}
+
+html[data-rportfolio-style] .review-close-readiness > header strong {
+  font-size: 0.8rem;
+  font-weight: 760;
+  letter-spacing: -0.008em;
+}
+
+html[data-rportfolio-style] .review-close-readiness > header em {
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--close-color) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--close-color) 8%, transparent);
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .review-close-readiness article {
+  --check-soft: color-mix(in srgb, var(--check-color) 7%, transparent);
+  gap: 4px;
+  padding: 11px 13px 13px;
+  background:
+    linear-gradient(180deg, var(--check-soft) 0%, transparent 72%);
+}
+
+html[data-rportfolio-style] .review-close-readiness article::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--check-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--check-color) 14%, transparent);
+}
+
+html[data-rportfolio-style] .review-close-readiness article::after {
+  height: 2px;
+  opacity: 0.45;
+}
+
+html[data-rportfolio-style] .review-close-readiness article span {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+html[data-rportfolio-style] .review-close-readiness article strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+/* --- Metric grid: premium cards ------------------------------------ */
+html[data-rportfolio-style] .review-metric-grid {
+  gap: 1px;
+  border: 1px solid var(--rp-line);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .review-metric-grid article {
+  padding: 13px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-ink-muted) 3%, transparent) 0%, transparent 55%),
+    var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .review-metric-grid article:hover {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-accent) 5%, transparent) 0%, transparent 60%),
+    var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .review-metric-grid span,
+html[data-rportfolio-style] .review-metric-grid small {
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+html[data-rportfolio-style] .review-metric-grid strong {
+  font-size: 1.14rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* --- Attribution band: refined operators --------------------------- */
+html[data-rportfolio-style] .review-attribution-band {
+  border-radius: 12px;
+  padding: 13px 16px;
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.05);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-accent) 3%, transparent) 0%, transparent 60%),
+    var(--rp-surface-raised);
+}
+
+html[data-rportfolio-style] .review-attribution-band span {
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+html[data-rportfolio-style] .review-attribution-band strong {
+  font-size: 0.88rem;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .review-attribution-band i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--rp-line);
+  border-radius: 50%;
+  background: var(--rp-surface-soft);
+  color: var(--rp-ink-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* --- Table + empty states ------------------------------------------ */
+html[data-rportfolio-style] .review-table {
+  border-radius: 12px;
+}
+
+html[data-rportfolio-style] .review-table-head {
+  padding-block: 10px;
+  font-size: 0.63rem;
+  letter-spacing: 0.07em;
+  background: color-mix(in srgb, var(--rp-selection) 38%, var(--rp-surface-soft));
+}
+
+html[data-rportfolio-style] .review-empty {
+  border-radius: 12px;
+}
+
+html[data-rportfolio-style] .review-promotion-summary {
+  border-radius: 0;
+}

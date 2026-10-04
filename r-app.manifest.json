@@ -29,12 +29,30 @@
     "index": "03",
     "accent": "#0b9f72",
     "accentSoft": "#d7f5e9",
-    "platforms": ["macOS", "Windows", "CLI"],
-    "formats": ["CNY / USD", "Profile", "CSV", "JSON CLI"],
+    "platforms": [
+      "macOS",
+      "Windows",
+      "CLI"
+    ],
+    "formats": [
+      "CNY / USD",
+      "Profile",
+      "CSV",
+      "JSON CLI"
+    ],
     "facts": [
-      { "label": "决策模式", "value": "人工确认与审计闭环" },
-      { "label": "账户币种", "value": "CNY / USD" },
-      { "label": "执行边界", "value": "不无人值守下真实订单" }
+      {
+        "label": "决策模式",
+        "value": "人工确认与审计闭环"
+      },
+      {
+        "label": "账户币种",
+        "value": "CNY / USD"
+      },
+      {
+        "label": "执行边界",
+        "value": "不无人值守下真实订单"
+      }
     ],
     "capabilities": [
       {
@@ -97,10 +115,74 @@
     "releaseSummary": "首个预览版本建立透明风险评分、市场灯号、技术检查、回测输出与稳定 JSON CLI。",
     "screenshots": [
       {
-        "id": "portfolio-workspace-demo",
-        "source": "docs/assets/rportfolio-workspace-demo.png",
-        "alt": "rPortfolio 组合决策工作台，展示虚构的 Demo Growth Index 和 Demo Dividend Fund 数据",
-        "caption": "公开文档截图只使用虚构的指数、基金、代码和净值，所有数值均为演示数据。"
+        "id": "workspace-analysis",
+        "source": "docs/assets/workspace-analysis-dark.png",
+        "alt": "rPortfolio 组合决策工作区，展示 Profile 状态、趋势/风险/机会评分与资产灯号",
+        "title": "组合决策 · 状态、证据与仓位",
+        "description": "概览、结构、回测、规则、指标五个证据标签，右侧风险栏展示四个风险维度与状态转移估计。",
+        "caption": "Profile 分析的主展示页面，证据按需加载。",
+        "highlights": [
+          "趋势 / 风险 / 机会评分",
+          "资产灯号与资产池体检",
+          "决策与检查双视角"
+        ],
+        "documentId": "interface-guide"
+      },
+      {
+        "id": "workspace-today",
+        "source": "docs/assets/workspace-today-dark.png",
+        "alt": "rPortfolio 今日工作区，展示待处理行动、阻断项与决策检查器",
+        "title": "今日 · 行动、阻断与复核",
+        "description": "按优先级排序的行动队列与阻断原因，检查器提供拒绝、已复核、延期、接受并执行四个动作。",
+        "caption": "把当前 Profile 的建议收敛成可执行的行动账本。",
+        "highlights": [
+          "概况瓦片按状态着色",
+          "阻断项只允许降低风险",
+          "决策 → 委托 → 成交审计链"
+        ],
+        "documentId": "interface-guide"
+      },
+      {
+        "id": "workspace-holdings",
+        "source": "docs/assets/workspace-holdings-dark.png",
+        "alt": "rPortfolio 组合账户工作区，展示现金口径、本地资产台账与资产检查器",
+        "title": "组合账户 · 账户、现金、持仓与对账",
+        "description": "账户标签维护 CNY/USD 现金口径；持仓标签提供资产列表、目标带与盈亏，摘要卡按健康度着色。",
+        "caption": "现金是仓位规划和下单预算的事实来源。",
+        "highlights": [
+          "标准对账单先校验再入账",
+          "目标带滑块与阻断原因",
+          "带恢复备份的本地账本"
+        ],
+        "documentId": "interface-guide"
+      },
+      {
+        "id": "workspace-quant",
+        "source": "docs/assets/workspace-quant-dark.png",
+        "alt": "rPortfolio 量化交易工作区，展示可建票建议、优先级与委托执行栏",
+        "title": "量化交易 · 监测、下单、执行",
+        "description": "按优先级生成可建票建议，右侧执行栏覆盖交易票、委托、账户、模拟与日志，支持纸面成交。",
+        "caption": "风险门异常时进入只减不加等保护模式。",
+        "highlights": [
+          "可建票与阻断原因并列",
+          "参考限价与风控检查",
+          "纸面成交与晋级证据"
+        ],
+        "documentId": "interface-guide"
+      },
+      {
+        "id": "workspace-review",
+        "source": "docs/assets/workspace-review-dark.png",
+        "alt": "rPortfolio 复盘归因工作区，展示日结准备度、收益指标与归因拆解",
+        "title": "复盘归因 · 收益、结果与晋级",
+        "description": "日结准备度六项检查全部对齐才允许记录正式快照；TWR、净超额与归因拆解连接建议结果和版本晋级。",
+        "caption": "维护日终估值与业绩账本。",
+        "highlights": [
+          "日结检查逐项通过 / 确认 / 阻断",
+          "归因拆解带运算符",
+          "估值时间轴与版本晋级"
+        ],
+        "documentId": "interface-guide"
       }
     ]
   },
@@ -118,6 +200,20 @@
       "description": "公开文档使用的虚构基金、指数 Profile 和截图边界。",
       "group": "开始使用",
       "source": "docs/demo-data.md"
+    },
+    {
+      "id": "workspaces",
+      "label": "工作区导览",
+      "description": "今日、组合账户、组合决策、量化交易与复盘归因五个工作区的界面说明。",
+      "group": "开始使用",
+      "source": "docs/workspaces.md"
+    },
+    {
+      "id": "interface-guide",
+      "label": "界面使用手册",
+      "description": "五个工作区的暗色界面截图与公开演示边界。",
+      "group": "开始使用",
+      "source": "docs/interface-guide.md"
     },
     {
       "id": "product-architecture",
@@ -172,9 +268,18 @@
         },
         "website": {
           "facts": [
-            { "label": "Decision model", "value": "Human confirmation and audit loop" },
-            { "label": "Account currencies", "value": "CNY / USD" },
-            { "label": "Execution boundary", "value": "No unattended live orders" }
+            {
+              "label": "Decision model",
+              "value": "Human confirmation and audit loop"
+            },
+            {
+              "label": "Account currencies",
+              "value": "CNY / USD"
+            },
+            {
+              "label": "Execution boundary",
+              "value": "No unattended live orders"
+            }
           ],
           "capabilities": [
             {
@@ -276,10 +381,25 @@
   "cli": {
     "contractVersion": 1,
     "jsonFlagPosition": "global-before-command",
-    "infoCommand": ["--json", "info"],
-    "capabilitiesCommand": ["--json", "capabilities"],
-    "doctorCommand": ["--json", "score", "--source", "sample"],
-    "domains": ["profiles", "sources", "score"],
+    "infoCommand": [
+      "--json",
+      "info"
+    ],
+    "capabilitiesCommand": [
+      "--json",
+      "capabilities"
+    ],
+    "doctorCommand": [
+      "--json",
+      "score",
+      "--source",
+      "sample"
+    ],
+    "domains": [
+      "profiles",
+      "sources",
+      "score"
+    ],
     "highRiskPolicy": "CLI 当前保持只读；涉及真实账户或订单的桌面动作必须先完成数据对齐和风险检查，并由用户显式确认。"
   },
   "runtime": {

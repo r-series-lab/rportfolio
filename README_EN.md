@@ -22,6 +22,8 @@ Profile / data source -> market analysis -> portfolio plan -> human decision
 -> order and fill -> end-of-day snapshot -> attribution and strategy review
 ```
 
+Workspace-by-workspace UI notes and screenshots are collected in the [Workspace Guide](docs/workspaces-en.md).
+
 ## Public demo interface
 
 ![rPortfolio portfolio decision workbench demo](docs/assets/rportfolio-workspace-demo.png)

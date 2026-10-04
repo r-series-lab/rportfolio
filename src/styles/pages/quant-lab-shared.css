@@ -2129,3 +2129,225 @@ html[data-rportfolio-style] .quant-execution-rail .quant-ticket-note {
     max-inline-size: 100% !important;
   }
 }
+
+/* ---------------------------------------------------------------- */
+/* Style polish: summary tiles, row elevation, selected accent       */
+/* ---------------------------------------------------------------- */
+
+html[data-rportfolio-style] .quant-ledger-summary article,
+html[data-rportfolio-style] .quant-inline-stat {
+  background: var(--quant-panel);
+  box-shadow: 0 1px 3px rgba(22, 35, 51, 0.05);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article:hover,
+html[data-rportfolio-style] .quant-inline-stat:hover {
+  border-color: var(--quant-line-strong);
+  box-shadow: 0 3px 10px rgba(22, 35, 51, 0.08);
+  transform: translateY(-1px);
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-positive,
+html[data-rportfolio-style] .quant-inline-stat.is-positive {
+  background: color-mix(in srgb, var(--rp-success) 7%, var(--quant-panel));
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-caution,
+html[data-rportfolio-style] .quant-inline-stat.is-caution {
+  background: color-mix(in srgb, var(--rp-warning) 7%, var(--quant-panel));
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-negative,
+html[data-rportfolio-style] .quant-inline-stat.is-negative {
+  background: color-mix(in srgb, var(--rp-danger) 7%, var(--quant-panel));
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-positive strong,
+html[data-rportfolio-style] .quant-inline-stat.is-positive strong {
+  color: color-mix(in srgb, var(--rp-success) 80%, var(--rp-ink));
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-caution strong,
+html[data-rportfolio-style] .quant-inline-stat.is-caution strong {
+  color: color-mix(in srgb, var(--rp-warning) 84%, var(--rp-ink));
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-negative strong,
+html[data-rportfolio-style] .quant-inline-stat.is-negative strong {
+  color: color-mix(in srgb, var(--rp-danger) 84%, var(--rp-ink));
+}
+
+html[data-rportfolio-style] .quant-suggestion-list article.is-selected {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--rp-accent) 10%, transparent), transparent 58%),
+    var(--rp-selection);
+  box-shadow: inset 3px 0 0 var(--rp-accent), inset 0 1px 0 color-mix(in srgb, var(--rp-accent) 16%, transparent);
+}
+
+html[data-rportfolio-style] .quant-suggestion-list article:hover:not(.is-readonly):not(.is-selected) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--quant-line-strong) 70%, transparent);
+}
+
+html[data-rportfolio-style] .quant-decision-coverage {
+  border-radius: 10px;
+}
+
+html[data-rportfolio-style] .quant-coverage-stats span strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+   Premium layer: command identity, gradient summary tiles,
+   refined ledger badges and elevated rail.
+   ================================================================== */
+
+/* --- Command bar: title lockup + capsule polish ------------------- */
+html[data-rportfolio-style] .quant-trading-header.quant-command-bar {
+  min-height: 58px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--quant-panel) 40%, var(--quant-stage)) 0%, var(--quant-panel) 100%);
+  border-bottom: 1px solid var(--quant-line);
+}
+
+html[data-rportfolio-style] .quant-trading-title strong {
+  font-size: 0.94rem;
+  letter-spacing: -0.015em;
+}
+
+html[data-rportfolio-style] .quant-trading-title span {
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .quant-environment-capsule {
+  gap: 9px;
+  padding: 5px 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tone-color, var(--rp-accent)) 7%, transparent), transparent 80%),
+    var(--quant-panel);
+  box-shadow: 0 1px 3px rgba(22, 35, 51, 0.05);
+}
+
+html[data-rportfolio-style] .quant-environment-capsule strong {
+  letter-spacing: 0.01em;
+}
+
+html[data-rportfolio-style] .quant-run-controls button {
+  border-radius: 8px;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+html[data-rportfolio-style] .quant-run-controls button:hover {
+  box-shadow: 0 2px 8px rgba(22, 35, 51, 0.08);
+}
+
+html[data-rportfolio-style] .quant-run-controls button.is-active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rp-accent) 45%, transparent);
+}
+
+/* --- Summary tiles: unified gradient language --------------------- */
+html[data-rportfolio-style] .quant-ledger-summary {
+  gap: 10px;
+  padding: 14px;
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article,
+html[data-rportfolio-style] .quant-inline-stat {
+  --tile-tone: var(--rp-ink-muted);
+  padding: 11px 13px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tile-tone) 6%, transparent) 0%, transparent 60%),
+    var(--quant-panel);
+  box-shadow:
+    var(--rp-tile-shadow),
+    inset 0 1px 0 var(--rp-inset-highlight);
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article.is-positive,
+html[data-rportfolio-style] .quant-inline-stat.is-positive { --tile-tone: var(--rp-success); }
+html[data-rportfolio-style] .quant-ledger-summary article.is-caution,
+html[data-rportfolio-style] .quant-inline-stat.is-caution { --tile-tone: var(--rp-warning); }
+html[data-rportfolio-style] .quant-ledger-summary article.is-negative,
+html[data-rportfolio-style] .quant-inline-stat.is-negative { --tile-tone: var(--rp-danger); }
+
+html[data-rportfolio-style] .quant-ledger-summary article span,
+html[data-rportfolio-style] .quant-inline-stat em {
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+
+html[data-rportfolio-style] .quant-ledger-summary article strong,
+html[data-rportfolio-style] .quant-inline-stat strong {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Suggestion ledger: badge + selected treatment ---------------- */
+html[data-rportfolio-style] .quant-suggestion-list article {
+  border-bottom: 1px solid color-mix(in srgb, var(--quant-line) 64%, transparent);
+}
+
+html[data-rportfolio-style] .quant-ledger-asset strong {
+  font-weight: 740;
+  letter-spacing: 0.01em;
+}
+
+html[data-rportfolio-style] .quant-ledger-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+}
+
+html[data-rportfolio-style] .quant-ledger-side {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 740;
+  letter-spacing: 0.04em;
+}
+
+html[data-rportfolio-style] .quant-ledger-side.is-buy {
+  color: var(--rp-success);
+  background: color-mix(in srgb, var(--rp-success) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rp-success) 26%, transparent);
+}
+
+html[data-rportfolio-style] .quant-ledger-side.is-sell {
+  color: var(--rp-danger);
+  background: color-mix(in srgb, var(--rp-danger) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rp-danger) 26%, transparent);
+}
+
+html[data-rportfolio-style] .quant-ledger-priority {
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+/* --- Coverage strip: pill stats ----------------------------------- */
+html[data-rportfolio-style] .quant-coverage-stats span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--quant-row) 70%, transparent);
+}
+
+html[data-rportfolio-style] .quant-coverage-stats span.is-positive {
+  background: color-mix(in srgb, var(--rp-success) 10%, transparent);
+}
+
+html[data-rportfolio-style] .quant-coverage-stats span.is-caution {
+  background: color-mix(in srgb, var(--rp-warning) 10%, transparent);
+}
+
+html[data-rportfolio-style] .quant-coverage-stats span strong {
+  font-weight: 800;
+}
+
+/* --- Empty state --------------------------------------------------- */
+html[data-rportfolio-style] .quant-empty-state strong {
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}

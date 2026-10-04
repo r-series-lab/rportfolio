@@ -1447,3 +1447,264 @@ html[data-rportfolio-style] .position-policy-grid [data-slot="input"]:focus {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------------------------------------------------------------- */
+/* Style polish: tone icon chips, hover lift, refined empty state    */
+/* ---------------------------------------------------------------- */
+
+html[data-rportfolio-style] .holdings-summary-card[data-slot="card"] {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+html[data-rportfolio-style] .holdings-summary-card[data-slot="card"]:hover {
+  border-color: var(--holdings-line-strong);
+  box-shadow: 0 6px 18px rgba(45, 64, 86, 0.1), inset 0 1px 0 var(--rp-inset-highlight);
+  transform: translateY(-1px);
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-positive > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-success) 30%, var(--holdings-line));
+  color: var(--rp-success);
+  background: color-mix(in srgb, var(--rp-success) 10%, var(--holdings-row));
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-caution > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-warning) 30%, var(--holdings-line));
+  color: var(--rp-warning);
+  background: color-mix(in srgb, var(--rp-warning) 10%, var(--holdings-row));
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-negative > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-danger) 30%, var(--holdings-line));
+  color: var(--rp-danger);
+  background: color-mix(in srgb, var(--rp-danger) 10%, var(--holdings-row));
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-positive strong { color: color-mix(in srgb, var(--rp-success) 78%, var(--rp-ink)); }
+html[data-rportfolio-style] .holdings-summary-card.is-caution strong { color: color-mix(in srgb, var(--rp-warning) 82%, var(--rp-ink)); }
+html[data-rportfolio-style] .holdings-summary-card.is-negative strong { color: color-mix(in srgb, var(--rp-danger) 82%, var(--rp-ink)); }
+
+html[data-rportfolio-style] .holdings-empty-state {
+  gap: 10px;
+  padding: 26px 18px;
+}
+
+html[data-rportfolio-style] .holdings-empty-state strong {
+  font-size: 0.88rem;
+  font-weight: 720;
+}
+
+html[data-rportfolio-style] .holdings-empty-state p {
+  max-width: 320px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+html[data-rportfolio-style] .holdings-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+html[data-rportfolio-style] .holdings-list-card[data-slot="card"]:has(.holdings-table) {
+  overflow: hidden;
+}
+
+/* ==================================================================
+   Premium layer: gradient summary cards, segmented tabs,
+   professional table typography and refined rail.
+   ================================================================== */
+
+/* --- Workspace head: title lockup + gradient hairline ------------- */
+html[data-rportfolio-style] .portfolio-workspace-head {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rpd-surface) 55%, var(--rpd-canvas)) 0%, var(--rpd-surface) 100%);
+}
+
+html[data-rportfolio-style] .portfolio-workspace-title h1 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+html[data-rportfolio-style] .portfolio-workspace-title span {
+  color: var(--rpd-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Tabs: pill segmented control --------------------------------- */
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs {
+  align-self: center;
+  height: 34px;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rpd-line);
+  border-radius: 9px;
+  background: var(--rpd-surface-muted);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button {
+  height: 100%;
+  min-height: 0;
+  padding: 0 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 680;
+  transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button:hover {
+  color: var(--rpd-text);
+  background: color-mix(in srgb, var(--rpd-row-hover) 70%, transparent);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button.is-active {
+  color: var(--rpd-text-strong);
+  background: var(--rpd-surface);
+  box-shadow: 0 1px 4px rgba(22, 35, 51, 0.1), inset 0 1px 0 var(--rp-inset-highlight);
+}
+
+html[data-rportfolio-style][data-rportfolio-style] .portfolio-tabs button.is-active::after {
+  display: none;
+}
+
+/* --- Accounts metric strip: premium tiles ------------------------- */
+html[data-rportfolio-style] .portfolio-metric {
+  position: relative;
+  gap: 4px;
+  padding: 14px 16px;
+  border-right: 0;
+}
+
+html[data-rportfolio-style] .portfolio-metric span {
+  color: var(--rpd-text-muted);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+}
+
+html[data-rportfolio-style] .portfolio-metric strong {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Summary cards: gradient icon chips + tone glow --------------- */
+html[data-rportfolio-style] .holdings-summary-card[data-slot="card"] {
+  min-height: 96px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tone-color, var(--rpd-text-subtle)) 6%, transparent) 0%, transparent 58%),
+    var(--holdings-panel);
+  transition: border-color 170ms ease, box-shadow 170ms ease, transform 170ms ease;
+}
+
+html[data-rportfolio-style] .holdings-summary-card[data-slot="card"]:hover {
+  border-color: color-mix(in srgb, var(--tone-color, var(--holdings-line-strong)) 32%, var(--holdings-line));
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--tone-color, rgba(45, 64, 86, 0.3)) 14%, rgba(45, 64, 86, 0.08)),
+    inset 0 1px 0 var(--rp-inset-highlight);
+  transform: translateY(-1.5px);
+}
+
+html[data-rportfolio-style] .holdings-summary-card > div:first-child {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 0;
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-positive > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-success) 34%, var(--holdings-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-success) 16%, transparent), color-mix(in srgb, var(--rp-success) 7%, transparent)),
+    var(--holdings-row);
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-caution > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-warning) 34%, var(--holdings-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-warning) 16%, transparent), color-mix(in srgb, var(--rp-warning) 7%, transparent)),
+    var(--holdings-row);
+}
+
+html[data-rportfolio-style] .holdings-summary-card.is-negative > div:first-child {
+  border-color: color-mix(in srgb, var(--rp-danger) 34%, var(--holdings-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rp-danger) 16%, transparent), color-mix(in srgb, var(--rp-danger) 7%, transparent)),
+    var(--holdings-row);
+}
+
+html[data-rportfolio-style] .holdings-summary-card span {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+html[data-rportfolio-style] .holdings-summary-card strong {
+  font-size: clamp(1.15rem, 1.5vw, 1.42rem);
+  font-weight: 820;
+  letter-spacing: -0.022em;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .holdings-summary-card p {
+  color: var(--rp-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Filter bar: pill segmented control --------------------------- */
+html[data-rportfolio-style] .holding-filter-tabs {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--holdings-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--holdings-row) 60%, transparent);
+}
+
+html[data-rportfolio-style] .holding-filter-tabs button {
+  border-radius: 7px;
+  font-weight: 660;
+  transition: color 130ms ease, background-color 130ms ease, box-shadow 130ms ease;
+}
+
+html[data-rportfolio-style] .holding-filter-tabs button.is-active {
+  color: var(--rp-ink);
+  background: var(--holdings-panel-strong);
+  box-shadow: 0 1px 4px rgba(45, 64, 86, 0.12), inset 0 1px 0 var(--rp-inset-highlight);
+}
+
+/* --- Table: professional header + row rhythm ---------------------- */
+html[data-rportfolio-style] .holdings-table thead th {
+  padding-block: 9px;
+  color: var(--rp-ink-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  background: color-mix(in srgb, var(--holdings-row) 55%, transparent);
+}
+
+html[data-rportfolio-style] .holdings-table tbody tr {
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+html[data-rportfolio-style] .holdings-table tbody tr:hover {
+  background: var(--holdings-row-hover);
+  box-shadow: inset 2.5px 0 0 color-mix(in srgb, var(--rp-accent) 55%, transparent);
+}
+
+html[data-rportfolio-style] .holdings-table tbody tr.is-selected {
+  background: color-mix(in srgb, var(--rp-selection) 70%, transparent);
+  box-shadow: inset 2.5px 0 0 var(--rp-accent);
+}
+
+html[data-rportfolio-style] .holding-value-cell strong,
+html[data-rportfolio-style] .holding-pnl-cell,
+html[data-rportfolio-style] .holding-amount-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-rportfolio-style] .holding-name-cell strong {
+  font-weight: 720;
+  letter-spacing: 0.01em;
+}

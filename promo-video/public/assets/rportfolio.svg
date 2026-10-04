@@ -1,0 +1,36 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="16" y1="113" x2="113" y2="13" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06382F"/>
+      <stop offset="0.52" stop-color="#04090E"/>
+      <stop offset="1" stop-color="#101F3A"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="30" y1="90" x2="101" y2="39" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16D19B"/>
+      <stop offset="0.38" stop-color="#5FD7FF"/>
+      <stop offset="0.68" stop-color="#D7B24A"/>
+      <stop offset="1" stop-color="#5FD7FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="122" height="122" rx="27" fill="url(#tile)"/>
+  <rect x="5.25" y="5.25" width="117.5" height="117.5" rx="25" stroke="#17414C" stroke-opacity="0.62" stroke-width="1.5"/>
+  <rect x="23.5" y="22.5" width="81" height="85" rx="14.5" fill="#07111A" fill-opacity="0.78" stroke="#23434D" stroke-opacity="0.55"/>
+  <rect x="28" y="27" width="72" height="75.5" rx="11" stroke="#1A2C35" stroke-opacity="0.5"/>
+  <path d="M31 53C42.7 30.9 71.9 27 88.8 43.3C100.1 54.1 103.7 72 97 89" stroke="#16D19B" stroke-width="5" stroke-linecap="round"/>
+  <path d="M88.8 43.3C100.1 54.1 103.7 72 97 89" stroke="#D7B24A" stroke-width="5" stroke-linecap="round"/>
+  <path d="M97 89C94.8 94.2 91.7 98.2 88 101" stroke="#FF6B62" stroke-width="5" stroke-linecap="round"/>
+  <path d="M88 101C93.2 97.1 97.2 91.8 99.4 85.8" stroke="#5FD7FF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M39 63V106" stroke="#16D19B" stroke-opacity="0.62" stroke-width="1.7" stroke-linecap="round"/>
+  <rect x="34" y="78" width="11" height="19" rx="3" fill="#16D19B"/>
+  <path d="M58.5 52V103" stroke="#5FD7FF" stroke-opacity="0.62" stroke-width="1.7" stroke-linecap="round"/>
+  <rect x="53" y="68.5" width="12" height="22" rx="3" fill="#5FD7FF"/>
+  <path d="M79 37V102" stroke="#D7B24A" stroke-opacity="0.58" stroke-width="1.7" stroke-linecap="round"/>
+  <rect x="73" y="54" width="13" height="34" rx="3" fill="#D7B24A"/>
+  <path d="M30 90L49 76L64 81L82.5 57.5L100 42" stroke="#03070A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 90L49 76L64 81L82.5 57.5L100 42" stroke="url(#pulse)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M101 41L97.5 54L89.5 47L101 41Z" fill="#5FD7FF"/>
+  <circle cx="94" cy="46.5" r="3.2" fill="#5FD7FF"/>
+  <circle cx="94" cy="46.5" r="1.2" fill="#F6FAFF"/>
+  <circle cx="88.5" cy="90.5" r="3.4" fill="#FF6B62"/>
+  <circle cx="88.5" cy="90.5" r="1.2" fill="#F6FAFF"/>
+</svg>
